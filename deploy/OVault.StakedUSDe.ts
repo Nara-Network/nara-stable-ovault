@@ -53,7 +53,7 @@ const deploy: DeployFunction = async (hre) => {
         // Get StakedUSDe address
         let stakedUsdeAddress: string
         try {
-            const stakedUsde = await hre.deployments.get('staked-usde/StakedUSDe')
+            const stakedUsde = await hre.deployments.get('StakedUSDe')
             stakedUsdeAddress = stakedUsde.address
         } catch (error) {
             throw new Error(
@@ -63,7 +63,8 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy StakedUSDeOFTAdapter (lockbox)
         console.log('   → Deploying StakedUSDeOFTAdapter (lockbox)...')
-        const sUsdeAdapter = await deployments.deploy('staked-usde/StakedUSDeOFTAdapter', {
+        const sUsdeAdapter = await deployments.deploy('StakedUSDeOFTAdapter', {
+            contract: 'contracts/staked-usde/StakedUSDeOFTAdapter.sol:StakedUSDeOFTAdapter',
             from: deployer,
             args: [stakedUsdeAddress, endpointV2.address, deployer],
             log: true,
@@ -81,7 +82,8 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy StakedUSDeOFT (mint/burn)
         console.log('   → Deploying StakedUSDeOFT (mint/burn)...')
-        const sUsdeOFT = await deployments.deploy('staked-usde/StakedUSDeOFT', {
+        const sUsdeOFT = await deployments.deploy('StakedUSDeOFT', {
+            contract: 'contracts/staked-usde/StakedUSDeOFT.sol:StakedUSDeOFT',
             from: deployer,
             args: [
                 STAKED_USDE_CONFIG.shareOFT.metadata.name,

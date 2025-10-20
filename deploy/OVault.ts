@@ -68,7 +68,7 @@ const deploy: DeployFunction = async (hre) => {
             // Get MCT address from previous deployment
             let mctAddress: string
             try {
-                const mct = await hre.deployments.get('mct/MultiCollateralToken')
+                const mct = await hre.deployments.get('MultiCollateralToken')
                 mctAddress = mct.address
             } catch (error) {
                 throw new Error(
@@ -76,7 +76,8 @@ const deploy: DeployFunction = async (hre) => {
                 )
             }
 
-            const mctAdapter = await deployments.deploy('mct/MCTOFTAdapter', {
+            const mctAdapter = await deployments.deploy('MCTOFTAdapter', {
+                contract: 'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter',
                 from: deployer,
                 args: [mctAddress, endpointV2.address, deployer],
                 log: true,
@@ -88,7 +89,8 @@ const deploy: DeployFunction = async (hre) => {
             // Spoke chain: Deploy MCTOFT (mint/burn)
             console.log('   → Spoke chain detected: Deploying MCTOFT (mint/burn)')
 
-            const mctOFT = await deployments.deploy('mct/MCTOFT', {
+            const mctOFT = await deployments.deploy('MCTOFT', {
+                contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
                 from: deployer,
                 args: [
                     DEPLOYMENT_CONFIG.assetOFT.metadata.name,
@@ -115,7 +117,8 @@ const deploy: DeployFunction = async (hre) => {
         // Spoke chain: Deploy USDeOFT (mint/burn)
         console.log('📦 Deploying Share OFT (USDe) on spoke chain...')
 
-        const usdeOFT = await deployments.deploy('usde/USDeOFT', {
+        const usdeOFT = await deployments.deploy('USDeOFT', {
+            contract: 'contracts/usde/USDeOFT.sol:USDeOFT',
             from: deployer,
             args: [
                 DEPLOYMENT_CONFIG.shareOFT.metadata.name,
@@ -143,7 +146,7 @@ const deploy: DeployFunction = async (hre) => {
         // Get USDe address
         let usdeAddress: string
         try {
-            const usde = await hre.deployments.get('usde/USDe')
+            const usde = await hre.deployments.get('USDe')
             usdeAddress = usde.address
         } catch (error) {
             throw new Error(
@@ -157,7 +160,7 @@ const deploy: DeployFunction = async (hre) => {
             mctAdapterAddress = deployedContracts.mctAdapter
         } else {
             try {
-                const adapter = await hre.deployments.get('mct/MCTOFTAdapter')
+                const adapter = await hre.deployments.get('MCTOFTAdapter')
                 mctAdapterAddress = adapter.address
             } catch (error) {
                 throw new Error('MCTOFTAdapter not found. This should have been deployed in the Asset OFT step.')
@@ -166,7 +169,8 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy USDeOFTAdapter (lockbox for USDe shares)
         console.log('   → Deploying USDeOFTAdapter (lockbox)...')
-        const usdeAdapter = await deployments.deploy('usde/USDeOFTAdapter', {
+        const usdeAdapter = await deployments.deploy('USDeOFTAdapter', {
+            contract: 'contracts/usde/USDeOFTAdapter.sol:USDeOFTAdapter',
             from: deployer,
             args: [usdeAddress, endpointV2.address, deployer],
             log: true,
@@ -177,7 +181,8 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy USDeComposer (cross-chain operations)
         console.log('   → Deploying USDeComposer...')
-        const composer = await deployments.deploy('usde/USDeComposer', {
+        const composer = await deployments.deploy('USDeComposer', {
+            contract: 'contracts/usde/USDeComposer.sol:USDeComposer',
             from: deployer,
             args: [usdeAddress, mctAdapterAddress, usdeAdapter.address],
             log: true,
