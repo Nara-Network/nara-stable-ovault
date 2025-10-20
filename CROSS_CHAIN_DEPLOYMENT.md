@@ -397,7 +397,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ## 📚 Related Documentation
 
 - [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - General deployment guide
-- [QUICK_START_SEPOLIA.md](./QUICK_START_SEPOLIA.md) - Quick start for Sepolia
+- [QUICK_START_ARBITRUM_SEPOLIA.md](./QUICK_START_ARBITRUM_SEPOLIA.md) - Quick start for Arbitrum Sepolia
 - [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - Technical OVault details
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - System architecture
 

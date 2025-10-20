@@ -1,12 +1,12 @@
-# ⚡ Quick Start - Deploy on Sepolia
+# ⚡ Quick Start - Deploy on Arbitrum Sepolia
 
-Fast deployment guide for Sepolia testnet with pre-configured settings.
+Fast deployment guide for Arbitrum Sepolia testnet with pre-configured settings.
 
 ## 🎯 One-Command Deployment
 
 ### Step 1: Set Your Addresses
 
-Open `deploy/FullSystem.sepolia.ts` and update:
+Open `deploy/FullSystem.arbitrum-sepolia.ts` and update:
 
 ```typescript
 const ADMIN_ADDRESS = "YOUR_ADMIN_ADDRESS_HERE";
@@ -16,7 +16,7 @@ const OPERATOR_ADDRESS = "YOUR_OPERATOR_ADDRESS_HERE";
 ### Step 2: Deploy Everything
 
 ```bash
-npx hardhat deploy --network sepolia --tags FullSystem
+npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 ```
 
 That's it! ✅
@@ -36,16 +36,17 @@ That's it! ✅
 
 ## 🔧 Pre-Configured Settings
 
-### Network: Sepolia Testnet
+### Network: Arbitrum Sepolia Testnet (Hub Chain)
 
-- **Chain ID**: 11155111
-- **RPC**: https://rpc.sepolia.org
-- **LayerZero Endpoint ID**: 40161
+- **Chain ID**: 421614
+- **RPC**: https://sepolia-rollup.arbitrum.io/rpc
+- **LayerZero Endpoint ID**: 40231 (ARBSEP_V2_TESTNET)
 
 ### Collateral Asset
 
-- **USDC (Sepolia)**: `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238`
-- Get testnet USDC: https://faucet.circle.com/
+- **USDC (Arbitrum Sepolia)**: `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d`
+- Bridge USDC: https://bridge.arbitrum.io/
+- Faucet: https://faucet.quicknode.com/arbitrum/sepolia
 
 ### Limits
 
@@ -58,29 +59,31 @@ That's it! ✅
 
 After deployment, test the system:
 
-### 1. Get Sepolia ETH
+### 1. Get Arbitrum Sepolia ETH
 
 ```
-https://sepoliafaucet.com/
+https://faucet.quicknode.com/arbitrum/sepolia
+https://www.alchemy.com/faucets/arbitrum-sepolia
 ```
 
-### 2. Get Sepolia USDC
+### 2. Get Arbitrum Sepolia USDC
 
 ```
-https://faucet.circle.com/
+Bridge from Sepolia: https://bridge.arbitrum.io/
+Or use faucet: https://faucet.circle.com/ (then bridge)
 ```
 
 ### 3. Mint USDe
 
 ```bash
-npx hardhat console --network sepolia
+npx hardhat console --network arbitrum-sepolia
 ```
 
 ```javascript
 // Get contracts (replace with your deployed addresses)
 const usdc = await ethers.getContractAt(
   "IERC20",
-  "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 );
 const usde = await ethers.getContractAt("usde/USDe", "YOUR_USDE_ADDRESS");
 
@@ -90,7 +93,8 @@ await usdc.approve(usde.address, amount);
 await usde.mintWithCollateral(usdc.address, amount);
 
 // Check balance
-const balance = await usde.balanceOf((await ethers.getSigners())[0].address);
+const [signer] = await ethers.getSigners();
+const balance = await usde.balanceOf(signer.address);
 console.log("USDe balance:", ethers.utils.formatEther(balance));
 ```
 
@@ -164,17 +168,17 @@ DEPLOYMENT COMPLETE ✅
 
 ---
 
-## ✅ Verify on Etherscan
+## ✅ Verify on Arbiscan
 
 The deployment script will print verification commands. Example:
 
 ```bash
-npx hardhat verify --network sepolia 0x1234... \
+npx hardhat verify --network arbitrum-sepolia 0x1234... \
   "0xAdminAddress..." \
-  "[\"0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238\"]"
+  "[\"0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d\"]"
 ```
 
-Run these commands to verify each contract on Etherscan.
+Run these commands to verify each contract on Arbiscan.
 
 ---
 
@@ -184,27 +188,35 @@ To enable cross-chain USDe and sUSDe:
 
 ### 1. Update LayerZero Config
 
-Already configured for Sepolia hub in `devtools/deployConfig.ts`:
+Already configured for Arbitrum Sepolia hub in `devtools/deployConfig.ts`:
 
 ```typescript
-const _hubEid = EndpointId.SEPOLIA_V2_TESTNET;
+const _hubEid = EndpointId.ARBSEP_V2_TESTNET;
 const _spokeEids = [
   EndpointId.OPTSEP_V2_TESTNET,
   EndpointId.BASESEP_V2_TESTNET,
+  EndpointId.SEPOLIA_V2_TESTNET,
 ];
 ```
 
-### 2. Deploy OFT Adapters
+### 2. Deploy OFT Infrastructure
 
 ```bash
-# On Sepolia (hub)
-npx hardhat lz:deploy --network sepolia
+# On Arbitrum Sepolia (hub)
+npx hardhat deploy --network arbitrum-sepolia --tags ovault
+npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft
 
 # On Optimism Sepolia (spoke)
-npx hardhat lz:deploy --network optimism-sepolia
+npx hardhat deploy --network optimism-sepolia --tags ovault
+npx hardhat deploy --network optimism-sepolia --tags staked-usde-oft
 
 # On Base Sepolia (spoke)
-npx hardhat lz:deploy --network base-sepolia
+npx hardhat deploy --network base-sepolia --tags ovault
+npx hardhat deploy --network base-sepolia --tags staked-usde-oft
+
+# On Sepolia (spoke)
+npx hardhat deploy --network sepolia --tags ovault
+npx hardhat deploy --network sepolia --tags staked-usde-oft
 ```
 
 ### 3. Wire LayerZero Peers
@@ -277,17 +289,17 @@ Make sure you set `ADMIN_ADDRESS` and `OPERATOR_ADDRESS` in the deployment scrip
 
 ### "Insufficient funds"
 
-Get Sepolia ETH from a faucet:
+Get Arbitrum Sepolia ETH from a faucet:
 
-- https://sepoliafaucet.com/
-- https://faucet.quicknode.com/ethereum/sepolia
+- https://faucet.quicknode.com/arbitrum/sepolia
+- https://www.alchemy.com/faucets/arbitrum-sepolia
 
 ### Deployment Hangs
 
-Check your RPC endpoint. Try:
+Check your RPC endpoint for Arbitrum Sepolia. Try:
 
 ```bash
-npx hardhat deploy --network sepolia --reset
+npx hardhat deploy --network arbitrum-sepolia --reset
 ```
 
 ---
@@ -295,11 +307,11 @@ npx hardhat deploy --network sepolia --reset
 ## 📚 Next Steps
 
 1. ✅ Deploy contracts
-2. ✅ Verify on Etherscan
+2. ✅ Verify on Arbiscan
 3. ✅ Test minting and staking
 4. 📖 Read [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for production deployment
 5. 📖 Read [STAKED_USDE_INTEGRATION.md](./STAKED_USDE_INTEGRATION.md) for details
-6. 🌐 Deploy OVault adapters for cross-chain support
+6. 🌐 Deploy OFT infrastructure for cross-chain support
 
 ---
 
@@ -308,6 +320,7 @@ npx hardhat deploy --network sepolia --reset
 **Deployment Issues?**
 
 - Check [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
+- Check [CROSS_CHAIN_DEPLOYMENT.md](./CROSS_CHAIN_DEPLOYMENT.md)
 - Check [Troubleshooting](#common-issues) section above
 
 **Understanding the System?**
@@ -319,7 +332,7 @@ npx hardhat deploy --network sepolia --reset
 ---
 
 **Status**: ✅ Ready to deploy  
-**Network**: Sepolia Testnet  
+**Network**: Arbitrum Sepolia Testnet (Hub Chain)  
 **Last Updated**: 2025-10-20
 
 🚀 **Happy Deploying!**

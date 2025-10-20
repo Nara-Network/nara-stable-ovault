@@ -345,7 +345,7 @@ After any deployment, verify:
 ## 🔗 Related Documentation
 
 - **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Complete deployment guide
-- **[QUICK_START_SEPOLIA.md](./QUICK_START_SEPOLIA.md)** - Fast start for Sepolia
+- **[QUICK_START_ARBITRUM_SEPOLIA.md](./QUICK_START_ARBITRUM_SEPOLIA.md)** - Fast start for Arbitrum Sepolia
 - **[PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)** - System overview
 - **[OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md)** - USDe details
 - **[STAKED_USDE_INTEGRATION.md](./STAKED_USDE_INTEGRATION.md)** - Staking details
