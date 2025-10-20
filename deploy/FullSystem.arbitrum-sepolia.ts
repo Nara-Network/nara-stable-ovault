@@ -2,7 +2,7 @@ import { type HardhatRuntimeEnvironment } from 'hardhat/types'
 import { type DeployFunction } from 'hardhat-deploy/types'
 
 /**
- * Complete deployment script for the full USDe OVault system on Sepolia testnet
+ * Complete deployment script for the full USDe OVault system on Arbitrum Sepolia testnet
  *
  * This script deploys:
  * 1. MultiCollateralToken (MCT) with USDC as initial asset
@@ -10,14 +10,14 @@ import { type DeployFunction } from 'hardhat-deploy/types'
  * 3. StakedUSDe vault for staking USDe
  * 4. StakingRewardsDistributor for automated rewards
  *
- * Sepolia Testnet Configuration:
- * - USDC: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
- * - Network: Sepolia (Chain ID: 11155111)
+ * Arbitrum Sepolia Testnet Configuration:
+ * - USDC: 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d (Bridged USDC)
+ * - Network: Arbitrum Sepolia (Chain ID: 421614)
  *
  * To use this script:
  * 1. Set your admin address below
  * 2. Set operator address for rewards distribution
- * 3. Run: npx hardhat deploy --network sepolia --tags FullSystem
+ * 3. Run: npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
  */
 
 // ============================================
@@ -27,8 +27,8 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 const ADMIN_ADDRESS = '0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671' // TODO: Set admin address (multisig recommended)
 const OPERATOR_ADDRESS = '0xD5259f0B4aA6189210970243d3B57eb04f5C64B7' // TODO: Set operator address (bot/EOA)
 
-// Sepolia USDC Testnet Address
-const SEPOLIA_USDC = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'
+// Arbitrum Sepolia USDC Address (Bridged USDC)
+const ARBITRUM_SEPOLIA_USDC = '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d'
 
 // Limits
 const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M USDe (18 decimals)
@@ -41,10 +41,10 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const { deploy } = deployments
     const { deployer } = await getNamedAccounts()
 
-    console.log('\n========================================')
+    console.log('\n=====================================================')
     console.log('Deploying Full USDe OVault System')
-    console.log('Network: Sepolia Testnet')
-    console.log('========================================\n')
+    console.log('Network: Arbitrum Sepolia Testnet')
+    console.log('=====================================================\n')
 
     // Validate configuration
     if ((ADMIN_ADDRESS as string) === '0x0000000000000000000000000000000000000000') {
@@ -56,8 +56,8 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Verify network
     const network = await hre.ethers.provider.getNetwork()
-    if (network.chainId !== 11155111) {
-        console.warn('⚠️  Warning: This script is configured for Sepolia (Chain ID: 11155111)')
+    if (network.chainId !== 421614) {
+        console.warn('⚠️  Warning: This script is configured for Arbitrum Sepolia (Chain ID: 421614)')
         console.warn(`   Current network Chain ID: ${network.chainId}`)
         console.warn('   Proceeding anyway...\n')
     }
@@ -65,7 +65,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('Deployer:', deployer)
     console.log('Admin:', ADMIN_ADDRESS)
     console.log('Operator:', OPERATOR_ADDRESS)
-    console.log('USDC (Sepolia):', SEPOLIA_USDC)
+    console.log('USDC (Arbitrum Sepolia):', ARBITRUM_SEPOLIA_USDC)
     console.log('')
 
     // ========================================
@@ -201,7 +201,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('⚙️  Configuration:')
     console.log('   Admin:', ADMIN_ADDRESS)
     console.log('   Operator:', OPERATOR_ADDRESS)
-    console.log('   USDC (Sepolia):', SEPOLIA_USDC)
+    console.log('   USDC (Arbitrum Sepolia):', ARBITRUM_SEPOLIA_USDC)
     console.log('   Max Mint/Block:', MAX_MINT_PER_BLOCK)
     console.log('   Max Redeem/Block:', MAX_REDEEM_PER_BLOCK)
     console.log('')
@@ -218,21 +218,21 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     console.log('1️⃣  Verify Contracts:')
     console.log(
-        `   npx hardhat verify --network sepolia ${mctDeployment.address} "${ADMIN_ADDRESS}" "[\\"${SEPOLIA_USDC}\\"]"`
+        `   npx hardhat verify --network arbitrum-sepolia ${mctDeployment.address} "${ADMIN_ADDRESS}" "[\\"${ARBITRUM_SEPOLIA_USDC}\\"]"`
     )
     console.log(
-        `   npx hardhat verify --network sepolia ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
+        `   npx hardhat verify --network arbitrum-sepolia ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
     )
     console.log(
-        `   npx hardhat verify --network sepolia ${stakedUsdeDeployment.address} "${usdeDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
+        `   npx hardhat verify --network arbitrum-sepolia ${stakedUsdeDeployment.address} "${usdeDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
     )
     console.log(
-        `   npx hardhat verify --network sepolia ${distributorDeployment.address} "${stakedUsdeDeployment.address}" "${usdeDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
+        `   npx hardhat verify --network arbitrum-sepolia ${distributorDeployment.address} "${stakedUsdeDeployment.address}" "${usdeDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
     )
     console.log('')
 
     console.log('2️⃣  Test Minting USDe:')
-    console.log('   - Get Sepolia USDC from faucet')
+    console.log('   - Get Arbitrum Sepolia USDC from faucet/bridge')
     console.log('   - usdc.approve(usde.address, amount)')
     console.log('   - usde.mintWithCollateral(usdc.address, amount)')
     console.log('')
@@ -258,4 +258,4 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
 export default deployFullSystem
 
-deployFullSystem.tags = ['FullSystem', 'Sepolia', 'Complete']
+deployFullSystem.tags = ['FullSystem', 'ArbitrumSepolia', 'Complete']

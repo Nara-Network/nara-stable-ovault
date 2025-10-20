@@ -44,11 +44,11 @@ You must deploy core contracts on the hub chain first:
 
 ```bash
 # Option A: Deploy everything
-npx hardhat deploy --network sepolia --tags FullSystem
+npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 
 # Option B: Deploy step-by-step
-npx hardhat deploy --network sepolia --tags USDe
-npx hardhat deploy --network sepolia --tags StakedUSDe
+npx hardhat deploy --network arbitrum-sepolia --tags USDe
+npx hardhat deploy --network arbitrum-sepolia --tags StakedUSDe
 ```
 
 ### 2. Configuration
@@ -57,12 +57,13 @@ Update `devtools/deployConfig.ts`:
 
 ```typescript
 // Hub chain (where core contracts live)
-const _hubEid = EndpointId.SEPOLIA_V2_TESTNET;
+const _hubEid = EndpointId.ARBSEP_V2_TESTNET;
 
 // Spoke chains (where OFTs will be deployed)
 const _spokeEids = [
   EndpointId.OPTSEP_V2_TESTNET,
   EndpointId.BASESEP_V2_TESTNET,
+  EndpointId.SEPOLIA_V2_TESTNET,
 ];
 ```
 
@@ -96,10 +97,10 @@ networks: {
 
 ### Step 1: Deploy USDe OFT Infrastructure
 
-#### Hub Chain (Sepolia)
+#### Hub Chain (Arbitrum Sepolia)
 
 ```bash
-npx hardhat deploy --network sepolia --tags ovault
+npx hardhat deploy --network arbitrum-sepolia --tags ovault
 ```
 
 **Deploys:**
@@ -123,6 +124,9 @@ npx hardhat deploy --network optimism-sepolia --tags ovault
 # Base Sepolia
 npx hardhat deploy --network base-sepolia --tags ovault
 
+# Sepolia
+npx hardhat deploy --network sepolia --tags ovault
+
 # Add more spoke chains as needed
 ```
 
@@ -143,10 +147,10 @@ npx hardhat deploy --network base-sepolia --tags ovault
 
 Only needed if you want cross-chain sUSDe transfers.
 
-#### Hub Chain (Sepolia)
+#### Hub Chain (Arbitrum Sepolia)
 
 ```bash
-npx hardhat deploy --network sepolia --tags staked-usde-oft
+npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft
 ```
 
 **Deploys:**
@@ -161,6 +165,9 @@ npx hardhat deploy --network optimism-sepolia --tags staked-usde-oft
 
 # Base Sepolia
 npx hardhat deploy --network base-sepolia --tags staked-usde-oft
+
+# Sepolia
+npx hardhat deploy --network sepolia --tags staked-usde-oft
 ```
 
 **Deploys:**
@@ -196,17 +203,20 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ### 1. Check Deployed Contracts
 
 ```bash
-# List all deployments on Sepolia
-ls -la deployments/sepolia/
+# List all deployments on Arbitrum Sepolia (hub)
+ls -la deployments/arbitrum-sepolia/
 
-# List all deployments on OP Sepolia
+# List all deployments on OP Sepolia (spoke)
 ls -la deployments/optimism-sepolia/
+
+# List all deployments on Sepolia (spoke)
+ls -la deployments/sepolia/
 ```
 
 ### 2. Verify Peers Are Set
 
 ```bash
-npx hardhat console --network sepolia
+npx hardhat console --network arbitrum-sepolia
 ```
 
 ```javascript
@@ -227,7 +237,7 @@ console.log("Peer on OP Sepolia:", peer);
 ### 3. Test Cross-Chain Transfer
 
 ```javascript
-// On Sepolia (hub)
+// On Arbitrum Sepolia (hub)
 const mctAdapter = await ethers.getContractAt("mct/MCTOFTAdapter", "<ADDRESS>");
 
 // Prepare cross-chain transfer
@@ -255,7 +265,7 @@ await mctAdapter.send(sendParam, { value: quote.nativeFee });
 
 After successful deployment, you should have:
 
-### Hub Chain (Sepolia)
+### Hub Chain (Arbitrum Sepolia)
 
 ```
 Core Contracts:
@@ -289,6 +299,15 @@ OFT Contracts:
   StakedUSDeOFT: 0x890...
 ```
 
+### Spoke Chain 3 (Sepolia)
+
+```
+OFT Contracts:
+  MCTOFT: 0x345...
+  USDeOFT: 0x678...
+  StakedUSDeOFT: 0x901...
+```
+
 ---
 
 ## 🔧 Troubleshooting
@@ -299,7 +318,7 @@ OFT Contracts:
 
 ```bash
 # This should already be deployed as part of the project setup
-npx hardhat deploy --network sepolia --tags EndpointV2
+npx hardhat deploy --network arbitrum-sepolia --tags EndpointV2
 ```
 
 ### Issue: "Core contract not found"
@@ -307,7 +326,7 @@ npx hardhat deploy --network sepolia --tags EndpointV2
 **Solution:** Deploy core contracts first:
 
 ```bash
-npx hardhat deploy --network sepolia --tags FullSystem
+npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 ```
 
 ### Issue: "Peers not set after wiring"
@@ -328,17 +347,19 @@ npx hardhat deploy --network sepolia --tags FullSystem
 
 ```bash
 # 1. Deploy core on hub
-npx hardhat deploy --network sepolia --tags FullSystem
+npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 
 # 2. Deploy OFTs on all chains
-npx hardhat deploy --network sepolia --tags ovault
+npx hardhat deploy --network arbitrum-sepolia --tags ovault
 npx hardhat deploy --network optimism-sepolia --tags ovault
 npx hardhat deploy --network base-sepolia --tags ovault
+npx hardhat deploy --network sepolia --tags ovault
 
 # 3. Deploy StakedUSDe OFTs (optional)
-npx hardhat deploy --network sepolia --tags staked-usde-oft
+npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft
 npx hardhat deploy --network optimism-sepolia --tags staked-usde-oft
 npx hardhat deploy --network base-sepolia --tags staked-usde-oft
+npx hardhat deploy --network sepolia --tags staked-usde-oft
 
 # 4. Wire everything
 npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
@@ -359,11 +380,13 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 ```bash
 # Deploy core (MCT + USDe only)
-npx hardhat deploy --network sepolia --tags USDe
+npx hardhat deploy --network arbitrum-sepolia --tags USDe
 
 # Deploy OFTs
-npx hardhat deploy --network sepolia --tags ovault
+npx hardhat deploy --network arbitrum-sepolia --tags ovault
 npx hardhat deploy --network optimism-sepolia --tags ovault
+npx hardhat deploy --network base-sepolia --tags ovault
+npx hardhat deploy --network sepolia --tags ovault
 
 # Wire
 npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
@@ -384,19 +407,19 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 ```bash
 # Deploy core contracts
-npx hardhat deploy --network sepolia --tags FullSystem
+npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 
 # Deploy USDe OFT infrastructure
-npx hardhat deploy --network sepolia --tags ovault
+npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # Deploy StakedUSDe OFT infrastructure
-npx hardhat deploy --network sepolia --tags staked-usde-oft
+npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft
 
 # Wire LayerZero peers
 npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 # Verify contract
-npx hardhat verify --network sepolia <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
+npx hardhat verify --network arbitrum-sepolia <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
 
 # Check deployment status
 ls -la deployments/<network>/

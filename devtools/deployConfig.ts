@@ -20,8 +20,8 @@ import { DeploymentConfig } from './types'
 // Define the chains we're deploying to
 // - _hubEid: The hub chain (where the OVault [ERC4626, ShareOFTAdapter, Composer] is deployed)
 // - _spokeEids: The spoke chains (where the ShareOFT is deployed)
-const _hubEid = EndpointId.SEPOLIA_V2_TESTNET // Sepolia as hub chain
-const _spokeEids = [EndpointId.OPTSEP_V2_TESTNET, EndpointId.BASESEP_V2_TESTNET]
+const _hubEid = EndpointId.ARBSEP_V2_TESTNET // Arbitrum Sepolia as hub chain
+const _spokeEids = [EndpointId.OPTSEP_V2_TESTNET, EndpointId.BASESEP_V2_TESTNET, EndpointId.SEPOLIA_V2_TESTNET]
 
 // ============================================
 // Deployment Export
