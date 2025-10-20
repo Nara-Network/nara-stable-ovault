@@ -93,10 +93,8 @@ const deploy: DeployFunction = async (hre) => {
                 contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
                 from: deployer,
                 args: [
-                    DEPLOYMENT_CONFIG.assetOFT.metadata.name,
-                    DEPLOYMENT_CONFIG.assetOFT.metadata.symbol,
-                    endpointV2.address,
-                    deployer,
+                    endpointV2.address, // _lzEndpoint
+                    deployer, // _delegate
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,
@@ -121,10 +119,8 @@ const deploy: DeployFunction = async (hre) => {
             contract: 'contracts/usde/USDeOFT.sol:USDeOFT',
             from: deployer,
             args: [
-                DEPLOYMENT_CONFIG.shareOFT.metadata.name,
-                DEPLOYMENT_CONFIG.shareOFT.metadata.symbol,
-                endpointV2.address,
-                deployer,
+                endpointV2.address, // _lzEndpoint
+                deployer, // _delegate
             ],
             log: true,
             skipIfAlreadyDeployed: true,

@@ -86,10 +86,8 @@ const deploy: DeployFunction = async (hre) => {
             contract: 'contracts/staked-usde/StakedUSDeOFT.sol:StakedUSDeOFT',
             from: deployer,
             args: [
-                STAKED_USDE_CONFIG.shareOFT.metadata.name,
-                STAKED_USDE_CONFIG.shareOFT.metadata.symbol,
-                endpointV2.address,
-                deployer,
+                endpointV2.address, // _lzEndpoint
+                deployer, // _delegate
             ],
             log: true,
             skipIfAlreadyDeployed: true,
