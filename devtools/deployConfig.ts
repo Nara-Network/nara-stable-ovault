@@ -20,8 +20,8 @@ import { DeploymentConfig } from './types'
 // Define the chains we're deploying to
 // - _hubEid: The hub chain (where the OVault [ERC4626, ShareOFTAdapter, Composer] is deployed)
 // - _spokeEids: The spoke chains (where the ShareOFT is deployed)
-const _hubEid = EndpointId.ARBSEP_V2_TESTNET
-const _spokeEids = [EndpointId.OPTSEP_V2_TESTNET, EndpointId.BASESEP_V2_TESTNET]
+const _hubEid = EndpointId.ARBSEP_V2_TESTNET // Arbitrum Sepolia as hub chain
+const _spokeEids = [EndpointId.OPTSEP_V2_TESTNET, EndpointId.BASESEP_V2_TESTNET, EndpointId.SEPOLIA_V2_TESTNET]
 
 // ============================================
 // Deployment Export
@@ -35,36 +35,37 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'MyERC4626',
-            shareAdapter: 'MyShareOFTAdapter',
-            composer: 'MyOVaultComposer',
+            vault: 'usde/USDe',
+            shareAdapter: 'usde/USDeOFTAdapter',
+            composer: 'usde/USDeComposer',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         // This will skip deployment and use your existing hubEid contract deployments instead
-        // This must be the address of the ERC4626 vault
+        // This must be the address of the USDe (ERC4626 vault)
         vaultAddress: undefined, // Set to '0xabc...' to use existing vault
-        // This must be the address of the asset OFT (not all OFT addresses are the same as the ERC20 contract)
-        assetOFTAddress: undefined, // Set to '0xdef...' to use existing asset OFT
-        // This must be the address of the ShareOFTAdapter
-        shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing ShareOFTAdapter
+        // This must be the address of the MCT OFT adapter (not MCT itself - use the OFT adapter address)
+        assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
+        // This must be the address of the USDeOFTAdapter
+        shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
     },
 
-    // Share OFT configuration (only on spoke chains)
+    // Share OFT configuration (USDe shares on spoke chains)
     shareOFT: {
-        contract: 'MyShareOFT',
+        contract: 'usde/USDeOFT',
         metadata: {
-            name: 'MyShareOFT',
-            symbol: 'SHARE',
+            name: 'USDe',
+            symbol: 'USDe',
         },
         deploymentEids: _spokeEids,
     },
 
-    // Asset OFT configuration (deployed on specified chains OR use existing address)
+    // Asset OFT configuration (MCT on hub and spoke chains)
+    // Hub uses MCTOFTAdapter (lockbox), spokes use MCTOFT (mint/burn)
     assetOFT: {
-        contract: 'MyAssetOFT',
+        contract: 'mct/MCTOFT', // On spokes: MCTOFT, On hub: MCTOFTAdapter (handled in deploy script)
         metadata: {
-            name: 'MyAssetOFT',
-            symbol: 'ASSET',
+            name: 'MultiCollateralToken',
+            symbol: 'MCT',
         },
         deploymentEids: [_hubEid, ..._spokeEids],
     },
@@ -79,3 +80,41 @@ export const shouldDeployShare = (eid: number): boolean =>
 
 export const shouldDeployShareAdapter = (eid: number): boolean =>
     isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress
+
+// ============================================
+// StakedUSDe Deployment Configuration
+// npx hardhat lz:deploy --tags staked-usde
+// ============================================
+export const STAKED_USDE_CONFIG = {
+    // StakedUSDe vault configuration (where the staking vault lives)
+    vault: {
+        deploymentEid: _hubEid,
+        contracts: {
+            vault: 'staked-usde/StakedUSDe',
+            shareAdapter: 'staked-usde/StakedUSDeOFTAdapter',
+            distributor: 'staked-usde/StakingRewardsDistributor',
+        },
+        // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
+        vaultAddress: undefined, // Set to '0xabc...' to use existing StakedUSDe vault
+        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing StakedUSDeOFTAdapter
+        distributorAddress: undefined, // Set to '0xghi...' to use existing StakingRewardsDistributor
+    },
+
+    // Share OFT configuration (sUSDe shares on spoke chains)
+    shareOFT: {
+        contract: 'staked-usde/StakedUSDeOFT',
+        metadata: {
+            name: 'Staked USDe',
+            symbol: 'sUSDe',
+        },
+        deploymentEids: _spokeEids,
+    },
+} as const
+
+export const isStakedUsdeVaultChain = (eid: number): boolean => eid === STAKED_USDE_CONFIG.vault.deploymentEid
+export const shouldDeployStakedUsdeVault = (eid: number): boolean =>
+    isStakedUsdeVaultChain(eid) && !STAKED_USDE_CONFIG.vault.vaultAddress
+export const shouldDeployStakedUsdeShare = (eid: number): boolean =>
+    !STAKED_USDE_CONFIG.vault.shareOFTAdapterAddress && STAKED_USDE_CONFIG.shareOFT.deploymentEids.includes(eid)
+export const shouldDeployStakedUsdeShareAdapter = (eid: number): boolean =>
+    isStakedUsdeVaultChain(eid) && !STAKED_USDE_CONFIG.vault.shareOFTAdapterAddress
