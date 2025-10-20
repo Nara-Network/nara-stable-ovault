@@ -3,7 +3,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 /**
  * Example deployment script for USDe and MultiCollateralToken
- * 
+ *
  * This script demonstrates how to deploy the USDe OVault system:
  * 1. Deploy MultiCollateralToken (MCT) with initial supported assets
  * 2. Deploy USDe with MCT as underlying asset
@@ -49,7 +49,7 @@ const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 1: Deploy MultiCollateralToken
     console.log('1. Deploying MultiCollateralToken...')
-    const mctDeployment = await deploy('MultiCollateralToken', {
+    const mctDeployment = await deploy('mct/MultiCollateralToken', {
         from: deployer,
         args: [ADMIN_ADDRESS, INITIAL_SUPPORTED_ASSETS],
         log: true,
@@ -60,7 +60,7 @@ const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 2: Deploy USDe
     console.log('2. Deploying USDe...')
-    const usdeDeployment = await deploy('USDe', {
+    const usdeDeployment = await deploy('usde/USDe', {
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
@@ -71,7 +71,7 @@ const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 3: Grant MINTER_ROLE to USDe on MCT
     console.log('3. Granting MINTER_ROLE to USDe...')
-    const mct = await hre.ethers.getContractAt('MultiCollateralToken', mctDeployment.address)
+    const mct = await hre.ethers.getContractAt('mct/MultiCollateralToken', mctDeployment.address)
     const MINTER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('MINTER_ROLE'))
 
     // Only grant role if deployer is admin or has permission

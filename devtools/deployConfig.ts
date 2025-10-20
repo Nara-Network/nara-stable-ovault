@@ -35,9 +35,9 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'USDe',
-            shareAdapter: 'USDeOFTAdapter',
-            composer: 'USDeComposer',
+            vault: 'usde/USDe',
+            shareAdapter: 'usde/USDeOFTAdapter',
+            composer: 'usde/USDeComposer',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         // This will skip deployment and use your existing hubEid contract deployments instead
@@ -51,7 +51,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
 
     // Share OFT configuration (USDe shares on spoke chains)
     shareOFT: {
-        contract: 'USDeOFT',
+        contract: 'usde/USDeOFT',
         metadata: {
             name: 'USDe',
             symbol: 'USDe',
@@ -62,7 +62,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
     // Asset OFT configuration (MCT on hub and spoke chains)
     // Hub uses MCTOFTAdapter (lockbox), spokes use MCTOFT (mint/burn)
     assetOFT: {
-        contract: 'MCTOFT', // On spokes: MCTOFT, On hub: MCTOFTAdapter (handled in deploy script)
+        contract: 'mct/MCTOFT', // On spokes: MCTOFT, On hub: MCTOFTAdapter (handled in deploy script)
         metadata: {
             name: 'MultiCollateralToken',
             symbol: 'MCT',

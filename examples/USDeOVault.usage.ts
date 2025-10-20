@@ -9,6 +9,14 @@ import { ethers } from 'ethers'
 
 // Contract ABIs would be imported from artifacts
 // import { MultiCollateralToken__factory, USDe__factory } from '../typechain-types'
+// Note: Contracts are now organized in folders:
+// - contracts/usde/USDe.sol
+// - contracts/usde/USDeOFTAdapter.sol
+// - contracts/usde/USDeOFT.sol
+// - contracts/usde/USDeComposer.sol
+// - contracts/mct/MultiCollateralToken.sol
+// - contracts/mct/MCTOFTAdapter.sol
+// - contracts/mct/MCTOFT.sol
 
 /**
  * Example 1: User mints USDe with USDC
