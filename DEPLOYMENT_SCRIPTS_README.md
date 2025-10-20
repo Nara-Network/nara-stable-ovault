@@ -43,7 +43,7 @@ npx hardhat deploy --network sepolia --tags FullSystem
 
 ---
 
-### 2. `USDeOVault.example.ts` - Phased Deployment (MCT + USDe)
+### 2. `USDe.example.ts` - Phased Deployment (MCT + USDe)
 
 **Purpose**: Deploy just the MCT and USDe contracts  
 **Network**: Any (configure in hardhat.config)  
@@ -67,7 +67,7 @@ const MAX_REDEEM_PER_BLOCK = "1000000000000000000000000";
 
 ```bash
 # 1. Copy and configure
-cp deploy/USDeOVault.example.ts deploy/USDeOVault.ts
+cp deploy/USDe.example.ts deploy/USDe.ts
 # Edit ADMIN_ADDRESS and INITIAL_SUPPORTED_ASSETS
 
 # 2. Deploy
@@ -104,7 +104,7 @@ npx hardhat deploy --network <your-network> --tags USDe
 ```typescript
 const ADMIN_ADDRESS = "0x...";
 const OPERATOR_ADDRESS = "0x...";
-const USDE_ADDRESS = "0x..."; // From USDeOVault deployment
+const USDE_ADDRESS = "0x..."; // From USDe deployment
 const INITIAL_REWARDER = "0x..."; // Optional
 ```
 
@@ -182,7 +182,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 ### For Production Deployment
 
-✅ **Use `USDeOVault.example.ts` + `StakedUSDe.example.ts`**
+✅ **Use `USDe.example.ts` + `StakedUSDe.example.ts`**
 
 - Phased approach
 - Test each module independently
@@ -200,13 +200,13 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 ## 📊 Deployment Comparison
 
-| Feature           | FullSystem.sepolia.ts | USDeOVault + StakedUSDe | MyOvault.ts         |
-| ----------------- | --------------------- | ----------------------- | ------------------- |
-| **Complexity**    | ⭐ Simple             | ⭐⭐ Moderate           | ⭐⭐⭐ Advanced     |
-| **Time**          | 5 minutes             | 10 minutes              | 30+ minutes         |
-| **Control**       | Low                   | High                    | Very High           |
-| **Best For**      | Testing               | Production              | Cross-chain         |
-| **Prerequisites** | None                  | None                    | Core contracts + LZ |
+| Feature           | FullSystem.sepolia.ts | USDe + StakedUSDe | MyOvault.ts         |
+| ----------------- | --------------------- | ----------------- | ------------------- |
+| **Complexity**    | ⭐ Simple             | ⭐⭐ Moderate     | ⭐⭐⭐ Advanced     |
+| **Time**          | 5 minutes             | 10 minutes        | 30+ minutes         |
+| **Control**       | Low                   | High              | Very High           |
+| **Best For**      | Testing               | Production        | Cross-chain         |
+| **Prerequisites** | None                  | None              | Core contracts + LZ |
 
 ---
 
@@ -223,7 +223,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ### Workflow 2: Production (Mainnet)
 
 ```
-1. Copy USDeOVault.example.ts → USDeOVault.ts
+1. Copy USDe.example.ts → USDe.ts
 2. Configure (admin, assets, limits)
 3. Deploy: npx hardhat deploy --network mainnet --tags USDe
 4. Test USDe thoroughly
@@ -255,7 +255,7 @@ Each script has deployment tags for selective deployment:
 | Script                | Tags                                  | Command             |
 | --------------------- | ------------------------------------- | ------------------- |
 | FullSystem.sepolia.ts | `FullSystem`, `Sepolia`, `Complete`   | `--tags FullSystem` |
-| USDeOVault.example.ts | `USDe`, `MCT`, `MultiCollateralToken` | `--tags USDe`       |
+| USDe.example.ts       | `USDe`, `MCT`, `MultiCollateralToken` | `--tags USDe`       |
 | StakedUSDe.example.ts | `StakedUSDe`, `Staking`               | `--tags StakedUSDe` |
 
 ### Network Configuration
@@ -286,12 +286,12 @@ Before deploying, ensure you have:
 - [ ] Sepolia ETH for gas
 - [ ] (Optional) Sepolia USDC for testing
 
-### USDeOVault.example.ts
+### USDe.example.ts
 
 - [ ] Admin address set
 - [ ] Collateral asset addresses
 - [ ] Max mint/redeem limits configured
-- [ ] Renamed to `USDeOVault.ts`
+- [ ] Renamed to `USDe.ts`
 
 ### StakedUSDe.example.ts
 
@@ -355,7 +355,7 @@ After any deployment, verify:
 ## ❓ FAQ
 
 **Q: Which script should I use for mainnet?**  
-A: Use the phased approach: `USDeOVault.example.ts` then `StakedUSDe.example.ts`
+A: Use the phased approach: `USDe.example.ts` then `StakedUSDe.example.ts`
 
 **Q: Can I deploy on other networks?**  
 A: Yes! All scripts work on any EVM network. Just configure `hardhat.config.ts`

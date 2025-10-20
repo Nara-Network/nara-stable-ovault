@@ -1,6 +1,6 @@
-# USDeOVault - Full OVault Integration Guide
+# USDe OVault - Full OVault Integration Guide
 
-This guide covers the complete omnichain deployment of USDeOVault with LayerZero's OVault infrastructure.
+This guide covers the complete omnichain deployment of USDe with LayerZero's OVault infrastructure.
 
 ## Architecture Overview
 
@@ -10,9 +10,9 @@ The hub chain hosts the core vault infrastructure:
 
 1. **MultiCollateralToken (MCT)** - The underlying asset that accepts multiple collateral types
 2. **MCTOFTAdapter** - OFT adapter for MCT (lockbox model for cross-chain transfers)
-3. **USDeOVault** - The ERC4626 vault that issues USDe shares backed by MCT
-4. **USDeShareOFTAdapter** - OFT adapter for USDe shares (lockbox model)
-5. **USDeOVaultComposer** - Enables cross-chain deposit/redeem operations
+3. **USDe** - The ERC4626 vault that issues USDe shares backed by MCT
+4. **USDeOFTAdapter** - OFT adapter for USDe shares (lockbox model)
+5. **USDeComposer** - Enables cross-chain deposit/redeem operations
 
 ### Spoke Chains (e.g., Base, Optimism, Polygon)
 
@@ -35,7 +35,7 @@ Hub Chain:
 │         │ underlying                                │   │
 │         ▼                                           │   │
 │  ┌──────────────────┐                              │   │
-│  │   USDeOVault     │                              │   │
+│  │   USDe           │                              │   │
 │  │   (ERC4626)      │                              │   │
 │  └──────────────────┘                              │   │
 │         │                                           │   │
@@ -86,8 +86,8 @@ const mctAdapter = await deploy("MCTOFTAdapter", {
   args: [mct.address, LZ_ENDPOINT_HUB, adminAddress],
 });
 
-// 3. Deploy USDeOVault
-const usde = await deploy("USDeOVault", {
+// 3. Deploy USDe
+const usde = await deploy("USDe", {
   args: [
     mct.address,
     adminAddress,
@@ -101,8 +101,8 @@ const usdeAdapter = await deploy("USDeShareOFTAdapter", {
   args: [usde.address, LZ_ENDPOINT_HUB, adminAddress],
 });
 
-// 5. Deploy USDeOVaultComposer
-const composer = await deploy("USDeOVaultComposer", {
+// 5. Deploy USDeComposer
+const composer = await deploy("USDeComposer", {
   args: [
     usde.address, // vault
     mctAdapter.address, // asset OFT
@@ -110,7 +110,7 @@ const composer = await deploy("USDeOVaultComposer", {
   ],
 });
 
-// 6. Grant MINTER_ROLE to USDeOVault on MCT
+// 6. Grant MINTER_ROLE to USDe on MCT
 const MINTER_ROLE = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes("MINTER_ROLE"),
 );
@@ -328,7 +328,7 @@ pnpm compile
 pnpm test
 
 # Deploy to testnet
-npx hardhat deploy --network arbitrum-sepolia --tags USDeOVault
+npx hardhat deploy --network arbitrum-sepolia --tags USDe
 ```
 
 ## Monitoring
@@ -356,7 +356,7 @@ Key metrics to monitor:
 Regular tasks:
 
 1. **Add/Remove Collateral Assets**: Via `MCT.addSupportedAsset()`
-2. **Adjust Rate Limits**: Via `USDeOVault.setMaxMintPerBlock()`
+2. **Adjust Rate Limits**: Via `USDe.setMaxMintPerBlock()`
 3. **Update LayerZero Config**: Via OFT `setEnforcedOptions()`
 4. **Collateral Rebalancing**: Via `MCT.withdrawCollateral()` and `depositCollateral()`
 

@@ -1,4 +1,4 @@
-# USDeOVault - Complete Implementation Summary
+# USDe OVault - Complete Implementation Summary
 
 ## What Was Built
 
@@ -14,26 +14,26 @@ This implementation provides a complete OVault (Omnichain Vault) version of USDe
    - Multi-collateral ERC20 token
    - Accepts USDC, USDT, DAI, and other stablecoins
    - Team can withdraw/deposit collateral for external management
-   - Underlying asset for USDeOVault
+   - Underlying asset for USDe
 
 2. **MCTOFTAdapter.sol**
    - OFT adapter for MCT (lockbox model on hub)
    - Enables cross-chain transfers of MCT
    - Locks tokens on hub, mints on spokes
 
-3. **USDeOVault.sol**
+3. **USDe.sol**
    - ERC4626 vault with integrated minting
    - Combines functionality of original USDe + EthenaMinting
    - Issues USDe shares at 1:1 with MCT
    - Direct collateral minting (USDC → USDe in one tx)
    - Rate limiting per block for security
 
-4. **USDeShareOFTAdapter.sol**
+4. **USDeOFTAdapter.sol**
    - OFT adapter for USDe shares (lockbox model on hub)
    - Enables cross-chain transfers of USDe
    - Critical: Must use lockbox to maintain ERC4626 accounting
 
-5. **USDeOVaultComposer.sol**
+5. **USDeComposer.sol**
    - Enables cross-chain vault operations
    - Deposit on Chain A, receive shares on Chain B
    - Redeem on Chain A, receive assets on Chain B
@@ -46,7 +46,7 @@ This implementation provides a complete OVault (Omnichain Vault) version of USDe
    - Represents MCT cross-chain
    - Burned when bridging to hub, minted when receiving from hub
 
-7. **USDeShareOFT.sol**
+7. **USDeOFT.sol**
    - OFT for USDe shares on spoke chains (mint/burn model)
    - Represents USDe shares cross-chain
    - Full ERC20 functionality on spoke chains
@@ -54,13 +54,13 @@ This implementation provides a complete OVault (Omnichain Vault) version of USDe
 ### Interface Contracts (2 total)
 
 - **IMultiCollateralToken.sol** - Interface for MCT
-- **IUSDeOVault.sol** - Interface for USDeOVault
+- **IUSDe.sol** - Interface for USDe
 
 ## Key Differences from Original Implementation
 
 | Original                                | OVault Version            | Improvement                   |
 | --------------------------------------- | ------------------------- | ----------------------------- |
-| Separate USDe + EthenaMinting contracts | Combined USDeOVault       | Simpler architecture          |
+| Separate USDe + EthenaMinting contracts | Combined USDe             | Simpler architecture          |
 | Single chain only                       | Multi-chain via LayerZero | Omnichain liquidity           |
 | Direct collateral handling              | MCT intermediary layer    | Team collateral management    |
 | Basic ERC20                             | ERC4626 vault             | Standard vault interface      |
@@ -71,7 +71,7 @@ This implementation provides a complete OVault (Omnichain Vault) version of USDe
 ### 1. Direct Minting on Hub Chain
 
 ```
-User (USDC) → USDeOVault.mintWithCollateral() → Receives USDe
+User (USDC) → USDe.mintWithCollateral() → Receives USDe
 Flow: USDC → MCT (via MCT.mint) → USDe (1:1 with MCT)
 Time: Single transaction
 ```
@@ -114,11 +114,11 @@ Note: USDe supply unchanged during this process
 
 - [ ] Deploy MultiCollateralToken
 - [ ] Deploy MCTOFTAdapter
-- [ ] Deploy USDeOVault
-- [ ] Grant MINTER_ROLE to USDeOVault on MCT
-- [ ] Deploy USDeShareOFTAdapter
-- [ ] Deploy USDeOVaultComposer
-- [ ] Configure rate limits on USDeOVault
+- [ ] Deploy USDe
+- [ ] Grant MINTER_ROLE to USDe on MCT
+- [ ] Deploy USDeOFTAdapter
+- [ ] Deploy USDeComposer
+- [ ] Configure rate limits on USDe
 
 ### Spoke Chain Deployment (per chain)
 
@@ -129,7 +129,7 @@ Note: USDe supply unchanged during this process
 
 - [ ] Set peers on MCTOFTAdapter ↔ MCTOFT (all spokes)
 - [ ] Set peers on USDeShareOFTAdapter ↔ USDeShareOFT (all spokes)
-- [ ] Set peers on USDeOVaultComposer (all spokes)
+- [ ] Set peers on USDeComposer (all spokes)
 - [ ] Configure enforced options for gas
 - [ ] Test cross-chain messaging
 
@@ -152,7 +152,7 @@ Note: USDe supply unchanged during this process
 
 2. **Access Control**
    - DEFAULT_ADMIN_ROLE: System administration
-   - MINTER_ROLE: Can mint/redeem MCT (USDeOVault only)
+   - MINTER_ROLE: Can mint/redeem MCT (USDe only)
    - COLLATERAL_MANAGER_ROLE: Can manage collateral
    - GATEKEEPER_ROLE: Emergency shutdown
    - Admin cannot be renounced
@@ -209,8 +209,8 @@ Note: USDe supply unchanged during this process
 ## Configuration Files
 
 - **devtools/deployConfig.ts** - Main deployment configuration
-- **deploy/USDeOVault.example.ts** - Example deployment script
-- **examples/USDeOVault.usage.ts** - Usage examples
+- **deploy/USDe.example.ts** - Example deployment script
+- **examples/USDe.usage.ts** - Usage examples
 
 ## Documentation
 
@@ -260,9 +260,9 @@ Note: USDe supply unchanged during this process
 ```
 MultiCollateralToken: 0x...
 MCTOFTAdapter: 0x...
-USDeOVault: 0x...
-USDeShareOFTAdapter: 0x...
-USDeOVaultComposer: 0x...
+USDe: 0x...
+USDeOFTAdapter: 0x...
+USDeComposer: 0x...
 ```
 
 ### Spoke Chain 1 (Optimism Sepolia)

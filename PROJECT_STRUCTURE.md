@@ -22,7 +22,7 @@ contracts/
 │   └── MCTOFT.sol                    # Spoke chain OFT (mint/burn)
 │
 ├── usde/                             # USDe Module
-│   ├── USDe.sol                      # ERC4626 vault with minting (previously USDeOVault)
+│   ├── USDe.sol                      # ERC4626 vault with minting
 │   ├── USDeOFTAdapter.sol            # Hub chain OFT adapter (lockbox)
 │   ├── USDeOFT.sol                   # Spoke chain OFT (mint/burn)
 │   └── USDeComposer.sol              # Cross-chain composer
@@ -346,8 +346,8 @@ All contracts compile successfully with Solidity ^0.8.22:
 - **USDe Integration**: See `OVAULT_INTEGRATION.md`
 - **StakedUSDe Details**: See `STAKED_USDE_INTEGRATION.md`
 - **Deployment Summary**: See `DEPLOYMENT_SUMMARY.md`
-- **Example Usage**: See `examples/USDeOVault.usage.ts`
-- **Example Deploy**: See `deploy/USDeOVault.example.ts`
+- **Example Usage**: See `examples/USDe.usage.ts`
+- **Example Deploy**: See `deploy/USDe.example.ts`
 
 ---
 

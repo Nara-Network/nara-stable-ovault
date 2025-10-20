@@ -7,7 +7,7 @@ This document describes the OVault (Omnichain Vault) version of the USDe and Eth
 The USDe OVault implementation combines the functionality of USDe and EthenaMinting into a single ERC4626-compliant vault with integrated minting capabilities. The architecture uses a multi-collateral approach with a two-token system:
 
 1. **MultiCollateralToken (MCT)**: The underlying asset that accepts multiple collateral types
-2. **USDeOVault**: The ERC4626 vault that issues USDe shares backed by MCT at a 1:1 ratio
+2. **USDe**: The ERC4626 vault that issues USDe shares backed by MCT at a 1:1 ratio
 
 ## Architecture
 
@@ -23,11 +23,11 @@ The MCT contract serves as the underlying asset for the USDe vault. It has the f
 #### Key Functions
 
 ```solidity
-// Mint MCT by depositing collateral (called by USDeOVault)
+// Mint MCT by depositing collateral (called by USDe)
 function mint(address collateralAsset, uint256 collateralAmount, address beneficiary)
     external returns (uint256 mctAmount)
 
-// Redeem MCT for collateral (called by USDeOVault)
+// Redeem MCT for collateral (called by USDe)
 function redeem(address collateralAsset, uint256 mctAmount, address beneficiary)
     external returns (uint256 collateralAmount)
 
@@ -46,11 +46,11 @@ function removeSupportedAsset(address asset) external
 
 - `DEFAULT_ADMIN_ROLE`: Can add/remove supported assets and manage other roles
 - `COLLATERAL_MANAGER_ROLE`: Can withdraw and deposit collateral
-- `MINTER_ROLE`: Can mint and redeem MCT (assigned to USDeOVault contract)
+- `MINTER_ROLE`: Can mint and redeem MCT (assigned to USDe contract)
 
-### USDeOVault
+### USDe
 
-The USDeOVault contract is an ERC4626 vault that:
+The USDe contract is an ERC4626 vault that:
 
 - Uses MCT as the underlying asset
 - Maintains a 1:1 exchange rate between USDe and MCT
@@ -97,14 +97,14 @@ function redeemForCollateralFor(address collateralAsset, uint256 usdeAmount, add
 The flow for a user to mint USDe with USDC:
 
 ```
-1. User approves USDeOVault to spend USDC
+1. User approves USDe to spend USDC
 2. User calls mintWithCollateral(USDC, 1000e6) // 1000 USDC
-3. USDeOVault transfers USDC from user
-4. USDeOVault approves MCT to spend USDC
-5. USDeOVault calls MCT.mint(USDC, 1000e6, address(this))
+3. USDe transfers USDC from user
+4. USDe approves MCT to spend USDC
+5. USDe calls MCT.mint(USDC, 1000e6, address(this))
    - MCT transfers USDC to itself
-   - MCT mints 1000e18 MCT to USDeOVault
-6. USDeOVault mints 1000e18 USDe to user (1:1 with MCT)
+   - MCT mints 1000e18 MCT to USDe
+6. USDe mints 1000e18 USDe to user (1:1 with MCT)
 7. User receives 1000 USDe
 ```
 
@@ -114,10 +114,10 @@ The flow for a user to redeem USDe for USDC:
 
 ```
 1. User calls redeemForCollateral(USDC, 1000e18) // 1000 USDe
-2. USDeOVault burns 1000e18 USDe from user
-3. USDeOVault approves MCT to spend MCT
-4. USDeOVault calls MCT.redeem(USDC, 1000e18, user)
-   - MCT burns 1000e18 MCT from USDeOVault
+2. USDe burns 1000e18 USDe from user
+3. USDe approves MCT to spend MCT
+4. USDe calls MCT.redeem(USDC, 1000e18, user)
+   - MCT burns 1000e18 MCT from USDe
    - MCT transfers 1000e6 USDC to user
 5. User receives 1000 USDC
 ```
@@ -136,10 +136,10 @@ MultiCollateralToken mct = new MultiCollateralToken(
 );
 ```
 
-### 2. Deploy USDeOVault
+### 2. Deploy USDe
 
 ```solidity
-USDeOVault usde = new USDeOVault(
+USDe usde = new USDe(
     mct,                    // MCT contract
     admin,                  // Admin address
     1000000 * 1e18,        // Max mint per block (1M USDe)
@@ -147,7 +147,7 @@ USDeOVault usde = new USDeOVault(
 );
 ```
 
-### 3. Grant USDeOVault the MINTER_ROLE on MCT
+### 3. Grant USDe the MINTER_ROLE on MCT
 
 ```solidity
 mct.grantRole(keccak256("MINTER_ROLE"), address(usde));
@@ -205,7 +205,7 @@ The original implementation had:
 
 The new implementation combines both into:
 
-- `USDeOVault.sol`: ERC4626 vault with integrated minting
+- `USDe.sol`: ERC4626 vault with integrated minting
 - `MultiCollateralToken.sol`: Underlying collateral management
 
 ### Key Improvements
@@ -220,7 +220,7 @@ The new implementation combines both into:
 
 To make this omnichain, you would:
 
-1. Deploy `USDeOVault` on the hub chain
+1. Deploy `USDe` on the hub chain
 2. Deploy `MyShareOFTAdapter` wrapping the USDe token
 3. Deploy `MyOVaultComposer` for cross-chain operations
 4. Deploy `MyShareOFT` on spoke chains

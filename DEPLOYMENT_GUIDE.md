@@ -70,13 +70,13 @@ Deploy step-by-step for production environments.
 #### Phase 1: Deploy MCT + USDe
 
 ```bash
-# 1. Update deploy/USDeOVault.example.ts
+# 1. Update deploy/USDe.example.ts
 #    - Set ADMIN_ADDRESS
 #    - Set INITIAL_SUPPORTED_ASSETS (e.g., USDC address)
 #    - Set MAX_MINT_PER_BLOCK and MAX_REDEEM_PER_BLOCK
 
 # 2. Rename file
-cp deploy/USDeOVault.example.ts deploy/USDeOVault.ts
+cp deploy/USDe.example.ts deploy/USDe.ts
 
 # 3. Deploy
 npx hardhat deploy --network sepolia --tags USDe
@@ -124,7 +124,7 @@ const MAX_MINT_PER_BLOCK = "1000000000000000000000000"; // 1M USDe
 const MAX_REDEEM_PER_BLOCK = "1000000000000000000000000"; // 1M USDe
 ```
 
-### 2. USDe Only (`deploy/USDeOVault.example.ts`)
+### 2. USDe Only (`deploy/USDe.example.ts`)
 
 ```typescript
 const ADMIN_ADDRESS = "0x...";
@@ -528,7 +528,7 @@ Before going to production:
 - [USDe Integration Guide](./OVAULT_INTEGRATION.md)
 - [StakedUSDe Guide](./STAKED_USDE_INTEGRATION.md)
 - [Project Structure](./PROJECT_STRUCTURE.md)
-- [Usage Examples](./examples/USDeOVault.usage.ts)
+- [Usage Examples](./examples/USDe.usage.ts)
 
 ---
 

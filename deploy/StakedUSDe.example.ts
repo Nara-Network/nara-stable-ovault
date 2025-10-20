@@ -12,7 +12,7 @@ import { type DeployFunction } from 'hardhat-deploy/types'
  *
  * Prerequisites:
  * - USDe contract must be deployed first
- * - Run USDeOVault.example.ts deployment first
+ * - Run USDe.example.ts deployment first
  *
  * To use this script:
  * 1. Rename to StakedUSDe.ts
