@@ -24,8 +24,8 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 // CONFIGURATION - UPDATE THESE VALUES
 // ============================================
 
-const ADMIN_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Set admin address (multisig recommended)
-const OPERATOR_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Set operator address (bot/EOA)
+const ADMIN_ADDRESS = '0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671' // TODO: Set admin address (multisig recommended)
+const OPERATOR_ADDRESS = '0xD5259f0B4aA6189210970243d3B57eb04f5C64B7' // TODO: Set operator address (bot/EOA)
 
 // Sepolia USDC Testnet Address
 const SEPOLIA_USDC = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'
@@ -47,10 +47,10 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('========================================\n')
 
     // Validate configuration
-    if (ADMIN_ADDRESS === '0x0000000000000000000000000000000000000000') {
+    if ((ADMIN_ADDRESS as string) === '0x0000000000000000000000000000000000000000') {
         throw new Error('Please set ADMIN_ADDRESS in the deployment script')
     }
-    if (OPERATOR_ADDRESS === '0x0000000000000000000000000000000000000000') {
+    if ((OPERATOR_ADDRESS as string) === '0x0000000000000000000000000000000000000000') {
         throw new Error('Please set OPERATOR_ADDRESS in the deployment script')
     }
 
