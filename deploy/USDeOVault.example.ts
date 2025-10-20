@@ -1,5 +1,5 @@
+import { type HardhatRuntimeEnvironment } from 'hardhat/types'
 import { type DeployFunction } from 'hardhat-deploy/types'
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 /**
  * Example deployment script for USDe and MultiCollateralToken
@@ -17,7 +17,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 // CONFIGURATION - UPDATE THESE VALUES
 const ADMIN_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Set admin address
-const INITIAL_SUPPORTED_ASSETS = [
+const INITIAL_SUPPORTED_ASSETS: string[] = [
     // '0x...' // TODO: Add USDC address
     // '0x...' // TODO: Add USDT address (optional)
     // '0x...' // TODO: Add DAI address (optional)

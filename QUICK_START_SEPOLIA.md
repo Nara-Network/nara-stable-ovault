@@ -1,0 +1,325 @@
+# ⚡ Quick Start - Deploy on Sepolia
+
+Fast deployment guide for Sepolia testnet with pre-configured settings.
+
+## 🎯 One-Command Deployment
+
+### Step 1: Set Your Addresses
+
+Open `deploy/FullSystem.sepolia.ts` and update:
+
+```typescript
+const ADMIN_ADDRESS = "YOUR_ADMIN_ADDRESS_HERE";
+const OPERATOR_ADDRESS = "YOUR_OPERATOR_ADDRESS_HERE";
+```
+
+### Step 2: Deploy Everything
+
+```bash
+npx hardhat deploy --network sepolia --tags FullSystem
+```
+
+That's it! ✅
+
+---
+
+## 📋 What Gets Deployed
+
+| Contract                  | Description           | Address (after deployment) |
+| ------------------------- | --------------------- | -------------------------- |
+| MultiCollateralToken      | Holds USDC collateral | Check console output       |
+| USDe                      | Stablecoin vault      | Check console output       |
+| StakedUSDe                | Staking vault         | Check console output       |
+| StakingRewardsDistributor | Automated rewards     | Check console output       |
+
+---
+
+## 🔧 Pre-Configured Settings
+
+### Network: Sepolia Testnet
+
+- **Chain ID**: 11155111
+- **RPC**: https://rpc.sepolia.org
+- **LayerZero Endpoint ID**: 40161
+
+### Collateral Asset
+
+- **USDC (Sepolia)**: `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238`
+- Get testnet USDC: https://faucet.circle.com/
+
+### Limits
+
+- **Max Mint Per Block**: 1,000,000 USDe
+- **Max Redeem Per Block**: 1,000,000 USDe
+
+---
+
+## 🧪 Quick Test
+
+After deployment, test the system:
+
+### 1. Get Sepolia ETH
+
+```
+https://sepoliafaucet.com/
+```
+
+### 2. Get Sepolia USDC
+
+```
+https://faucet.circle.com/
+```
+
+### 3. Mint USDe
+
+```bash
+npx hardhat console --network sepolia
+```
+
+```javascript
+// Get contracts (replace with your deployed addresses)
+const usdc = await ethers.getContractAt(
+  "IERC20",
+  "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+);
+const usde = await ethers.getContractAt("usde/USDe", "YOUR_USDE_ADDRESS");
+
+// Mint 100 USDe with 100 USDC
+const amount = ethers.utils.parseUnits("100", 6); // 100 USDC (6 decimals)
+await usdc.approve(usde.address, amount);
+await usde.mintWithCollateral(usdc.address, amount);
+
+// Check balance
+const balance = await usde.balanceOf((await ethers.getSigners())[0].address);
+console.log("USDe balance:", ethers.utils.formatEther(balance));
+```
+
+### 4. Stake USDe
+
+```javascript
+const stakedUsde = await ethers.getContractAt(
+  "staked-usde/StakedUSDe",
+  "YOUR_STAKED_USDE_ADDRESS",
+);
+
+// Stake 50 USDe
+const stakeAmount = ethers.utils.parseEther("50");
+await usde.approve(stakedUsde.address, stakeAmount);
+await stakedUsde.deposit(stakeAmount, (await ethers.getSigners())[0].address);
+
+// Check sUSDe balance
+const sBalance = await stakedUsde.balanceOf(
+  (await ethers.getSigners())[0].address,
+);
+console.log("sUSDe balance:", ethers.utils.formatEther(sBalance));
+```
+
+### 5. Distribute Rewards (as Operator)
+
+```javascript
+const distributor = await ethers.getContractAt(
+  "staked-usde/StakingRewardsDistributor",
+  "YOUR_DISTRIBUTOR_ADDRESS",
+);
+
+// Transfer USDe to distributor
+const rewardsAmount = ethers.utils.parseEther("10");
+await usde.transfer(distributor.address, rewardsAmount);
+
+// Distribute rewards (must be called by OPERATOR_ADDRESS)
+await distributor.transferInRewards(rewardsAmount);
+
+console.log("✓ Rewards distributed!");
+```
+
+---
+
+## 📝 Deployment Output Example
+
+After running the deployment, you'll see:
+
+```
+========================================
+DEPLOYMENT COMPLETE ✅
+========================================
+
+📦 Deployed Contracts:
+   MultiCollateralToken: 0x1234...
+   USDe: 0x5678...
+   StakedUSDe: 0x9abc...
+   StakingRewardsDistributor: 0xdef0...
+
+⚙️  Configuration:
+   Admin: 0xYourAdmin...
+   Operator: 0xYourOperator...
+   USDC (Sepolia): 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
+   Max Mint/Block: 1000000000000000000000000
+   Max Redeem/Block: 1000000000000000000000000
+
+🔑 Granted Roles:
+   MCT.MINTER_ROLE → USDe
+   StakedUSDe.REWARDER_ROLE → StakingRewardsDistributor
+   StakedUSDe.BLACKLIST_MANAGER_ROLE → Admin
+```
+
+---
+
+## ✅ Verify on Etherscan
+
+The deployment script will print verification commands. Example:
+
+```bash
+npx hardhat verify --network sepolia 0x1234... \
+  "0xAdminAddress..." \
+  "[\"0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238\"]"
+```
+
+Run these commands to verify each contract on Etherscan.
+
+---
+
+## 🌐 Add Cross-Chain Support (Optional)
+
+To enable cross-chain USDe and sUSDe:
+
+### 1. Update LayerZero Config
+
+Already configured for Sepolia hub in `devtools/deployConfig.ts`:
+
+```typescript
+const _hubEid = EndpointId.SEPOLIA_V2_TESTNET;
+const _spokeEids = [
+  EndpointId.OPTSEP_V2_TESTNET,
+  EndpointId.BASESEP_V2_TESTNET,
+];
+```
+
+### 2. Deploy OFT Adapters
+
+```bash
+# On Sepolia (hub)
+npx hardhat lz:deploy --network sepolia
+
+# On Optimism Sepolia (spoke)
+npx hardhat lz:deploy --network optimism-sepolia
+
+# On Base Sepolia (spoke)
+npx hardhat lz:deploy --network base-sepolia
+```
+
+### 3. Wire LayerZero Peers
+
+```bash
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
+```
+
+---
+
+## 🎛️ Admin Functions
+
+### Add More Collateral Assets
+
+```javascript
+const mct = await ethers.getContractAt(
+  "mct/MultiCollateralToken",
+  "MCT_ADDRESS",
+);
+await mct.addSupportedAsset("0xNewAssetAddress...");
+```
+
+### Update Rate Limits
+
+```javascript
+const usde = await ethers.getContractAt("usde/USDe", "USDE_ADDRESS");
+await usde.setMaxMintPerBlock(ethers.utils.parseEther("2000000"));
+await usde.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
+```
+
+### Emergency Disable Mint/Redeem
+
+```javascript
+const GATEKEEPER_ROLE = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes("GATEKEEPER_ROLE"),
+);
+await usde.grantRole(GATEKEEPER_ROLE, "GATEKEEPER_ADDRESS");
+
+// As gatekeeper
+await usde.disableMintRedeem();
+```
+
+### Change Rewards Operator
+
+```javascript
+const distributor = await ethers.getContractAt(
+  "staked-usde/StakingRewardsDistributor",
+  "DISTRIBUTOR_ADDRESS",
+);
+await distributor.setOperator("NEW_OPERATOR_ADDRESS");
+```
+
+---
+
+## 🐛 Common Issues
+
+### "Could not find MNEMONIC or PRIVATE_KEY"
+
+Create a `.env` file:
+
+```bash
+MNEMONIC="your twelve word seed phrase here"
+# OR
+PRIVATE_KEY="0x..."
+```
+
+### "Transaction reverted: InvalidZeroAddress"
+
+Make sure you set `ADMIN_ADDRESS` and `OPERATOR_ADDRESS` in the deployment script.
+
+### "Insufficient funds"
+
+Get Sepolia ETH from a faucet:
+
+- https://sepoliafaucet.com/
+- https://faucet.quicknode.com/ethereum/sepolia
+
+### Deployment Hangs
+
+Check your RPC endpoint. Try:
+
+```bash
+npx hardhat deploy --network sepolia --reset
+```
+
+---
+
+## 📚 Next Steps
+
+1. ✅ Deploy contracts
+2. ✅ Verify on Etherscan
+3. ✅ Test minting and staking
+4. 📖 Read [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for production deployment
+5. 📖 Read [STAKED_USDE_INTEGRATION.md](./STAKED_USDE_INTEGRATION.md) for details
+6. 🌐 Deploy OVault adapters for cross-chain support
+
+---
+
+## 📞 Support
+
+**Deployment Issues?**
+
+- Check [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
+- Check [Troubleshooting](#common-issues) section above
+
+**Understanding the System?**
+
+- [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - Overview
+- [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - USDe details
+- [STAKED_USDE_INTEGRATION.md](./STAKED_USDE_INTEGRATION.md) - Staking details
+
+---
+
+**Status**: ✅ Ready to deploy  
+**Network**: Sepolia Testnet  
+**Last Updated**: 2025-10-20
+
+🚀 **Happy Deploying!**

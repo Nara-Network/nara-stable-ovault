@@ -20,7 +20,7 @@ import { DeploymentConfig } from './types'
 // Define the chains we're deploying to
 // - _hubEid: The hub chain (where the OVault [ERC4626, ShareOFTAdapter, Composer] is deployed)
 // - _spokeEids: The spoke chains (where the ShareOFT is deployed)
-const _hubEid = EndpointId.ARBSEP_V2_TESTNET
+const _hubEid = EndpointId.SEPOLIA_V2_TESTNET // Sepolia as hub chain
 const _spokeEids = [EndpointId.OPTSEP_V2_TESTNET, EndpointId.BASESEP_V2_TESTNET]
 
 // ============================================
@@ -80,3 +80,41 @@ export const shouldDeployShare = (eid: number): boolean =>
 
 export const shouldDeployShareAdapter = (eid: number): boolean =>
     isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress
+
+// ============================================
+// StakedUSDe Deployment Configuration
+// npx hardhat lz:deploy --tags staked-usde
+// ============================================
+export const STAKED_USDE_CONFIG = {
+    // StakedUSDe vault configuration (where the staking vault lives)
+    vault: {
+        deploymentEid: _hubEid,
+        contracts: {
+            vault: 'staked-usde/StakedUSDe',
+            shareAdapter: 'staked-usde/StakedUSDeOFTAdapter',
+            distributor: 'staked-usde/StakingRewardsDistributor',
+        },
+        // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
+        vaultAddress: undefined, // Set to '0xabc...' to use existing StakedUSDe vault
+        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing StakedUSDeOFTAdapter
+        distributorAddress: undefined, // Set to '0xghi...' to use existing StakingRewardsDistributor
+    },
+
+    // Share OFT configuration (sUSDe shares on spoke chains)
+    shareOFT: {
+        contract: 'staked-usde/StakedUSDeOFT',
+        metadata: {
+            name: 'Staked USDe',
+            symbol: 'sUSDe',
+        },
+        deploymentEids: _spokeEids,
+    },
+} as const
+
+export const isStakedUsdeVaultChain = (eid: number): boolean => eid === STAKED_USDE_CONFIG.vault.deploymentEid
+export const shouldDeployStakedUsdeVault = (eid: number): boolean =>
+    isStakedUsdeVaultChain(eid) && !STAKED_USDE_CONFIG.vault.vaultAddress
+export const shouldDeployStakedUsdeShare = (eid: number): boolean =>
+    !STAKED_USDE_CONFIG.vault.shareOFTAdapterAddress && STAKED_USDE_CONFIG.shareOFT.deploymentEids.includes(eid)
+export const shouldDeployStakedUsdeShareAdapter = (eid: number): boolean =>
+    isStakedUsdeVaultChain(eid) && !STAKED_USDE_CONFIG.vault.shareOFTAdapterAddress
