@@ -406,41 +406,85 @@ console.log("Roles granted");
 
 To enable cross-chain functionality, deploy OFT adapters and configure LayerZero.
 
-### 1. Deploy on Hub Chain (Sepolia)
+### Prerequisites
 
+- Core contracts must be deployed first (MCT, USDe, StakedUSDe)
+- Use `FullSystem.sepolia.ts` or phased deployment
+- Configure `devtools/deployConfig.ts` with your hub and spoke chain EIDs
+
+### 1. Deploy USDe OFT Infrastructure on All Chains
+
+**Hub Chain (Sepolia):**
 ```bash
-# Deploy OFT adapters for hub chain
-npx hardhat lz:deploy --network sepolia
+npx hardhat deploy --network sepolia --tags ovault
 ```
 
-This deploys:
-
+This deploys on hub:
 - `MCTOFTAdapter` (lockbox for MCT)
 - `USDeOFTAdapter` (lockbox for USDe)
-- `StakedUSDeOFTAdapter` (lockbox for sUSDe)
 - `USDeComposer` (cross-chain operations)
 
-### 2. Deploy on Spoke Chains
-
+**Spoke Chains:**
 ```bash
 # Deploy on Optimism Sepolia
-npx hardhat lz:deploy --network optimism-sepolia
+npx hardhat deploy --network optimism-sepolia --tags ovault
 
 # Deploy on Base Sepolia
-npx hardhat lz:deploy --network base-sepolia
+npx hardhat deploy --network base-sepolia --tags ovault
 ```
 
-This deploys:
-
+This deploys on spokes:
 - `MCTOFT` (mint/burn for MCT)
 - `USDeOFT` (mint/burn for USDe)
+
+### 2. (Optional) Deploy StakedUSDe OFT Infrastructure
+
+**Hub Chain (Sepolia):**
+```bash
+npx hardhat deploy --network sepolia --tags staked-usde-oft
+```
+
+This deploys on hub:
+- `StakedUSDeOFTAdapter` (lockbox for sUSDe)
+
+**Spoke Chains:**
+```bash
+# Deploy on Optimism Sepolia
+npx hardhat deploy --network optimism-sepolia --tags staked-usde-oft
+
+# Deploy on Base Sepolia
+npx hardhat deploy --network base-sepolia --tags staked-usde-oft
+```
+
+This deploys on spokes:
 - `StakedUSDeOFT` (mint/burn for sUSDe)
 
 ### 3. Configure LayerZero Peers
 
 ```bash
-# Wire up the connections
+# Wire up the connections between all chains
 npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
+```
+
+This connects:
+- Hub MCTOFTAdapter ↔ Spoke MCTOFT (all chains)
+- Hub USDeOFTAdapter ↔ Spoke USDeOFT (all chains)
+- Hub StakedUSDeOFTAdapter ↔ Spoke StakedUSDeOFT (all chains)
+
+### 4. Verify Cross-Chain Setup
+
+After wiring, verify the peers are set correctly:
+
+```javascript
+// On hub chain
+const mctAdapter = await ethers.getContractAt('mct/MCTOFTAdapter', '<ADAPTER_ADDRESS>')
+const peerAddress = await mctAdapter.peers(SPOKE_EID)
+console.log('Peer on spoke:', peerAddress)
+
+// On spoke chain
+const mctOFT = await ethers.getContractAt('mct/MCTOFT', '<OFT_ADDRESS>')
+const peerAddress = await mctOFT.peers(HUB_EID)
+console.log('Peer on hub:', peerAddress)
 ```
 
 ---
