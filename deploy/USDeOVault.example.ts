@@ -1,0 +1,112 @@
+import { type DeployFunction } from 'hardhat-deploy/types'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
+
+/**
+ * Example deployment script for USDeOVault and MultiCollateralToken
+ *
+ * This script demonstrates how to deploy the USDe OVault system:
+ * 1. Deploy MultiCollateralToken (MCT) with initial supported assets
+ * 2. Deploy USDeOVault with MCT as underlying asset
+ * 3. Grant MINTER_ROLE to USDeOVault on MCT
+ *
+ * To use this script:
+ * 1. Rename to USDeOVault.ts
+ * 2. Update the configuration variables below
+ * 3. Run: npx hardhat deploy --network <your-network>
+ */
+
+// CONFIGURATION - UPDATE THESE VALUES
+const ADMIN_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Set admin address
+const INITIAL_SUPPORTED_ASSETS = [
+    // '0x...' // TODO: Add USDC address
+    // '0x...' // TODO: Add USDT address (optional)
+    // '0x...' // TODO: Add DAI address (optional)
+]
+const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M USDe (18 decimals)
+const MAX_REDEEM_PER_BLOCK = '1000000000000000000000000' // 1M USDe (18 decimals)
+
+const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
+    const { getNamedAccounts, deployments } = hre
+    const { deploy } = deployments
+    const { deployer } = await getNamedAccounts()
+
+    console.log('\n========================================')
+    console.log('Deploying USDe OVault System')
+    console.log('========================================\n')
+
+    // Validate configuration
+    if (ADMIN_ADDRESS === '0x0000000000000000000000000000000000000000') {
+        throw new Error('Please set ADMIN_ADDRESS in the deployment script')
+    }
+    if (INITIAL_SUPPORTED_ASSETS.length === 0) {
+        throw new Error('Please add at least one supported asset in INITIAL_SUPPORTED_ASSETS')
+    }
+
+    console.log('Deploying with account:', deployer)
+    console.log('Admin address:', ADMIN_ADDRESS)
+    console.log('Supported assets:', INITIAL_SUPPORTED_ASSETS)
+    console.log('')
+
+    // Step 1: Deploy MultiCollateralToken
+    console.log('1. Deploying MultiCollateralToken...')
+    const mctDeployment = await deploy('MultiCollateralToken', {
+        from: deployer,
+        args: [ADMIN_ADDRESS, INITIAL_SUPPORTED_ASSETS],
+        log: true,
+        waitConfirmations: 1,
+    })
+    console.log('   ✓ MultiCollateralToken deployed at:', mctDeployment.address)
+    console.log('')
+
+    // Step 2: Deploy USDeOVault
+    console.log('2. Deploying USDeOVault...')
+    const usdeDeployment = await deploy('USDeOVault', {
+        from: deployer,
+        args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
+        log: true,
+        waitConfirmations: 1,
+    })
+    console.log('   ✓ USDeOVault deployed at:', usdeDeployment.address)
+    console.log('')
+
+    // Step 3: Grant MINTER_ROLE to USDeOVault on MCT
+    console.log('3. Granting MINTER_ROLE to USDeOVault...')
+    const mct = await hre.ethers.getContractAt('MultiCollateralToken', mctDeployment.address)
+    const MINTER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('MINTER_ROLE'))
+
+    // Only grant role if deployer is admin or has permission
+    try {
+        const tx = await mct.grantRole(MINTER_ROLE, usdeDeployment.address)
+        await tx.wait()
+        console.log('   ✓ MINTER_ROLE granted to USDeOVault')
+    } catch (error) {
+        console.log('   ⚠ Could not grant MINTER_ROLE automatically')
+        console.log('   Please manually grant MINTER_ROLE to:', usdeDeployment.address)
+        console.log('   Call: mct.grantRole(MINTER_ROLE, usdeAddress) as admin')
+    }
+    console.log('')
+
+    // Deployment summary
+    console.log('========================================')
+    console.log('Deployment Summary')
+    console.log('========================================')
+    console.log('MultiCollateralToken:', mctDeployment.address)
+    console.log('USDeOVault:', usdeDeployment.address)
+    console.log('Admin:', ADMIN_ADDRESS)
+    console.log('Max Mint Per Block:', MAX_MINT_PER_BLOCK)
+    console.log('Max Redeem Per Block:', MAX_REDEEM_PER_BLOCK)
+    console.log('========================================\n')
+
+    // Next steps
+    console.log('Next Steps:')
+    console.log('1. Verify MINTER_ROLE was granted to USDeOVault')
+    console.log('2. (Optional) Add more supported assets via MCT.addSupportedAsset()')
+    console.log('3. (Optional) Grant COLLATERAL_MANAGER_ROLE to team members')
+    console.log('4. (Optional) Grant GATEKEEPER_ROLE to emergency responders')
+    console.log('5. Test mint/redeem functionality')
+    console.log('6. (Optional) Deploy OVault adapters for omnichain functionality\n')
+}
+
+export default deployUSDeOVault
+
+deployUSDeOVault.tags = ['USDeOVault', 'MCT', 'MultiCollateralToken']
