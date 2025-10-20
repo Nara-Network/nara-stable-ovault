@@ -78,7 +78,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     // Step 1: Deploy MultiCollateralToken
     console.log('1. Deploying MultiCollateralToken...')
     const mctDeployment = await deploy('MultiCollateralToken', {
-        contract: 'mct/MultiCollateralToken',
+        contract: 'contracts/mct/MultiCollateralToken.sol:MultiCollateralToken',
         from: deployer,
         args: [ADMIN_ADDRESS, [ARBITRUM_SEPOLIA_USDC]],
         log: true,
@@ -90,7 +90,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     // Step 2: Deploy USDe
     console.log('2. Deploying USDe...')
     const usdeDeployment = await deploy('USDe', {
-        contract: 'usde/USDe',
+        contract: 'contracts/usde/USDe.sol:USDe',
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
@@ -101,7 +101,10 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 3: Grant MINTER_ROLE to USDe
     console.log('3. Granting MINTER_ROLE to USDe...')
-    const mct = await hre.ethers.getContractAt('mct/MultiCollateralToken', mctDeployment.address)
+    const mct = await hre.ethers.getContractAt(
+        'contracts/mct/MultiCollateralToken.sol:MultiCollateralToken',
+        mctDeployment.address
+    )
     const MINTER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('MINTER_ROLE'))
 
     try {
@@ -124,7 +127,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     // Step 4: Deploy StakedUSDe
     console.log('4. Deploying StakedUSDe...')
     const stakedUsdeDeployment = await deploy('StakedUSDe', {
-        contract: 'staked-usde/StakedUSDe',
+        contract: 'contracts/staked-usde/StakedUSDe.sol:StakedUSDe',
         from: deployer,
         args: [
             usdeDeployment.address, // USDe token
@@ -140,7 +143,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     // Step 5: Deploy StakingRewardsDistributor
     console.log('5. Deploying StakingRewardsDistributor...')
     const distributorDeployment = await deploy('StakingRewardsDistributor', {
-        contract: 'staked-usde/StakingRewardsDistributor',
+        contract: 'contracts/staked-usde/StakingRewardsDistributor.sol:StakingRewardsDistributor',
         from: deployer,
         args: [
             stakedUsdeDeployment.address, // StakedUSDe vault
@@ -156,7 +159,10 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 6: Grant roles to StakedUSDe
     console.log('6. Granting roles to StakedUSDe contracts...')
-    const stakedUsde = await hre.ethers.getContractAt('staked-usde/StakedUSDe', stakedUsdeDeployment.address)
+    const stakedUsde = await hre.ethers.getContractAt(
+        'contracts/staked-usde/StakedUSDe.sol:StakedUSDe',
+        stakedUsdeDeployment.address
+    )
     const REWARDER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('REWARDER_ROLE'))
     const BLACKLIST_MANAGER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('BLACKLIST_MANAGER_ROLE'))
 
