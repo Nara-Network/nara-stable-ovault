@@ -2,12 +2,12 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 /**
- * Example deployment script for USDeOVault and MultiCollateralToken
- *
+ * Example deployment script for USDe and MultiCollateralToken
+ * 
  * This script demonstrates how to deploy the USDe OVault system:
  * 1. Deploy MultiCollateralToken (MCT) with initial supported assets
- * 2. Deploy USDeOVault with MCT as underlying asset
- * 3. Grant MINTER_ROLE to USDeOVault on MCT
+ * 2. Deploy USDe with MCT as underlying asset
+ * 3. Grant MINTER_ROLE to USDe on MCT
  *
  * To use this script:
  * 1. Rename to USDeOVault.ts
@@ -58,19 +58,19 @@ const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('   ✓ MultiCollateralToken deployed at:', mctDeployment.address)
     console.log('')
 
-    // Step 2: Deploy USDeOVault
-    console.log('2. Deploying USDeOVault...')
-    const usdeDeployment = await deploy('USDeOVault', {
+    // Step 2: Deploy USDe
+    console.log('2. Deploying USDe...')
+    const usdeDeployment = await deploy('USDe', {
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
         waitConfirmations: 1,
     })
-    console.log('   ✓ USDeOVault deployed at:', usdeDeployment.address)
+    console.log('   ✓ USDe deployed at:', usdeDeployment.address)
     console.log('')
 
-    // Step 3: Grant MINTER_ROLE to USDeOVault on MCT
-    console.log('3. Granting MINTER_ROLE to USDeOVault...')
+    // Step 3: Grant MINTER_ROLE to USDe on MCT
+    console.log('3. Granting MINTER_ROLE to USDe...')
     const mct = await hre.ethers.getContractAt('MultiCollateralToken', mctDeployment.address)
     const MINTER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('MINTER_ROLE'))
 
@@ -78,7 +78,7 @@ const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     try {
         const tx = await mct.grantRole(MINTER_ROLE, usdeDeployment.address)
         await tx.wait()
-        console.log('   ✓ MINTER_ROLE granted to USDeOVault')
+        console.log('   ✓ MINTER_ROLE granted to USDe')
     } catch (error) {
         console.log('   ⚠ Could not grant MINTER_ROLE automatically')
         console.log('   Please manually grant MINTER_ROLE to:', usdeDeployment.address)
@@ -91,7 +91,7 @@ const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('Deployment Summary')
     console.log('========================================')
     console.log('MultiCollateralToken:', mctDeployment.address)
-    console.log('USDeOVault:', usdeDeployment.address)
+    console.log('USDe:', usdeDeployment.address)
     console.log('Admin:', ADMIN_ADDRESS)
     console.log('Max Mint Per Block:', MAX_MINT_PER_BLOCK)
     console.log('Max Redeem Per Block:', MAX_REDEEM_PER_BLOCK)
@@ -99,7 +99,7 @@ const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Next steps
     console.log('Next Steps:')
-    console.log('1. Verify MINTER_ROLE was granted to USDeOVault')
+    console.log('1. Verify MINTER_ROLE was granted to USDe')
     console.log('2. (Optional) Add more supported assets via MCT.addSupportedAsset()')
     console.log('3. (Optional) Grant COLLATERAL_MANAGER_ROLE to team members')
     console.log('4. (Optional) Grant GATEKEEPER_ROLE to emergency responders')
@@ -109,4 +109,4 @@ const deployUSDeOVault: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
 export default deployUSDeOVault
 
-deployUSDeOVault.tags = ['USDeOVault', 'MCT', 'MultiCollateralToken']
+deployUSDeOVault.tags = ['USDe', 'MCT', 'MultiCollateralToken']

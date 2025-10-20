@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
- * @title IUSDeOVault
- * @notice Interface for the USDeOVault contract
+ * @title IUSDe
+ * @notice Interface for the USDe contract
  */
-interface IUSDeOVault is IERC4626, IERC20Permit {
+interface IUSDe is IERC4626, IERC20Permit {
     /* --------------- ENUMS --------------- */
 
     enum DelegatedSignerStatus {

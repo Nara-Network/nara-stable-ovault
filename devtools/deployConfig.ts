@@ -35,36 +35,37 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'MyERC4626',
-            shareAdapter: 'MyShareOFTAdapter',
-            composer: 'MyOVaultComposer',
+            vault: 'USDe',
+            shareAdapter: 'USDeOFTAdapter',
+            composer: 'USDeComposer',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         // This will skip deployment and use your existing hubEid contract deployments instead
-        // This must be the address of the ERC4626 vault
+        // This must be the address of the USDe (ERC4626 vault)
         vaultAddress: undefined, // Set to '0xabc...' to use existing vault
-        // This must be the address of the asset OFT (not all OFT addresses are the same as the ERC20 contract)
-        assetOFTAddress: undefined, // Set to '0xdef...' to use existing asset OFT
-        // This must be the address of the ShareOFTAdapter
-        shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing ShareOFTAdapter
+        // This must be the address of the MCT OFT adapter (not MCT itself - use the OFT adapter address)
+        assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
+        // This must be the address of the USDeOFTAdapter
+        shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
     },
 
-    // Share OFT configuration (only on spoke chains)
+    // Share OFT configuration (USDe shares on spoke chains)
     shareOFT: {
-        contract: 'MyShareOFT',
+        contract: 'USDeOFT',
         metadata: {
-            name: 'MyShareOFT',
-            symbol: 'SHARE',
+            name: 'USDe',
+            symbol: 'USDe',
         },
         deploymentEids: _spokeEids,
     },
 
-    // Asset OFT configuration (deployed on specified chains OR use existing address)
+    // Asset OFT configuration (MCT on hub and spoke chains)
+    // Hub uses MCTOFTAdapter (lockbox), spokes use MCTOFT (mint/burn)
     assetOFT: {
-        contract: 'MyAssetOFT',
+        contract: 'MCTOFT', // On spokes: MCTOFT, On hub: MCTOFTAdapter (handled in deploy script)
         metadata: {
-            name: 'MyAssetOFT',
-            symbol: 'ASSET',
+            name: 'MultiCollateralToken',
+            symbol: 'MCT',
         },
         deploymentEids: [_hubEid, ..._spokeEids],
     },

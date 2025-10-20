@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./MultiCollateralToken.sol";
 
 /**
- * @title USDeOVault
+ * @title USDe
  * @notice Omnichain vault version of USDe with integrated minting functionality
  * @dev This contract combines ERC4626 vault with direct collateral minting
  * - Underlying asset: MCT (MultiCollateralToken)
@@ -19,7 +19,7 @@ import "./MultiCollateralToken.sol";
  * - Users can mint by depositing collateral (USDC, etc.)
  * - Collateral is converted to MCT, then USDe shares are minted
  */
-contract USDeOVault is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
+contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
