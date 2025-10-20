@@ -151,12 +151,6 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('5. Test rewards: distributor.transferInRewards() (as operator)')
     console.log('6. (Optional) Deploy StakedUSDeOFTAdapter for omnichain sUSDe')
     console.log('7. (Optional) Deploy StakedUSDeOFT on spoke chains\n')
-
-    // Save deployment info
-    return {
-        stakedUSDe: stakedUsdeAddress,
-        stakingRewardsDistributor: distributorDeployment.address,
-    }
 }
 
 export default deployStakedUSDe
