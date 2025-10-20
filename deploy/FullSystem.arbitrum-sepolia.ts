@@ -80,7 +80,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const mctDeployment = await deploy('MultiCollateralToken', {
         contract: 'mct/MultiCollateralToken',
         from: deployer,
-        args: [ADMIN_ADDRESS, [SEPOLIA_USDC]],
+        args: [ADMIN_ADDRESS, [ARBITRUM_SEPOLIA_USDC]],
         log: true,
         waitConfirmations: 1,
     })
