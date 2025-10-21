@@ -127,6 +127,13 @@ const deploy: DeployFunction = async (hre) => {
         })
         deployedContracts.usdeOFT = usdeOFT.address
         console.log(`   ✓ USDeOFT deployed at: ${usdeOFT.address}`)
+
+        // Deploy StakingSpokeHelper for single-transaction cross-chain staking
+        console.log('   → Deploying StakingSpokeHelper (optional, for better UX)...')
+        console.log('   ℹ️  StakingSpokeHelper enables single-transaction cross-chain staking')
+        console.log('   ℹ️  Use dedicated script after hub deployment:')
+        console.log('   ℹ️  npx hardhat deploy --network base-sepolia --tags spoke-helper')
+        console.log('   ⏭️  Skipping for now (use dedicated deployment script)')
     } else if (DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && !isVaultChain(networkEid)) {
         console.log('⏭️  Skipping share OFT deployment (existing mesh)')
     }
