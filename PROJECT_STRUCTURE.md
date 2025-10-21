@@ -114,6 +114,7 @@ Deposit USDC → Mint MCT → Receive USDe → Transfer cross-chain
 - `StakingRewardsDistributor.sol`: Automated rewards helper
 - `StakedUSDeOFTAdapter.sol`: Hub chain bridge (lockbox model)
 - `StakedUSDeOFT.sol`: Spoke chain representation (mint/burn model)
+- `StakedUSDeComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
 
 **Key Features**:
 
@@ -122,6 +123,7 @@ Deposit USDC → Mint MCT → Receive USDe → Transfer cross-chain
 - Blacklist system (soft & full restrictions)
 - Minimum shares protection (1 ether)
 - Cross-chain sUSDe transfers
+- **Cross-chain staking from any spoke chain** ⭐ NEW (mirrors Ethena)
 - Automated rewards distribution
 
 **Roles**:

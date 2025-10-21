@@ -189,6 +189,11 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         console.log('   Please manually grant roles as admin')
     }
     console.log('')
+    console.log('ℹ️  Note: Cross-chain functionality (OVault Composers)')
+    console.log('   USDeComposer and StakedUSDeComposer are deployed separately')
+    console.log('   Run: npx hardhat deploy --network arbitrum-sepolia --tags ovault')
+    console.log('   This enables cross-chain minting and staking operations')
+    console.log('')
 
     // ========================================
     // DEPLOYMENT SUMMARY
@@ -253,10 +258,22 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('   - Call distributor.transferInRewards(amount) as operator')
     console.log('')
 
-    console.log('5️⃣  Optional - Deploy OFT Adapters for Cross-Chain:')
-    console.log('   - Deploy MCTOFTAdapter, USDeOFTAdapter, StakedUSDeOFTAdapter')
-    console.log('   - Deploy OFTs on spoke chains')
-    console.log('   - Configure LayerZero peers')
+    console.log('5️⃣  Deploy OFT Infrastructure for Cross-Chain:')
+    console.log('   npx hardhat deploy --network arbitrum-sepolia --tags ovault')
+    console.log('   npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft')
+    console.log('   This deploys:')
+    console.log('   - MCTOFTAdapter, USDeOFTAdapter, USDeComposer (for USDe)')
+    console.log('   - StakedUSDeOFTAdapter, StakedUSDeComposer (for sUSDe)')
+    console.log('')
+
+    console.log('6️⃣  Deploy on Spoke Chains:')
+    console.log('   npx hardhat deploy --network optimism-sepolia --tags ovault')
+    console.log('   npx hardhat deploy --network base-sepolia --tags ovault')
+    console.log('   npx hardhat deploy --network sepolia --tags ovault')
+    console.log('')
+
+    console.log('7️⃣  Wire LayerZero Peers:')
+    console.log('   npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts')
     console.log('')
 
     console.log('========================================\n')

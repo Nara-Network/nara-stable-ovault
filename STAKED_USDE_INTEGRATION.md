@@ -8,7 +8,8 @@ The StakedUSDe system allows users to stake USDe tokens and earn rewards. The im
 
 1. **StakedUSDe**: ERC4626 vault that accepts USDe and issues sUSDe shares
 2. **StakingRewardsDistributor**: Automated rewards distribution without multisig transactions
-3. **Cross-chain functionality**: OFT adapters for omnichain sUSDe transfers
+3. **StakedUSDeComposer**: Cross-chain staking operations (mirrors Ethena's implementation)
+4. **Cross-chain functionality**: OFT adapters for omnichain sUSDe transfers
 
 ## Architecture
 
@@ -29,6 +30,12 @@ The StakedUSDe system allows users to stake USDe tokens and earn rewards. The im
 - **StakedUSDeOFTAdapter.sol**: OFT adapter for hub chain
   - Lockbox model for sUSDe
   - Enables cross-chain transfers
+
+- **StakedUSDeComposer.sol**: Cross-chain staking composer
+  - Enables staking from any spoke chain
+  - Single transaction user experience
+  - Mirrors Ethena's production implementation
+  - Uses LayerZero for cross-chain messaging
 
 ### Spoke Chain Contracts
 
@@ -94,7 +101,50 @@ stakedUSDe.redeem(shares, userAddress, userAddress);
 stakedUSDe.withdraw(assets, userAddress, userAddress);
 ```
 
-### Flow 3: Transfer sUSDe Cross-Chain
+### Flow 3: Cross-Chain Staking (via Composer) ⭐ NEW
+
+**Mirrors Ethena's production implementation** - stake from any spoke chain!
+
+```solidity
+// User on Base Sepolia with USDe wants sUSDe on Base
+// Single transaction, wait for LayerZero settlement (~1-5 mins)
+
+const stakedComposer = await ethers.getContractAt(
+    "StakedUSDeComposer",
+    STAKED_COMPOSER_ADDRESS
+);
+
+// Get quote for cross-chain operation
+const fee = await stakedComposer.quoteDeposit({
+    dstEid: BASE_EID,  // Where to receive sUSDe
+    // ... other params
+});
+
+// Approve USDe
+await usde.approve(stakedComposer.address, amount);
+
+// Single transaction: Bridge USDe → Stake → Bridge sUSDe back
+await stakedComposer.depositRemote(
+    amount,
+    userAddress,
+    BASE_EID,
+    { value: fee.nativeFee }
+);
+
+// Wait for LayerZero settlement
+// User receives sUSDe on Base Sepolia! ✅
+```
+
+**Behind the scenes:**
+
+1. USDe bridged from Base → Arbitrum (hub)
+2. USDe staked on Arbitrum → receives sUSDe
+3. sUSDe bridged from Arbitrum → Base
+4. User receives sUSDe on Base
+
+**Same UX as Ethena production!** 🎉
+
+### Flow 4: Transfer sUSDe Cross-Chain
 
 ```solidity
 // User on Spoke Chain A transfers sUSDe to Spoke Chain B
@@ -111,7 +161,7 @@ const sendParam = {
 await sUsdeOFT.send(sendParam, { value: nativeFee });
 ```
 
-### Flow 4: Automated Rewards Distribution
+### Flow 5: Automated Rewards Distribution
 
 ```solidity
 // Operator (bot) calls distributor
