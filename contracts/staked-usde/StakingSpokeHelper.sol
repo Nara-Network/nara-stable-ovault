@@ -26,6 +26,7 @@ import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Opti
 contract StakingSpokeHelper is Ownable {
     using SafeERC20 for IERC20;
     using OFTComposeMsgCodec for bytes;
+    using OptionsBuilder for bytes;
 
     /* --------------- ERRORS --------------- */
 
@@ -97,17 +98,30 @@ contract StakingSpokeHelper is Ownable {
         // Transfer USDe from user to this contract
         IERC20(usdeOFT).safeTransferFrom(msg.sender, address(this), amount);
 
-        // Approve USDe OFT to spend
-        IERC20(usdeOFT).forceApprove(usdeOFT, amount);
+        // No approval needed - OFT.send() will burn tokens directly from this contract
 
         // Encode compose message for StakedUSDeComposer
-        // Format: depositRemote(dstEid, minSharesLD, to, extraOptions)
-        bytes memory composeMsg = abi.encode(
-            dstEid, // Where to send sUSDe
-            minSharesLD, // Minimum shares (slippage protection)
-            to, // Recipient of sUSDe
-            extraOptions // Options for sUSDe return transfer
-        );
+        // Format: SendParam for the return trip (sUSDe back to Base)
+        SendParam memory returnSendParam = SendParam({
+            dstEid: dstEid, // Where to send sUSDe back
+            to: to, // Recipient of sUSDe
+            amountLD: 0, // Composer will fill this with actual sUSDe amount
+            minAmountLD: minSharesLD, // Minimum shares (slippage protection)
+            extraOptions: extraOptions, // Options for sUSDe return transfer
+            composeMsg: bytes(""), // No nested compose
+            oftCmd: bytes("") // No OFT command
+        });
+
+        bytes memory composeMsg = abi.encode(returnSendParam);
+
+        // Build LayerZero options with compose execution
+        // Need to specify:
+        // 1. Gas for lzReceive (receiving USDe on hub)
+        // 2. Gas + value for lzCompose (staking + sending sUSDe back)
+        bytes memory lzOptions = OptionsBuilder
+            .newOptions()
+            .addExecutorLzReceiveOption(200_000, 0)
+            .addExecutorLzComposeOption(0, 800_000, uint128((msg.value * 30) / 100)); // Gas for receiving USDe // Gas + value for compose
 
         // Prepare send parameters
         SendParam memory sendParam = SendParam({
@@ -115,7 +129,7 @@ contract StakingSpokeHelper is Ownable {
             to: _addressToBytes32(composerOnHub), // Send to composer on hub
             amountLD: amount,
             minAmountLD: (amount * 99) / 100, // 1% slippage for bridge
-            extraOptions: bytes(""), // Hub-side execution options
+            extraOptions: lzOptions, // LayerZero execution options
             composeMsg: composeMsg, // Trigger composer
             oftCmd: bytes("") // No OFT command needed
         });
@@ -150,14 +164,32 @@ contract StakingSpokeHelper is Ownable {
         bytes calldata extraOptions,
         bool payInLzToken
     ) external view returns (MessagingFee memory fee) {
-        bytes memory composeMsg = abi.encode(dstEid, minSharesLD, to, extraOptions);
+        // Same format as stakeRemote
+        SendParam memory returnSendParam = SendParam({
+            dstEid: dstEid,
+            to: to,
+            amountLD: 0,
+            minAmountLD: minSharesLD,
+            extraOptions: extraOptions,
+            composeMsg: bytes(""),
+            oftCmd: bytes("")
+        });
+
+        bytes memory composeMsg = abi.encode(returnSendParam);
+
+        // Build same options as stakeRemote (but can't use msg.value in view function)
+        // Estimate 30% of the fee will be used for compose value
+        bytes memory lzOptions = OptionsBuilder
+            .newOptions()
+            .addExecutorLzReceiveOption(200_000, 0)
+            .addExecutorLzComposeOption(0, 800_000, 0.001 ether); // Estimate for compose value
 
         SendParam memory sendParam = SendParam({
             dstEid: hubEid,
             to: _addressToBytes32(composerOnHub),
             amountLD: amount,
             minAmountLD: (amount * 99) / 100,
-            extraOptions: bytes(""),
+            extraOptions: lzOptions,
             composeMsg: composeMsg,
             oftCmd: bytes("")
         });
