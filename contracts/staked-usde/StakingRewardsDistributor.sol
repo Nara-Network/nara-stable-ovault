@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "./StakedUSDe.sol";
+import "../interfaces/usde/IUSDe.sol";
 
 /**
  * @title StakingRewardsDistributor
@@ -31,7 +32,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     StakedUSDe public immutable STAKING_VAULT;
 
     /// @notice USDe token
-    IERC20 public immutable USDE_TOKEN;
+    IUSDe public immutable USDE_TOKEN;
 
     /* --------------- STATE VARIABLES --------------- */
 
@@ -61,7 +62,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
      * @param _admin The admin address (multisig)
      * @param _operator The operator address (delegated signer)
      */
-    constructor(StakedUSDe _stakingVault, IERC20 _usde, address _admin, address _operator) Ownable(msg.sender) {
+    constructor(StakedUSDe _stakingVault, IUSDe _usde, address _admin, address _operator) Ownable(msg.sender) {
         if (address(_stakingVault) == address(0)) revert InvalidZeroAddress();
         if (address(_usde) == address(0)) revert InvalidZeroAddress();
         if (_admin == address(0)) revert InvalidZeroAddress();

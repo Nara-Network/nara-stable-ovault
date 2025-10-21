@@ -174,4 +174,6 @@ interface IUSDe is IERC4626, IERC20Permit {
      * @return DelegatedSignerStatus The status
      */
     function delegatedSigner(address signer, address delegatedBy) external view returns (DelegatedSignerStatus);
+
+    function safeIncreaseAllowance(address spender, uint256 amount) external;
 }
