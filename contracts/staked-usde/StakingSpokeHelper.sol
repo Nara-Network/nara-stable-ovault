@@ -112,7 +112,13 @@ contract StakingSpokeHelper is Ownable {
             oftCmd: bytes("") // No OFT command
         });
 
-        bytes memory composeMsg = abi.encode(returnSendParam);
+        // Calculate minimum msg.value needed for compose execution
+        // This covers the cost of bridging sUSDe back to destination
+        uint256 minMsgValue = (msg.value * 70) / 100; // 70% of fee for return trip
+
+        // Encode compose message with SendParam and minMsgValue
+        // VaultComposerSync expects: (SendParam, uint256)
+        bytes memory composeMsg = abi.encode(returnSendParam, minMsgValue);
 
         // Build LayerZero options with compose execution
         // Need to specify:
