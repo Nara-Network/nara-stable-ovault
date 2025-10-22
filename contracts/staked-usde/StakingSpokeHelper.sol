@@ -112,22 +112,25 @@ contract StakingSpokeHelper is Ownable {
             oftCmd: bytes("") // No OFT command
         });
 
-        // Calculate minimum msg.value needed for compose execution
-        // This covers the cost of bridging sUSDe back to destination
-        uint256 minMsgValue = (msg.value * 70) / 100; // 70% of fee for return trip
+        // Use a fixed compose value for the return trip (sUSDe back to spoke)
+        // This MUST match the value used in quoteStakeRemote for accurate quotes
+        // 0.03 ETH is enough for the return trip on testnets
+        uint256 composeValue = 0.03 ether;
 
         // Encode compose message with SendParam and minMsgValue
         // VaultComposerSync expects: (SendParam, uint256)
-        bytes memory composeMsg = abi.encode(returnSendParam, minMsgValue);
+        // minMsgValue tells composer how much it should allocate for the return trip
+        bytes memory composeMsg = abi.encode(returnSendParam, composeValue);
 
         // Build LayerZero options with compose execution
         // Need to specify:
         // 1. Gas for lzReceive (receiving USDe on hub)
         // 2. Gas + value for lzCompose (staking + sending sUSDe back)
+        // The composeValue is ACTUAL ETH that will be forwarded to composer
         bytes memory lzOptions = OptionsBuilder
             .newOptions()
             .addExecutorLzReceiveOption(200_000, 0)
-            .addExecutorLzComposeOption(0, 800_000, uint128((msg.value * 30) / 100)); // Gas for receiving USDe // Gas + value for compose
+            .addExecutorLzComposeOption(0, 800_000, uint128(composeValue));
 
         // Prepare send parameters
         SendParam memory sendParam = SendParam({
@@ -145,7 +148,7 @@ contract StakingSpokeHelper is Ownable {
         // 1. Bridging USDe to hub
         // 2. Executing compose message on hub
         // 3. Bridging sUSDe back to destination
-        receipt = _sendOFT(sendParam, msg.value);
+        receipt = _sendOFT(sendParam, msg.value, msg.sender);
 
         emit StakingInitiated(msg.sender, amount, dstEid, to, msg.value);
 
@@ -181,14 +184,17 @@ contract StakingSpokeHelper is Ownable {
             oftCmd: bytes("")
         });
 
-        bytes memory composeMsg = abi.encode(returnSendParam);
+        // Use the SAME fixed compose value as stakeRemote for accurate quotes
+        uint256 composeValue = 0.03 ether;
 
-        // Build same options as stakeRemote (but can't use msg.value in view function)
-        // Estimate 30% of the fee will be used for compose value
+        // Include minMsgValue in compose message (same as stakeRemote)
+        bytes memory composeMsg = abi.encode(returnSendParam, composeValue);
+
+        // Build EXACT same options as stakeRemote
         bytes memory lzOptions = OptionsBuilder
             .newOptions()
             .addExecutorLzReceiveOption(200_000, 0)
-            .addExecutorLzComposeOption(0, 800_000, 0.001 ether); // Estimate for compose value
+            .addExecutorLzComposeOption(0, 800_000, uint128(composeValue));
 
         SendParam memory sendParam = SendParam({
             dstEid: hubEid,
@@ -221,11 +227,13 @@ contract StakingSpokeHelper is Ownable {
      * @notice Internal function to send via OFT
      * @param sendParam The send parameters
      * @param nativeFee The native fee amount
+     * @param refundAddress Address to receive excess ETH refunds
      * @return receipt The messaging receipt
      */
     function _sendOFT(
         SendParam memory sendParam,
-        uint256 nativeFee
+        uint256 nativeFee,
+        address refundAddress
     ) internal returns (MessagingReceipt memory receipt) {
         MessagingFee memory fee = MessagingFee({ nativeFee: nativeFee, lzTokenFee: 0 });
 
@@ -234,7 +242,7 @@ contract StakingSpokeHelper is Ownable {
                 "send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)",
                 sendParam,
                 fee,
-                address(this) // refund address
+                refundAddress // Refund excess ETH to user
             )
         );
 
