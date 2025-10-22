@@ -127,6 +127,13 @@ const deploy: DeployFunction = async (hre) => {
         })
         deployedContracts.usdeOFT = usdeOFT.address
         console.log(`   ✓ USDeOFT deployed at: ${usdeOFT.address}`)
+
+        // Deploy StakingSpokeHelper for single-transaction cross-chain staking
+        console.log('   → Deploying StakingSpokeHelper (optional, for better UX)...')
+        console.log('   ℹ️  StakingSpokeHelper enables single-transaction cross-chain staking')
+        console.log('   ℹ️  Use dedicated script after hub deployment:')
+        console.log('   ℹ️  npx hardhat deploy --network base-sepolia --tags spoke-helper')
+        console.log('   ⏭️  Skipping for now (use dedicated deployment script)')
     } else if (DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && !isVaultChain(networkEid)) {
         console.log('⏭️  Skipping share OFT deployment (existing mesh)')
     }
@@ -186,6 +193,45 @@ const deploy: DeployFunction = async (hre) => {
         })
         deployedContracts.composer = composer.address
         console.log(`   ✓ USDeComposer deployed at: ${composer.address}`)
+
+        // Deploy StakedUSDeComposer (cross-chain staking operations)
+        console.log('   → Deploying StakedUSDeComposer...')
+
+        // Get StakedUSDe address
+        let stakedUsdeAddress: string
+        try {
+            const stakedUsde = await hre.deployments.get('StakedUSDe')
+            stakedUsdeAddress = stakedUsde.address
+        } catch (error) {
+            console.log('   ⚠️  StakedUSDe not found, skipping StakedUSDeComposer')
+            console.log('   ℹ️  Deploy StakedUSDe first if you need cross-chain staking')
+            return
+        }
+
+        // Get StakedUSDeOFTAdapter address
+        let stakedUsdeAdapterAddress: string
+        try {
+            const adapter = await hre.deployments.get('StakedUSDeOFTAdapter')
+            stakedUsdeAdapterAddress = adapter.address
+        } catch (error) {
+            console.log('   ⚠️  StakedUSDeOFTAdapter not found, skipping StakedUSDeComposer')
+            console.log('   ℹ️  Run: npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft')
+            return
+        }
+
+        const stakedComposer = await deployments.deploy('StakedUSDeComposer', {
+            contract: 'contracts/staked-usde/StakedUSDeComposer.sol:StakedUSDeComposer',
+            from: deployer,
+            args: [
+                stakedUsdeAddress, // StakedUSDe vault
+                usdeAdapter.address, // USDe OFT adapter (asset)
+                stakedUsdeAdapterAddress, // sUSDe OFT adapter (share)
+            ],
+            log: true,
+            skipIfAlreadyDeployed: true,
+        })
+        deployedContracts.stakedComposer = stakedComposer.address
+        console.log(`   ✓ StakedUSDeComposer deployed at: ${stakedComposer.address}`)
     }
 
     // ========================================

@@ -8,7 +8,8 @@ The StakedUSDe system allows users to stake USDe tokens and earn rewards. The im
 
 1. **StakedUSDe**: ERC4626 vault that accepts USDe and issues sUSDe shares
 2. **StakingRewardsDistributor**: Automated rewards distribution without multisig transactions
-3. **Cross-chain functionality**: OFT adapters for omnichain sUSDe transfers
+3. **StakedUSDeComposer**: Cross-chain staking operations (mirrors Ethena's implementation)
+4. **Cross-chain functionality**: OFT adapters for omnichain sUSDe transfers
 
 ## Architecture
 
@@ -29,6 +30,18 @@ The StakedUSDe system allows users to stake USDe tokens and earn rewards. The im
 - **StakedUSDeOFTAdapter.sol**: OFT adapter for hub chain
   - Lockbox model for sUSDe
   - Enables cross-chain transfers
+
+- **StakedUSDeComposer.sol**: Cross-chain staking composer
+  - Enables staking from any spoke chain
+  - Deployed on hub chain only
+  - Handles stake + bridge back logic
+  - Uses LayerZero for cross-chain messaging
+
+- **StakingSpokeHelper.sol**: Spoke-side helper contract ⭐ NEW
+  - Deployed on each spoke chain
+  - Enables TRUE single-transaction staking from spoke
+  - Users never leave their preferred chain
+  - Sends compose message to trigger composer on hub
 
 ### Spoke Chain Contracts
 
@@ -94,7 +107,84 @@ stakedUSDe.redeem(shares, userAddress, userAddress);
 stakedUSDe.withdraw(assets, userAddress, userAddress);
 ```
 
-### Flow 3: Transfer sUSDe Cross-Chain
+### Flow 3A: Cross-Chain Staking via Spoke Helper (Recommended) ⭐ NEW
+
+**TRUE single-transaction cross-chain staking - mirrors Ethena's production!**
+
+```solidity
+// User stays on Base Sepolia - NO NETWORK SWITCH!
+const stakingHelper = await ethers.getContractAt(
+    "StakingSpokeHelper",
+    STAKING_HELPER_BASE
+);
+
+// Get fee quote
+const fee = await stakingHelper.quoteStakeRemote(
+    amount,
+    BASE_EID,  // Where to receive sUSDe
+    addressToBytes32(userAddress),
+    minShares,
+    "0x",      // Extra options
+    false      // Pay in native
+);
+
+// Approve USDe on Base
+await usde.approve(stakingHelper.address, amount);
+
+// Single transaction: Everything happens automatically!
+await stakingHelper.stakeRemote(
+    amount,
+    BASE_EID,  // Receive sUSDe on Base
+    addressToBytes32(userAddress),
+    minShares,
+    "0x",      // Extra options
+    { value: fee.nativeFee }
+);
+
+// Wait for LayerZero settlement (~1-5 mins)
+// User receives sUSDe on Base Sepolia! ✅
+```
+
+**Behind the scenes:**
+
+1. Helper takes USDe from user on Base
+2. Bridges USDe to Arbitrum (hub) with compose message
+3. Compose message triggers StakedUSDeComposer on Arbitrum
+4. Composer stakes USDe → receives sUSDe
+5. Composer bridges sUSDe back to Base
+6. User receives sUSDe on Base
+
+**Benefits:**
+
+- ✅ TRUE single transaction
+- ✅ NO network switching required
+- ✅ Same UX as Ethena production!
+- ✅ Works from any spoke chain
+
+### Flow 3B: Cross-Chain Staking via Composer (Alternative)
+
+**Alternative: Call composer on hub (requires network switch)**
+
+```solidity
+// User switches to Arbitrum Sepolia
+const stakedComposer = await ethers.getContractAt(
+    "StakedUSDeComposer",
+    STAKED_COMPOSER_ARBITRUM
+);
+
+// Approve USDe on Arbitrum
+await usde.approve(stakedComposer.address, amount);
+
+// Stake and send sUSDe back to Base
+await stakedComposer.depositRemote(
+    amount,
+    userAddress,
+    BASE_EID, // Send sUSDe to Base
+    { value: fee.nativeFee }
+);
+```
+
+### Flow 4: Transfer sUSDe Cross-Chain
 
 ```solidity
 // User on Spoke Chain A transfers sUSDe to Spoke Chain B
@@ -111,7 +201,7 @@ const sendParam = {
 await sUsdeOFT.send(sendParam, { value: nativeFee });
 ```
 
-### Flow 4: Automated Rewards Distribution
+### Flow 5: Automated Rewards Distribution
 
 ```solidity
 // Operator (bot) calls distributor
