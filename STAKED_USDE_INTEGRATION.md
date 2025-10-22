@@ -36,12 +36,7 @@ The StakedUSDe system allows users to stake USDe tokens and earn rewards. The im
   - Deployed on hub chain only
   - Handles stake + bridge back logic
   - Uses LayerZero for cross-chain messaging
-
-- **StakingSpokeHelper.sol**: Spoke-side helper contract ⭐ NEW
-  - Deployed on each spoke chain
-  - Enables TRUE single-transaction staking from spoke
-  - Users never leave their preferred chain
-  - Sends compose message to trigger composer on hub
+  - Triggered via compose messages from OFT.send()
 
 ### Spoke Chain Contracts
 
@@ -107,38 +102,60 @@ stakedUSDe.redeem(shares, userAddress, userAddress);
 stakedUSDe.withdraw(assets, userAddress, userAddress);
 ```
 
-### Flow 3A: Cross-Chain Staking via Spoke Helper (Recommended) ⭐ NEW
+### Flow 3A: Cross-Chain Staking via Compose Message (Recommended) ⭐
 
-**TRUE single-transaction cross-chain staking - mirrors Ethena's production!**
+**TRUE single-transaction cross-chain staking - using LayerZero SDK!**
 
-```solidity
+```typescript
 // User stays on Base Sepolia - NO NETWORK SWITCH!
-const stakingHelper = await ethers.getContractAt(
-    "StakingSpokeHelper",
-    STAKING_HELPER_BASE
+import { Options } from "@layerzerolabs/lz-v2-utilities";
+
+// Build compose message for return trip
+const returnSendParam = {
+  dstEid: BASE_EID, // Receive sUSDe back on Base
+  to: addressToBytes32(userAddress),
+  amountLD: 0, // Composer will fill with sUSDe amount
+  minAmountLD: minShares, // Slippage protection
+  extraOptions: "0x",
+  composeMsg: "0x",
+  oftCmd: "0x",
+};
+
+const composeValue = ethers.parseEther("0.03"); // ETH for return trip
+const composeMsg = ethers.AbiCoder.defaultAbiCoder().encode(
+  ["tuple(uint32,bytes32,uint256,uint256,bytes,bytes,bytes)", "uint256"],
+  [returnSendParam, composeValue],
 );
 
-// Get fee quote
-const fee = await stakingHelper.quoteStakeRemote(
-    amount,
-    BASE_EID,  // Where to receive sUSDe
-    addressToBytes32(userAddress),
-    minShares,
-    "0x",      // Extra options
-    false      // Pay in native
-);
+// Build LayerZero options
+const lzOptions = Options.newOptions()
+  .addExecutorLzReceiveOption(200_000, 0)
+  .addExecutorLzComposeOption(0, 800_000, composeValue)
+  .toHex();
 
-// Approve USDe on Base
-await usde.approve(stakingHelper.address, amount);
+// Build send parameters
+const sendParam = {
+  dstEid: ARBITRUM_EID, // Hub
+  to: addressToBytes32(STAKED_USDE_COMPOSER), // Composer address
+  amountLD: amount,
+  minAmountLD: (amount * 99n) / 100n,
+  extraOptions: lzOptions,
+  composeMsg: composeMsg, // Triggers staking!
+  oftCmd: "0x",
+};
+
+// Approve USDe OFT on Base
+await usdeOFT.approve(USDE_OFT_BASE, amount);
+
+// Quote the fee
+const fee = await usdeOFT.quoteSend(sendParam, false);
 
 // Single transaction: Everything happens automatically!
-await stakingHelper.stakeRemote(
-    amount,
-    BASE_EID,  // Receive sUSDe on Base
-    addressToBytes32(userAddress),
-    minShares,
-    "0x",      // Extra options
-    { value: fee.nativeFee }
+await usdeOFT.send(
+  sendParam,
+  { nativeFee: fee.nativeFee, lzTokenFee: 0 },
+  userAddress, // Refund address
+  { value: fee.nativeFee },
 );
 
 // Wait for LayerZero settlement (~1-5 mins)
@@ -147,9 +164,9 @@ await stakingHelper.stakeRemote(
 
 **Behind the scenes:**
 
-1. Helper takes USDe from user on Base
+1. USDeOFT burns USDe on Base
 2. Bridges USDe to Arbitrum (hub) with compose message
-3. Compose message triggers StakedUSDeComposer on Arbitrum
+3. Compose message triggers StakedUSDeComposer.lzCompose() on Arbitrum
 4. Composer stakes USDe → receives sUSDe
 5. Composer bridges sUSDe back to Base
 6. User receives sUSDe on Base
