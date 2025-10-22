@@ -41,7 +41,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.susde.config.ts
 
 - Sets Arbitrum sUSDe Adapter peer → Base sUSDe OFT
 - Sets Base sUSDe OFT peer → Arbitrum sUSDe Adapter
-- Enables cross-chain staking returns (StakingSpokeHelper needs this)
+- Enables cross-chain staking returns via compose messages
 
 ---
 
@@ -63,7 +63,7 @@ npx hardhat run scripts/setup-composer-peers.ts --network arbitrum-sepolia
 
 **Why this is critical:**
 
-When you use `StakingSpokeHelper` on Base:
+When you send USDe with a compose message from Base:
 
 1. USDe is bridged to Arbitrum with a compose message
 2. **Compose message triggers StakedComposer** on Arbitrum
@@ -216,7 +216,6 @@ console.log("Composer peer set!");
 
 - USDeOFT: `0x9E98a76aCe0BE6bA3aFF1a230931cdCd0bf544dc`
 - SUSDeOFT: `0x7376085BE2BdCaCA1B3Fb296Db55c14636b960a2`
-- StakingSpokeHelper: `0xF370b4e2E3921BbBBCB166F191EC7b7CAd9c41F7`
 
 ### LayerZero Endpoint IDs
 
