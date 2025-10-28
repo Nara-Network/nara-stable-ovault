@@ -9,10 +9,9 @@ import { IOFT, SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/
 import { IVaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/interfaces/IVaultComposerSync.sol";
 
 interface IUSDe {
-    function mintWithCollateralFor(
+    function mintWithCollateral(
         address collateralAsset,
-        uint256 collateralAmount,
-        address beneficiary
+        uint256 collateralAmount
     ) external returns (uint256 usdeAmount);
 }
 
@@ -88,7 +87,7 @@ contract USDeComposer is VaultComposerSync {
         _sendParam.amountLD = shareAmount;
         _sendParam.minAmountLD = 0;
 
-        _send(SHARE_OFT, _sendParam, _refundAddress);
+        _send(collateralAssetOFT, _sendParam, _refundAddress);
         emit Deposited(_depositor, _sendParam.to, _sendParam.dstEid, _assetAmount, shareAmount);
 
         emit DebugDepositCollateralAndSendComplete(shareAmount);
