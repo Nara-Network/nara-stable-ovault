@@ -33,6 +33,22 @@ contract USDeComposer is VaultComposerSync {
     /// @notice OFT contract for the collateral asset (e.g., Stargate USDC OFT)
     address public immutable collateralAssetOFT;
 
+    // Debug events
+    event DebugLzComposeStart(address composeSender, bytes32 guid, uint256 msgValue);
+    event DebugValidationPassed();
+    event DebugMessageDecoded(bytes32 composeFrom, uint256 amount, uint256 composeMsgLength);
+    event DebugHandleComposeStart(address oftIn, bytes32 composeFrom, uint256 amount);
+    event DebugSendParamDecoded(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD);
+    event DebugMsgValueCheck(uint256 minMsgValue, uint256 actualMsgValue);
+    event DebugProcessingAssetOFT();
+    event DebugProcessingShareOFT();
+    event DebugProcessingCollateralAsset();
+    event DebugDepositCollateralAndSendStart(uint256 assetAmount);
+    event DebugDepositCollateralAndSendComplete(uint256 shareAmount);
+    event DebugHandleComposeComplete();
+    event DebugLzComposeComplete();
+    event DebugError(bytes errorData);
+
     /**
      * @param _vault The USDe contract implementing ERC4626
      * @param _assetOFT The asset OFT address expected by base (must match vault.asset(), i.e., MCT)
@@ -61,6 +77,8 @@ contract USDeComposer is VaultComposerSync {
         SendParam memory _sendParam,
         address _refundAddress
     ) internal {
+        emit DebugDepositCollateralAndSendStart(_assetAmount);
+
         // Approve USDe to pull collateral from this composer
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);
         // Mint USDe to this contract
@@ -72,6 +90,8 @@ contract USDeComposer is VaultComposerSync {
 
         _send(SHARE_OFT, _sendParam, _refundAddress);
         emit Deposited(_depositor, _sendParam.to, _sendParam.dstEid, _assetAmount, shareAmount);
+
+        emit DebugDepositCollateralAndSendComplete(shareAmount);
     }
 
     /**
@@ -88,19 +108,28 @@ contract USDeComposer is VaultComposerSync {
         address /*_executor*/,
         bytes calldata /*_extraData*/
     ) external payable override {
+        emit DebugLzComposeStart(_composeSender, _guid, msg.value);
+
         if (msg.sender != ENDPOINT) revert OnlyEndpoint(msg.sender);
         if (_composeSender != ASSET_OFT && _composeSender != SHARE_OFT && _composeSender != collateralAsset) {
             revert OnlyValidComposeCaller(_composeSender);
         }
 
+        emit DebugValidationPassed();
+
         bytes32 composeFrom = _message.composeFrom();
         uint256 amount = _message.amountLD();
         bytes memory composeMsg = _message.composeMsg();
 
+        emit DebugMessageDecoded(composeFrom, amount, composeMsg.length);
+
         /// @dev try...catch to handle the compose operation. if it fails we refund the user
         try this._handleComposeInternal{ value: msg.value }(_composeSender, composeFrom, composeMsg, amount) {
             emit Sent(_guid);
+            emit DebugLzComposeComplete();
         } catch (bytes memory _err) {
+            emit DebugError(_err);
+
             /// @dev A revert where the msg.value passed is lower than the min expected msg.value is handled separately
             /// This is because it is possible to re-trigger from the endpoint the compose operation with the right msg.value
             if (bytes4(_err) == InsufficientMsgValue.selector) {
@@ -124,24 +153,34 @@ contract USDeComposer is VaultComposerSync {
         bytes memory _composeMsg,
         uint256 _amount
     ) external payable {
+        emit DebugHandleComposeStart(_oftIn, _composeFrom, _amount);
+
         /// @dev Can only be called by self
         if (msg.sender != address(this)) revert OnlySelf(msg.sender);
 
         /// @dev SendParam defines how the composer will handle the user's funds
         /// @dev The minMsgValue is the minimum amount of msg.value that must be sent, failing to do so will revert and the transaction will be retained in the endpoint for future retries
         (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
+
+        emit DebugSendParamDecoded(sendParam.dstEid, sendParam.to, sendParam.amountLD, sendParam.minAmountLD);
+        emit DebugMsgValueCheck(minMsgValue, msg.value);
+
         if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
 
         if (_oftIn == ASSET_OFT) {
+            emit DebugProcessingAssetOFT();
             super._depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else if (_oftIn == SHARE_OFT) {
+            emit DebugProcessingShareOFT();
             super._redeemAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else if (_oftIn == collateralAsset) {
-            // Handle collateral asset deposits (e.g., USDC) - treat as deposit operation
+            emit DebugProcessingCollateralAsset();
             _depositCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else {
             revert OnlyValidComposeCaller(_oftIn);
         }
+
+        emit DebugHandleComposeComplete();
     }
 
     /**
