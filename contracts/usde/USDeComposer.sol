@@ -47,6 +47,14 @@ contract USDeComposer is VaultComposerSync {
     event DebugHandleComposeComplete();
     event DebugLzComposeComplete();
     event DebugError(bytes errorData);
+    event DepositedUSDe(
+        bytes32 sender,
+        bytes32 recipient,
+        uint32 dstEid,
+        uint256 assetAmt,
+        uint256 shareAmt,
+        uint256 msgValue
+    );
 
     /**
      * @param _vault The USDe contract implementing ERC4626
@@ -88,7 +96,7 @@ contract USDeComposer is VaultComposerSync {
         _sendParam.minAmountLD = 0;
 
         _send(SHARE_OFT, _sendParam, _refundAddress);
-        emit Deposited(_depositor, _sendParam.to, _sendParam.dstEid, _assetAmount, shareAmount);
+        emit DepositedUSDe(_depositor, _sendParam.to, _sendParam.dstEid, _assetAmount, shareAmount, msg.value);
 
         emit DebugDepositCollateralAndSendComplete(shareAmount);
     }
