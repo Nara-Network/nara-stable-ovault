@@ -202,6 +202,7 @@ const deploy: DeployFunction = async (hre) => {
                     mctAssetOFTAddress, // asset OFT (MCT adapter)
                     usdeAdapter.address, // share OFT adapter
                     collateralAsset, // configured collateral asset (e.g., USDC)
+                    DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress, // USDC OFT address
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,

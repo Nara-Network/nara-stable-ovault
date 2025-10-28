@@ -48,6 +48,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         // This must be the address of the USDeOFTAdapter
         shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
         collateralAssetAddress: '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773', // e.g., USDC on hub chain
+        collateralAssetOFTAddress: '0x543BdA7c6cA4384FE90B1F5929bb851F52888983', // Set to '0x...' to use existing USDC OFT (e.g., Stargate USDC OFT)
     },
 
     // Share OFT configuration (USDe shares on spoke chains)
