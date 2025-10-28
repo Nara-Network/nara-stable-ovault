@@ -51,29 +51,25 @@ contract USDeComposer is VaultComposerSync {
     }
 
     /**
-     * @notice Pull collateral from sender and send shares per SendParam
-     * @dev Overrides base to transfer collateralAsset rather than VAULT.asset()
+     * @dev Collateral deposit path: mints shares using USDe.mintWithCollateralFor and sends them
      */
-    function depositAndSend(
+    function _depositCollateralAndSend(
+        bytes32 _depositor,
         uint256 _assetAmount,
         SendParam memory _sendParam,
         address _refundAddress
-    ) external payable override {
-        // Pull collateral from user into composer
-        IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), _assetAmount);
-        // Route through the standard internal flow
-        _depositAndSend(bytes32(uint256(uint160(msg.sender))), _assetAmount, _sendParam, _refundAddress);
-    }
-
-    /**
-     * @dev Deposit override: use USDe.mintWithCollateralFor with configured collateralAsset
-     * @return shareAmount Amount of USDe shares minted
-     */
-    function _deposit(bytes32 /*_depositor*/, uint256 _assetAmount) internal override returns (uint256 shareAmount) {
+    ) internal {
         // Approve USDe to pull collateral from this composer
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);
-        // Mint USDe to this contract, then shares are sent by parent logic
-        shareAmount = IUSDe(address(VAULT)).mintWithCollateralFor(collateralAsset, _assetAmount, address(this));
+        // Mint USDe to this contract
+        uint256 shareAmount = IUSDe(address(VAULT)).mintWithCollateralFor(collateralAsset, _assetAmount, address(this));
+        _assertSlippage(shareAmount, _sendParam.minAmountLD);
+
+        _sendParam.amountLD = shareAmount;
+        _sendParam.minAmountLD = 0;
+
+        _send(SHARE_OFT, _sendParam, _refundAddress);
+        emit Deposited(_depositor, _sendParam.to, _sendParam.dstEid, _assetAmount, shareAmount);
     }
 
     /**
@@ -99,12 +95,12 @@ contract USDeComposer is VaultComposerSync {
         if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
 
         if (_oftIn == ASSET_OFT) {
-            _depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
+            super._depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else if (_oftIn == SHARE_OFT) {
-            _redeemAndSend(_composeFrom, _amount, sendParam, tx.origin);
+            super._redeemAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else if (_oftIn == collateralAsset) {
             // Handle collateral asset deposits (e.g., USDC) - treat as deposit operation
-            _depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
+            _depositCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else {
             revert OnlyValidComposeCaller(_oftIn);
         }
