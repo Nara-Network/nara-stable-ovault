@@ -82,7 +82,7 @@ contract USDeComposer is VaultComposerSync {
         // Approve USDe to pull collateral from this composer
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);
         // Mint USDe to this contract
-        uint256 shareAmount = IUSDe(address(VAULT)).mintWithCollateralFor(collateralAsset, _assetAmount, address(this));
+        uint256 shareAmount = IUSDe(address(VAULT)).mintWithCollateral(collateralAsset, _assetAmount);
         _assertSlippage(shareAmount, _sendParam.minAmountLD);
 
         _sendParam.amountLD = shareAmount;
