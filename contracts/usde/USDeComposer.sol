@@ -111,7 +111,12 @@ contract USDeComposer is VaultComposerSync {
         emit DebugLzComposeStart(_composeSender, _guid, msg.value);
 
         if (msg.sender != ENDPOINT) revert OnlyEndpoint(msg.sender);
-        if (_composeSender != ASSET_OFT && _composeSender != SHARE_OFT && _composeSender != collateralAsset) {
+        if (
+            _composeSender != ASSET_OFT &&
+            _composeSender != SHARE_OFT &&
+            _composeSender != collateralAsset &&
+            _composeSender != collateralAssetOFT
+        ) {
             revert OnlyValidComposeCaller(_composeSender);
         }
 
@@ -173,7 +178,7 @@ contract USDeComposer is VaultComposerSync {
         } else if (_oftIn == SHARE_OFT) {
             emit DebugProcessingShareOFT();
             super._redeemAndSend(_composeFrom, _amount, sendParam, tx.origin);
-        } else if (_oftIn == collateralAsset) {
+        } else if (_oftIn == collateralAssetOFT) {
             emit DebugProcessingCollateralAsset();
             _depositCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else {

@@ -44,7 +44,7 @@ That's it! ✅
 
 ### Collateral Asset
 
-- **USDC (Arbitrum Sepolia)**: `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d`
+- **USDC (Arbitrum Sepolia)**: `0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773`
 - Bridge USDC: https://bridge.arbitrum.io/
 - Faucet: https://faucet.quicknode.com/arbitrum/sepolia
 
@@ -83,7 +83,7 @@ npx hardhat console --network arbitrum-sepolia
 // Get contracts (replace with your deployed addresses)
 const usdc = await ethers.getContractAt(
   "IERC20",
-  "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+  "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773",
 );
 const usde = await ethers.getContractAt("usde/USDe", "YOUR_USDE_ADDRESS");
 
@@ -175,7 +175,7 @@ The deployment script will print verification commands. Example:
 ```bash
 npx hardhat verify --network arbitrum-sepolia 0x1234... \
   "0xAdminAddress..." \
-  "[\"0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d\"]"
+  "[\"0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773\"]"
 ```
 
 Run these commands to verify each contract on Arbiscan.
