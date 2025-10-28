@@ -199,12 +199,18 @@ const _spokeEids = [
 ];
 ```
 
-### 2. Deploy OFT Infrastructure
+### 2. Deploy OFT Infrastructure (Includes Hub Composers)
 
 ```bash
 # On Arbitrum Sepolia (hub)
+# 1) Deploy USDe OFT infra (deploys USDeOFTAdapter and USDeComposer on hub)
 npx hardhat deploy --network arbitrum-sepolia --tags ovault
+
+# 2) Deploy StakedUSDe OFT adapter on hub (required for StakedUSDeComposer)
 npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft
+
+# 3) Re-run ovault on hub to deploy StakedUSDeComposer once the adapter exists
+npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Optimism Sepolia (spoke)
 npx hardhat deploy --network optimism-sepolia --tags ovault
