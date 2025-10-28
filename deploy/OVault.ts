@@ -178,13 +178,28 @@ const deploy: DeployFunction = async (hre) => {
         // Deploy USDeComposer if collateral asset is configured
         const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
         if (collateralAsset) {
+            // Resolve MCT asset OFT (adapter) address required by base composer
+            let mctAssetOFTAddress: string
+            if (DEPLOYMENT_CONFIG.vault.assetOFTAddress) {
+                mctAssetOFTAddress = DEPLOYMENT_CONFIG.vault.assetOFTAddress
+            } else {
+                try {
+                    const mctAdapter = await hre.deployments.get('MCTOFTAdapter')
+                    mctAssetOFTAddress = mctAdapter.address
+                } catch (error) {
+                    throw new Error(
+                        'MCTOFTAdapter not found. Set vault.assetOFTAddress in devtools/deployConfig.ts or deploy MCTOFTAdapter on hub.'
+                    )
+                }
+            }
+
             console.log('   → Deploying USDeComposer...')
             const composer = await deployments.deploy('USDeComposer', {
                 contract: 'contracts/usde/USDeComposer.sol:USDeComposer',
                 from: deployer,
                 args: [
                     usdeAddress, // vault (USDe)
-                    endpointV2.address, // placeholder for assetOFT: base requires an address, but contract will not use it
+                    mctAssetOFTAddress, // asset OFT (MCT adapter)
                     usdeAdapter.address, // share OFT adapter
                     collateralAsset, // configured collateral asset (e.g., USDC)
                 ],
