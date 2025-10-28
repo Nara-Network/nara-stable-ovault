@@ -18,8 +18,7 @@ This project contains three main modules:
 contracts/
 ├── mct/                              # MultiCollateralToken Module
 │   ├── MultiCollateralToken.sol     # ERC20 token accepting multiple collaterals
-│   ├── MCTOFTAdapter.sol             # Hub chain OFT adapter (lockbox)
-│   └── MCTOFT.sol                    # Spoke chain OFT (mint/burn)
+│   └── MCTOFTAdapter.sol             # (Deprecated) Hub chain OFT adapter
 │
 ├── usde/                             # USDe Module
 │   ├── USDe.sol                      # ERC4626 vault with minting
@@ -54,8 +53,7 @@ contracts/
 **Contracts**:
 
 - `MultiCollateralToken.sol`: Core token managing multiple collateral types
-- `MCTOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `MCTOFT.sol`: Spoke chain representation (mint/burn model)
+  // Note: MCT is hub-only in this setup. Cross-chain MCT is disabled.
 
 **Key Features**:
 

@@ -8,18 +8,16 @@ This guide covers the complete omnichain deployment of USDe with LayerZero's OVa
 
 The hub chain hosts the core vault infrastructure:
 
-1. **MultiCollateralToken (MCT)** - The underlying asset that accepts multiple collateral types
-2. **MCTOFTAdapter** - OFT adapter for MCT (lockbox model for cross-chain transfers)
-3. **USDe** - The ERC4626 vault that issues USDe shares backed by MCT
-4. **USDeOFTAdapter** - OFT adapter for USDe shares (lockbox model)
-5. **USDeComposer** - Enables cross-chain deposit/redeem operations
+1. **MultiCollateralToken (MCT)** - The underlying asset that accepts multiple collateral types (hub-only)
+2. **USDe** - The ERC4626 vault that issues USDe shares backed by MCT
+3. **USDeOFTAdapter** - OFT adapter for USDe shares (lockbox model)
+4. (Optional) **USDeComposer** - Cross-chain deposit/redeem coordinator; omitted when asset is hub-only
 
 ### Spoke Chains (e.g., Base, Optimism, Polygon)
 
 Each spoke chain hosts:
 
-1. **MCTOFT** - OFT representation of MCT on spoke chains
-2. **USDeShareOFT** - OFT representation of USDe shares on spoke chains
+1. **USDeShareOFT** - OFT representation of USDe shares on spoke chains
 
 ## Contract Relationships
 
@@ -28,8 +26,8 @@ Hub Chain:
 ┌─────────────────────────────────────────────────────────┐
 │                                                           │
 │  ┌──────────────┐      ┌──────────────────┐            │
-│  │     MCT      │─────▶│  MCTOFTAdapter   │────────┐   │
-│  │ (ERC20)      │      │   (Lockbox)      │        │   │
+│  │     MCT      │                                   │   │
+│  │ (ERC20)      │                                   │   │
 │  └──────────────┘      └──────────────────┘        │   │
 │         │                                           │   │
 │         │ underlying                                │   │
@@ -42,7 +40,7 @@ Hub Chain:
 │         │ shares                                    │   │
 │         ▼                                           │   │
 │  ┌──────────────────────┐     ┌─────────────────┐ │   │
-│  │ USDeShareOFTAdapter  │────▶│  OVaultComposer │ │   │
+│  │ USDeShareOFTAdapter  │                                 │
 │  │     (Lockbox)        │     │                 │ │   │
 │  └──────────────────────┘     └─────────────────┘ │   │
 │                                        │           │   │
@@ -55,10 +53,7 @@ Spoke Chain:                             │           │
 ┌────────────────────────────────────────┼───────────┼───┐
 │                                        │           │   │
 │  ┌──────────────┐                     │           │   │
-│  │   MCTOFT     │◀────────────────────┘           │   │
-│  │   (Mint/     │                                 │   │
-│  │    Burn)     │                                 │   │
-│  └──────────────┘                                 │   │
+│                                                    │   │
 │                                                    │   │
 │  ┌──────────────────┐                             │   │
 │  │  USDeShareOFT    │◀────────────────────────────┘   │
@@ -81,12 +76,7 @@ const mct = await deploy("MultiCollateralToken", {
   ],
 });
 
-// 2. Deploy MCTOFTAdapter (lockbox for MCT)
-const mctAdapter = await deploy("MCTOFTAdapter", {
-  args: [mct.address, LZ_ENDPOINT_HUB, adminAddress],
-});
-
-// 3. Deploy USDe
+// 2. Deploy USDe
 const usde = await deploy("USDe", {
   args: [
     mct.address,
@@ -96,19 +86,13 @@ const usde = await deploy("USDe", {
   ],
 });
 
-// 4. Deploy USDeShareOFTAdapter (lockbox for USDe shares)
+// 3. Deploy USDeShareOFTAdapter (lockbox for USDe shares)
 const usdeAdapter = await deploy("USDeShareOFTAdapter", {
   args: [usde.address, LZ_ENDPOINT_HUB, adminAddress],
 });
 
-// 5. Deploy USDeComposer
-const composer = await deploy("USDeComposer", {
-  args: [
-    usde.address, // vault
-    mctAdapter.address, // asset OFT
-    usdeAdapter.address, // share OFT
-  ],
-});
+// (Optional) Deploy USDeComposer
+// Skipped when MCT is hub-only and not bridged
 
 // 6. Grant MINTER_ROLE to USDe on MCT
 const MINTER_ROLE = ethers.utils.keccak256(
@@ -122,12 +106,7 @@ await mct.grantRole(MINTER_ROLE, usde.address);
 For each spoke chain:
 
 ```typescript
-// 1. Deploy MCTOFT (mint/burn OFT for MCT)
-const mctOFT = await deploy("MCTOFT", {
-  args: [LZ_ENDPOINT_SPOKE, adminAddress],
-});
-
-// 2. Deploy USDeShareOFT (mint/burn OFT for USDe)
+// Deploy USDeShareOFT (mint/burn OFT for USDe)
 const usdeOFT = await deploy("USDeShareOFT", {
   args: [LZ_ENDPOINT_SPOKE, adminAddress],
 });
@@ -139,16 +118,10 @@ Connect the hub and spoke contracts via LayerZero:
 
 ```typescript
 // On Hub Chain:
-// Connect MCT Adapter to spoke MCT OFTs
-await mctAdapter.setPeer(SPOKE_EID, addressToBytes32(mctOFT_spoke.address));
-
 // Connect USDe Share Adapter to spoke USDe OFTs
 await usdeAdapter.setPeer(SPOKE_EID, addressToBytes32(usdeOFT_spoke.address));
 
 // On Spoke Chain:
-// Connect spoke MCT OFT to hub adapter
-await mctOFT_spoke.setPeer(HUB_EID, addressToBytes32(mctAdapter.address));
-
 // Connect spoke USDe OFT to hub adapter
 await usdeOFT_spoke.setPeer(HUB_EID, addressToBytes32(usdeAdapter.address));
 ```
