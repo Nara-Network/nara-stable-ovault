@@ -9,14 +9,21 @@ import type { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 const arbitrumContract: OmniPointHardhat = {
     eid: EndpointId.ARBSEP_V2_TESTNET, // 40231
     contractName: 'StakedUSDeOFTAdapter',
-    address: '0x8142B39540011f449B452DCBFeF2e9934c7375cE',
+    address: '0x101Cbd7C0A7CeF477cD38e81abefDDb698B8Ba3f',
 }
 
 // Base Sepolia - Spoke Chain (uses OFT/mint-burn)
 const baseContract: OmniPointHardhat = {
     eid: EndpointId.BASESEP_V2_TESTNET, // 40245
     contractName: 'StakedUSDeOFT',
-    address: '0x7376085BE2BdCaCA1B3Fb296Db55c14636b960a2',
+    address: '0x4dDFe16660B95f359EA6F15727E8f7Df93460A1e',
+}
+
+// Sepolia - Spoke Chain (uses OFT/mint-burn)
+const sepoliaContract: OmniPointHardhat = {
+    eid: EndpointId.SEPOLIA_V2_TESTNET, // 40161
+    contractName: 'StakedUSDeOFT',
+    address: '0x7cF705343F09084Fb7adAC4e2B5EBC30586dbd1d',
 }
 
 // Gas settings for cross-chain messages
@@ -44,12 +51,19 @@ const pathways: TwoWayConfig[] = [
         [1, 1], // Confirmations
         [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Enforced options
     ],
+    [
+        arbitrumContract, // Hub
+        sepoliaContract, // Spoke
+        [['LayerZero Labs'], []],
+        [1, 1],
+        [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS],
+    ],
 ]
 
 export default async function () {
     const connections = await generateConnectionsConfig(pathways)
     return {
-        contracts: [{ contract: arbitrumContract }, { contract: baseContract }],
+        contracts: [{ contract: arbitrumContract }, { contract: baseContract }, { contract: sepoliaContract }],
         connections,
     }
 }

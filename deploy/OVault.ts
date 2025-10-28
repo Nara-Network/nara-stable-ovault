@@ -175,17 +175,43 @@ const deploy: DeployFunction = async (hre) => {
         deployedContracts.usdeAdapter = usdeAdapter.address
         console.log(`   ✓ USDeOFTAdapter deployed at: ${usdeAdapter.address}`)
 
-        // Deploy USDeComposer (cross-chain operations)
-        console.log('   → Deploying USDeComposer...')
-        const composer = await deployments.deploy('USDeComposer', {
-            contract: 'contracts/usde/USDeComposer.sol:USDeComposer',
-            from: deployer,
-            args: [usdeAddress, mctAdapterAddress, usdeAdapter.address],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
-        deployedContracts.composer = composer.address
-        console.log(`   ✓ USDeComposer deployed at: ${composer.address}`)
+        // Deploy USDeComposer if collateral asset is configured
+        const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
+        if (collateralAsset) {
+            // Resolve MCT asset OFT (adapter) address required by base composer
+            let mctAssetOFTAddress: string
+            if (DEPLOYMENT_CONFIG.vault.assetOFTAddress) {
+                mctAssetOFTAddress = DEPLOYMENT_CONFIG.vault.assetOFTAddress
+            } else {
+                try {
+                    const mctAdapter = await hre.deployments.get('MCTOFTAdapter')
+                    mctAssetOFTAddress = mctAdapter.address
+                } catch (error) {
+                    throw new Error(
+                        'MCTOFTAdapter not found. Set vault.assetOFTAddress in devtools/deployConfig.ts or deploy MCTOFTAdapter on hub.'
+                    )
+                }
+            }
+
+            console.log('   → Deploying USDeComposer...')
+            const composer = await deployments.deploy('USDeComposer', {
+                contract: 'contracts/usde/USDeComposer.sol:USDeComposer',
+                from: deployer,
+                args: [
+                    usdeAddress, // vault (USDe)
+                    mctAssetOFTAddress, // asset OFT (MCT adapter)
+                    usdeAdapter.address, // share OFT adapter
+                    collateralAsset, // configured collateral asset (e.g., USDC)
+                    DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress, // USDC OFT address
+                ],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            })
+            deployedContracts.composer = composer.address
+            console.log(`   ✓ USDeComposer deployed at: ${composer.address}`)
+        } else {
+            console.log('   ⏭️  Skipping USDeComposer (set vault.collateralAssetAddress to deploy).')
+        }
 
         // Deploy StakedUSDeComposer (cross-chain staking operations)
         console.log('   → Deploying StakedUSDeComposer...')

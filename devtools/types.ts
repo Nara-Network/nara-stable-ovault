@@ -17,6 +17,8 @@ export interface VaultConfig {
     vaultAddress?: string // Optional pre-deployed vault address
     assetOFTAddress?: string // Optional pre-deployed asset OFT address
     shareOFTAdapterAddress?: string // Optional pre-deployed ShareOFTAdapter address
+    collateralAssetAddress?: string // Optional collateral (e.g., USDC) used by composer
+    collateralAssetOFTAddress?: string // Optional OFT address for collateral asset (e.g., Stargate USDC OFT)
 }
 
 export interface DeploymentConfig {

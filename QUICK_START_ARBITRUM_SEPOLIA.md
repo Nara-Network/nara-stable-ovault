@@ -44,7 +44,7 @@ That's it! ✅
 
 ### Collateral Asset
 
-- **USDC (Arbitrum Sepolia)**: `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d`
+- **USDC (Arbitrum Sepolia)**: `0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773`
 - Bridge USDC: https://bridge.arbitrum.io/
 - Faucet: https://faucet.quicknode.com/arbitrum/sepolia
 
@@ -83,7 +83,7 @@ npx hardhat console --network arbitrum-sepolia
 // Get contracts (replace with your deployed addresses)
 const usdc = await ethers.getContractAt(
   "IERC20",
-  "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+  "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773",
 );
 const usde = await ethers.getContractAt("usde/USDe", "YOUR_USDE_ADDRESS");
 
@@ -175,7 +175,7 @@ The deployment script will print verification commands. Example:
 ```bash
 npx hardhat verify --network arbitrum-sepolia 0x1234... \
   "0xAdminAddress..." \
-  "[\"0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d\"]"
+  "[\"0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773\"]"
 ```
 
 Run these commands to verify each contract on Arbiscan.
@@ -199,12 +199,18 @@ const _spokeEids = [
 ];
 ```
 
-### 2. Deploy OFT Infrastructure
+### 2. Deploy OFT Infrastructure (Includes Hub Composers)
 
 ```bash
 # On Arbitrum Sepolia (hub)
+# 1) Deploy USDe OFT infra (deploys USDeOFTAdapter and USDeComposer on hub)
 npx hardhat deploy --network arbitrum-sepolia --tags ovault
+
+# 2) Deploy StakedUSDe OFT adapter on hub (required for StakedUSDeComposer)
 npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft
+
+# 3) Re-run ovault on hub to deploy StakedUSDeComposer once the adapter exists
+npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Optimism Sepolia (spoke)
 npx hardhat deploy --network optimism-sepolia --tags ovault
@@ -221,8 +227,14 @@ npx hardhat deploy --network sepolia --tags staked-usde-oft
 
 ### 3. Wire LayerZero Peers
 
+Update the contract addresses in respective config files. Then, run these commands:
+
 ```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
+# USDe peers (hub adapter ↔ spoke OFT)
+npx hardhat lz:oapp:wire --oapp-config layerzero.usde.config.ts
+
+# sUSDe peers (hub adapter ↔ spoke OFT)
+npx hardhat lz:oapp:wire --oapp-config layerzero.susde.config.ts
 ```
 
 ---

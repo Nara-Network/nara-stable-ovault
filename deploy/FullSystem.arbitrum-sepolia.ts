@@ -11,7 +11,7 @@ import { type DeployFunction } from 'hardhat-deploy/types'
  * 4. StakingRewardsDistributor for automated rewards
  *
  * Arbitrum Sepolia Testnet Configuration:
- * - USDC: 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d (Bridged USDC)
+ * - USDC: 0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773 (Bridged USDC)
  * - Network: Arbitrum Sepolia (Chain ID: 421614)
  *
  * To use this script:
@@ -28,7 +28,7 @@ const ADMIN_ADDRESS = '0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671' // TODO: Set 
 const OPERATOR_ADDRESS = '0xD5259f0B4aA6189210970243d3B57eb04f5C64B7' // TODO: Set operator address (bot/EOA)
 
 // Arbitrum Sepolia USDC Address (Bridged USDC)
-const ARBITRUM_SEPOLIA_USDC = '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d'
+const ARBITRUM_SEPOLIA_USDC = '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773'
 
 // Limits
 const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M USDe (18 decimals)

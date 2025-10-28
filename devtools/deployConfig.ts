@@ -21,7 +21,7 @@ import { DeploymentConfig } from './types'
 // - _hubEid: The hub chain (where the OVault [ERC4626, ShareOFTAdapter, Composer] is deployed)
 // - _spokeEids: The spoke chains (where the ShareOFT is deployed)
 const _hubEid = EndpointId.ARBSEP_V2_TESTNET // Arbitrum Sepolia as hub chain
-const _spokeEids = [EndpointId.OPTSEP_V2_TESTNET, EndpointId.BASESEP_V2_TESTNET, EndpointId.SEPOLIA_V2_TESTNET]
+const _spokeEids = [EndpointId.BASESEP_V2_TESTNET, EndpointId.SEPOLIA_V2_TESTNET]
 
 // ============================================
 // Deployment Export
@@ -47,6 +47,8 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
         // This must be the address of the USDeOFTAdapter
         shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
+        collateralAssetAddress: '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773', // e.g., USDC on hub chain
+        collateralAssetOFTAddress: '0x543BdA7c6cA4384FE90B1F5929bb851F52888983', // Set to '0x...' to use existing USDC OFT (e.g., Stargate USDC OFT)
     },
 
     // Share OFT configuration (USDe shares on spoke chains)
