@@ -15,7 +15,6 @@ import { ethers } from 'ethers'
 // - contracts/usde/USDeOFT.sol
 // - contracts/usde/USDeComposer.sol
 // - contracts/mct/MultiCollateralToken.sol
-// - contracts/mct/MCTOFTAdapter.sol
 // - contracts/mct/MCTOFT.sol
 
 /**
