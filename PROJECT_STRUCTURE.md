@@ -18,7 +18,7 @@ This project contains three main modules:
 contracts/
 ├── mct/                              # MultiCollateralToken Module
 │   ├── MultiCollateralToken.sol     # ERC20 token accepting multiple collaterals
-│   └── (no adapter)                  # MCT is hub-only; no OFT adapter
+│   └── MCTOFTAdapter.sol             # (Deprecated) Hub chain OFT adapter
 │
 ├── usde/                             # USDe Module
 │   ├── USDe.sol                      # ERC4626 vault with minting

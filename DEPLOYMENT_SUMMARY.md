@@ -16,8 +16,10 @@ This implementation provides a complete OVault (Omnichain Vault) version of USDe
    - Team can withdraw/deposit collateral for external management
    - Underlying asset for USDe
 
-2. ~~MCTOFTAdapter.sol~~ (removed)
-   - MCT is hub-only in this setup; no cross-chain MCT
+2. **MCTOFTAdapter.sol**
+   - OFT adapter for MCT (lockbox model on hub)
+   - Enables cross-chain transfers of MCT
+   - Locks tokens on hub, mints on spokes
 
 3. **USDe.sol**
    - ERC4626 vault with integrated minting
@@ -257,9 +259,10 @@ Note: USDe supply unchanged during this process
 
 ```
 MultiCollateralToken: 0x...
+MCTOFTAdapter: 0x...
 USDe: 0x...
 USDeOFTAdapter: 0x...
-// USDeComposer omitted (depends on asset OFT)
+USDeComposer: 0x...
 ```
 
 ### Spoke Chain 1 (Optimism Sepolia)
