@@ -4,6 +4,7 @@ pragma solidity ^0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { VaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/VaultComposerSync.sol";
+import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 import { IOFT, SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { IVaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/interfaces/IVaultComposerSync.sol";
 
@@ -25,6 +26,7 @@ interface IUSDe {
  */
 contract USDeComposer is VaultComposerSync {
     using SafeERC20 for IERC20;
+    using OFTComposeMsgCodec for bytes;
 
     /// @notice Collateral asset to use for minting (e.g., USDC)
     address public immutable collateralAsset;
@@ -73,40 +75,6 @@ contract USDeComposer is VaultComposerSync {
     }
 
     /**
-     * @notice Override handleCompose to handle collateralAsset deposits
-     * @dev When collateralAsset is received, treat it as a deposit operation
-     * @param _oftIn The OFT token whose funds have been received in the lzReceive associated with this lzTx
-     * @param _composeFrom The bytes32 identifier of the compose sender
-     * @param _composeMsg The encoded message containing SendParam and minMsgValue
-     * @param _amount The amount of tokens received in the lzReceive associated with this lzTx
-     */
-    function handleCompose(
-        address _oftIn,
-        bytes32 _composeFrom,
-        bytes memory _composeMsg,
-        uint256 _amount
-    ) external payable override {
-        /// @dev Can only be called by self
-        if (msg.sender != address(this)) revert OnlySelf(msg.sender);
-
-        /// @dev SendParam defines how the composer will handle the user's funds
-        /// @dev The minMsgValue is the minimum amount of msg.value that must be sent, failing to do so will revert and the transaction will be retained in the endpoint for future retries
-        (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
-        if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
-
-        if (_oftIn == ASSET_OFT) {
-            super._depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
-        } else if (_oftIn == SHARE_OFT) {
-            super._redeemAndSend(_composeFrom, _amount, sendParam, tx.origin);
-        } else if (_oftIn == collateralAsset) {
-            // Handle collateral asset deposits (e.g., USDC) - treat as deposit operation
-            _depositCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin);
-        } else {
-            revert OnlyValidComposeCaller(_oftIn);
-        }
-    }
-
-    /**
      * @notice Override lzCompose to accept collateralAsset as a valid compose sender
      * @dev This allows the composer to handle cross-chain deposits of collateral assets (e.g., USDC)
      * @param _composeSender The OFT contract address used for refunds, can be ASSET_OFT, SHARE_OFT, or collateralAsset
@@ -130,7 +98,7 @@ contract USDeComposer is VaultComposerSync {
         bytes memory composeMsg = _message.composeMsg();
 
         /// @dev try...catch to handle the compose operation. if it fails we refund the user
-        try this.handleCompose{ value: msg.value }(_composeSender, composeFrom, composeMsg, amount) {
+        try this._handleComposeInternal{ value: msg.value }(_composeSender, composeFrom, composeMsg, amount) {
             emit Sent(_guid);
         } catch (bytes memory _err) {
             /// @dev A revert where the msg.value passed is lower than the min expected msg.value is handled separately
@@ -143,6 +111,36 @@ contract USDeComposer is VaultComposerSync {
 
             _refund(_composeSender, _message, amount, tx.origin);
             emit Refunded(_guid);
+        }
+    }
+
+    /**
+     * @notice Internal function to handle compose operations
+     * @dev This function can only be called by self (self-call restriction)
+     */
+    function _handleComposeInternal(
+        address _oftIn,
+        bytes32 _composeFrom,
+        bytes memory _composeMsg,
+        uint256 _amount
+    ) external payable {
+        /// @dev Can only be called by self
+        if (msg.sender != address(this)) revert OnlySelf(msg.sender);
+
+        /// @dev SendParam defines how the composer will handle the user's funds
+        /// @dev The minMsgValue is the minimum amount of msg.value that must be sent, failing to do so will revert and the transaction will be retained in the endpoint for future retries
+        (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
+        if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
+
+        if (_oftIn == ASSET_OFT) {
+            super._depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
+        } else if (_oftIn == SHARE_OFT) {
+            super._redeemAndSend(_composeFrom, _amount, sendParam, tx.origin);
+        } else if (_oftIn == collateralAsset) {
+            // Handle collateral asset deposits (e.g., USDC) - treat as deposit operation
+            _depositCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin);
+        } else {
+            revert OnlyValidComposeCaller(_oftIn);
         }
     }
 
