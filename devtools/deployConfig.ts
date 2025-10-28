@@ -60,20 +60,22 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         deploymentEids: _spokeEids,
     },
 
-    // Asset OFT configuration (MCT is hub-only; no adapters or spoke OFTs)
+    // Asset OFT configuration (MCT on hub and spoke chains)
+    // Hub uses MCTOFTAdapter (lockbox), spokes use MCTOFT (mint/burn)
     assetOFT: {
-        contract: 'mct/MCTOFT', // Unused when hub-only; kept for type completeness
+        contract: 'mct/MCTOFT', // On spokes: MCTOFT, On hub: MCTOFTAdapter (handled in deploy script)
         metadata: {
             name: 'MultiCollateralToken',
             symbol: 'MCT',
         },
-        deploymentEids: [], // Disable MCT OFT deployment on all chains
+        deploymentEids: [_hubEid, ..._spokeEids],
     },
 } as const
 
 export const isVaultChain = (eid: number): boolean => eid === DEPLOYMENT_CONFIG.vault.deploymentEid
 export const shouldDeployVault = (eid: number): boolean => isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.vaultAddress
-export const shouldDeployAsset = (eid: number): boolean => false // MCT remains hub-only; no OFT deployment
+export const shouldDeployAsset = (eid: number): boolean =>
+    !DEPLOYMENT_CONFIG.vault.assetOFTAddress && DEPLOYMENT_CONFIG.assetOFT.deploymentEids.includes(eid)
 export const shouldDeployShare = (eid: number): boolean =>
     !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && DEPLOYMENT_CONFIG.shareOFT.deploymentEids.includes(eid)
 

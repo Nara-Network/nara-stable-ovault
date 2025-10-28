@@ -423,7 +423,9 @@ npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 This deploys on hub:
 
+- `MCTOFTAdapter` (lockbox for MCT)
 - `USDeOFTAdapter` (lockbox for USDe)
+- `USDeComposer` (cross-chain operations)
 
 **Spoke Chains:**
 
@@ -440,6 +442,7 @@ npx hardhat deploy --network sepolia --tags ovault
 
 This deploys on spokes:
 
+- `MCTOFT` (mint/burn for MCT)
 - `USDeOFT` (mint/burn for USDe)
 
 ### 2. (Optional) Deploy StakedUSDe OFT Infrastructure
@@ -480,6 +483,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 This connects:
 
+- Hub MCTOFTAdapter ↔ Spoke MCTOFT (all chains)
 - Hub USDeOFTAdapter ↔ Spoke USDeOFT (all chains)
 - Hub StakedUSDeOFTAdapter ↔ Spoke StakedUSDeOFT (all chains)
 

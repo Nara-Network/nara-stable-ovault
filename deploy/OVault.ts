@@ -10,7 +10,9 @@ import { DEPLOYMENT_CONFIG, isVaultChain, shouldDeployAsset, shouldDeployShare }
  * This script deploys the LayerZero OFT infrastructure for cross-chain functionality:
  *
  * Hub Chain (e.g., Sepolia):
+ * - MCTOFTAdapter (lockbox for MCT)
  * - USDeOFTAdapter (lockbox for USDe)
+ * - USDeComposer (cross-chain operations)
  *
  * Spoke Chains (e.g., OP Sepolia, Base Sepolia):
  * - MCTOFT (mint/burn for MCT)
@@ -54,11 +56,54 @@ const deploy: DeployFunction = async (hre) => {
     const deployedContracts: Record<string, string> = {}
 
     // ========================================
-    // ASSET OFT (MCT)
+    // ASSET OFT (MCT) - Deploy on all configured chains
     // ========================================
-    // MCT is hub-only. No adapter or spoke OFT is deployed.
     if (shouldDeployAsset(networkEid)) {
-        console.log('⏭️  Skipping Asset OFT (MCT). MCT remains hub-only (no adapter/spoke OFT).')
+        console.log('📦 Deploying Asset OFT (MCT)...')
+
+        if (isVaultChain(networkEid)) {
+            // Hub chain: Deploy MCTOFTAdapter (lockbox)
+            console.log('   → Hub chain detected: Deploying MCTOFTAdapter (lockbox)')
+
+            // Get MCT address from previous deployment
+            let mctAddress: string
+            try {
+                const mct = await hre.deployments.get('MultiCollateralToken')
+                mctAddress = mct.address
+            } catch (error) {
+                throw new Error(
+                    'MultiCollateralToken not found. Please deploy core contracts first using FullSystem or USDe deployment script.'
+                )
+            }
+
+            const mctAdapter = await deployments.deploy('MCTOFTAdapter', {
+                contract: 'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter',
+                from: deployer,
+                args: [mctAddress, endpointV2.address, deployer],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            })
+            deployedContracts.mctAdapter = mctAdapter.address
+            console.log(`   ✓ MCTOFTAdapter deployed at: ${mctAdapter.address}`)
+        } else {
+            // Spoke chain: Deploy MCTOFT (mint/burn)
+            console.log('   → Spoke chain detected: Deploying MCTOFT (mint/burn)')
+
+            const mctOFT = await deployments.deploy('MCTOFT', {
+                contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
+                from: deployer,
+                args: [
+                    endpointV2.address, // _lzEndpoint
+                    deployer, // _delegate
+                ],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            })
+            deployedContracts.mctOFT = mctOFT.address
+            console.log(`   ✓ MCTOFT deployed at: ${mctOFT.address}`)
+        }
+    } else if (DEPLOYMENT_CONFIG.vault.assetOFTAddress) {
+        console.log('⏭️  Skipping asset OFT deployment (existing mesh)')
     }
 
     console.log('')
@@ -103,6 +148,19 @@ const deploy: DeployFunction = async (hre) => {
             throw new Error(
                 'USDe not found. Please deploy core contracts first using FullSystem or USDe deployment script.'
             )
+        }
+
+        // Get MCT OFT Adapter address (should have been deployed above)
+        let mctAdapterAddress: string
+        if (deployedContracts.mctAdapter) {
+            mctAdapterAddress = deployedContracts.mctAdapter
+        } else {
+            try {
+                const adapter = await hre.deployments.get('MCTOFTAdapter')
+                mctAdapterAddress = adapter.address
+            } catch (error) {
+                throw new Error('MCTOFTAdapter not found. This should have been deployed in the Asset OFT step.')
+            }
         }
 
         // Deploy USDeOFTAdapter (lockbox for USDe shares)

@@ -7,7 +7,7 @@ Complete guide for deploying USDe and StakedUSDe OFT infrastructure for omnichai
 This guide covers deploying LayerZero OFT (Omnichain Fungible Token) infrastructure to enable:
 
 - ✅ Cross-chain USDe transfers
-  // MCT remains hub-only in this setup (no cross-chain MCT)
+- ✅ Cross-chain MCT transfers
 - ✅ Cross-chain sUSDe transfers (optional)
 
 ## 🏗️ Architecture
@@ -22,7 +22,7 @@ Hub Chain (Sepolia)                    Spoke Chain (OP Sepolia, Base Sepolia)
          │                                      │
          ▼                                      ▼
 ┌──────────────────────┐              ┌──────────────────────┐
-│                      │              │                      │
+│ MCTOFTAdapter        │◄────peer────►│ MCTOFT               │
 │ USDeOFTAdapter       │◄────peer────►│ USDeOFT              │
 │ StakedUSDeOFTAdapter │◄────peer────►│ StakedUSDeOFT        │
 │ USDeComposer         │              │                      │
@@ -105,7 +105,9 @@ npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 **Deploys:**
 
+- ✅ `MCTOFTAdapter` - Lockbox for MCT on hub
 - ✅ `USDeOFTAdapter` - Lockbox for USDe on hub
+- ✅ `USDeComposer` - Cross-chain operations coordinator
 
 **What it does:**
 
@@ -130,6 +132,7 @@ npx hardhat deploy --network sepolia --tags ovault
 
 **Deploys:**
 
+- ✅ `MCTOFT` - Mint/burn OFT for MCT on spoke
 - ✅ `USDeOFT` - Mint/burn OFT for USDe on spoke
 
 **What it does:**
@@ -189,6 +192,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 **Peers that get connected:**
 
+- Hub `MCTOFTAdapter` ↔ Spoke `MCTOFT` (each spoke)
 - Hub `USDeOFTAdapter` ↔ Spoke `USDeOFT` (each spoke)
 - Hub `StakedUSDeOFTAdapter` ↔ Spoke `StakedUSDeOFT` (each spoke)
 
@@ -217,14 +221,17 @@ npx hardhat console --network arbitrum-sepolia
 
 ```javascript
 // Get contracts
-const usdeAdapter = await ethers.getContractAt(
-  "usde/USDeOFTAdapter",
-  "<USDeOFTAdapter_ADDRESS>",
+const mctAdapter = await ethers.getContractAt(
+  "mct/MCTOFTAdapter",
+  "<MCTOFTAdapter_ADDRESS>",
 );
+
 // Check peer on OP Sepolia (EID: 40232)
 const OP_SEPOLIA_EID = 40232;
-const peer = await usdeAdapter.peers(OP_SEPOLIA_EID);
-console.log("USDe peer on OP Sepolia:", peer);
+const peer = await mctAdapter.peers(OP_SEPOLIA_EID);
+console.log("Peer on OP Sepolia:", peer);
+
+// Peer should be the addressToBytes32 of MCTOFT on OP Sepolia
 ```
 
 ### 3. Test Cross-Chain Transfer
@@ -268,7 +275,9 @@ Core Contracts:
   StakingRewardsDistributor: 0xjkl...
 
 OFT Infrastructure:
+  MCTOFTAdapter: 0x123...
   USDeOFTAdapter: 0x456...
+  USDeComposer: 0x789...
   StakedUSDeOFTAdapter: 0x012...
 ```
 
@@ -276,6 +285,7 @@ OFT Infrastructure:
 
 ```
 OFT Contracts:
+  MCTOFT: 0x345...
   USDeOFT: 0x678...
   StakedUSDeOFT: 0x901...
 ```
@@ -284,6 +294,7 @@ OFT Contracts:
 
 ```
 OFT Contracts:
+  MCTOFT: 0x234...
   USDeOFT: 0x567...
   StakedUSDeOFT: 0x890...
 ```
@@ -292,6 +303,7 @@ OFT Contracts:
 
 ```
 OFT Contracts:
+  MCTOFT: 0x345...
   USDeOFT: 0x678...
   StakedUSDeOFT: 0x901...
 ```
