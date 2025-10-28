@@ -19,6 +19,13 @@ const baseContract: OmniPointHardhat = {
     address: '0x4dDFe16660B95f359EA6F15727E8f7Df93460A1e',
 }
 
+// Sepolia - Spoke Chain (uses OFT/mint-burn)
+const sepoliaContract: OmniPointHardhat = {
+    eid: EndpointId.SEPOLIA_V2_TESTNET, // 40161
+    contractName: 'StakedUSDeOFT',
+    address: '0x7cF705343F09084Fb7adAC4e2B5EBC30586dbd1d',
+}
+
 // Gas settings for cross-chain messages
 const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
     {
@@ -44,12 +51,19 @@ const pathways: TwoWayConfig[] = [
         [1, 1], // Confirmations
         [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Enforced options
     ],
+    [
+        arbitrumContract, // Hub
+        sepoliaContract, // Spoke
+        [['LayerZero Labs'], []],
+        [1, 1],
+        [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS],
+    ],
 ]
 
 export default async function () {
     const connections = await generateConnectionsConfig(pathways)
     return {
-        contracts: [{ contract: arbitrumContract }, { contract: baseContract }],
+        contracts: [{ contract: arbitrumContract }, { contract: baseContract }, { contract: sepoliaContract }],
         connections,
     }
 }

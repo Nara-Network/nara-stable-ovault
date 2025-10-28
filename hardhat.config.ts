@@ -71,6 +71,11 @@ const config: HardhatUserConfig = {
             url: process.env.RPC_URL_ARBITRUM_TESTNET || 'https://arbitrum-sepolia.gateway.tenderly.co',
             accounts,
         },
+        sepolia: {
+            eid: EndpointId.SEPOLIA_V2_TESTNET,
+            url: process.env.RPC_URL_SEPOLIA_TESTNET || 'https://sepolia.gateway.tenderly.co',
+            accounts,
+        },
         hardhat: {
             // Need this for testing because TestHelperOz5.sol is exceeding the compiled contract size limit
             allowUnlimitedContractSize: true,
@@ -111,6 +116,14 @@ const config: HardhatUserConfig = {
                 urls: {
                     apiURL: 'https://api-sepolia.basescan.org/api',
                     browserURL: 'https://sepolia.basescan.org',
+                },
+            },
+            {
+                network: 'sepolia',
+                chainId: 11155111,
+                urls: {
+                    apiURL: 'https://api.sepolia.etherscan.io/api',
+                    browserURL: 'https://sepolia.etherscan.io',
                 },
             },
         ],
