@@ -47,6 +47,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
         // This must be the address of the USDeOFTAdapter
         shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
+        collateralAssetAddress: '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773', // e.g., USDC on hub chain
     },
 
     // Share OFT configuration (USDe shares on spoke chains)

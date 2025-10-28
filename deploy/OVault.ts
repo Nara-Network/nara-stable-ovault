@@ -117,9 +117,27 @@ const deploy: DeployFunction = async (hre) => {
         deployedContracts.usdeAdapter = usdeAdapter.address
         console.log(`   ✓ USDeOFTAdapter deployed at: ${usdeAdapter.address}`)
 
-        // USDeComposer depends on an asset OFT (MCT adapter), which we are not deploying.
-        // Skip deploying USDeComposer.
-        console.log('   ⏭️  Skipping USDeComposer (requires MCT adapter, which is not used).')
+        // Deploy USDeComposer if collateral asset is configured
+        const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
+        if (collateralAsset) {
+            console.log('   → Deploying USDeComposer...')
+            const composer = await deployments.deploy('USDeComposer', {
+                contract: 'contracts/usde/USDeComposer.sol:USDeComposer',
+                from: deployer,
+                args: [
+                    usdeAddress, // vault (USDe)
+                    endpointV2.address, // placeholder for assetOFT: base requires an address, but contract will not use it
+                    usdeAdapter.address, // share OFT adapter
+                    collateralAsset, // configured collateral asset (e.g., USDC)
+                ],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            })
+            deployedContracts.composer = composer.address
+            console.log(`   ✓ USDeComposer deployed at: ${composer.address}`)
+        } else {
+            console.log('   ⏭️  Skipping USDeComposer (set vault.collateralAssetAddress to deploy).')
+        }
 
         // Deploy StakedUSDeComposer (cross-chain staking operations)
         console.log('   → Deploying StakedUSDeComposer...')
