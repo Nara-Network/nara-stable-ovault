@@ -87,7 +87,7 @@ contract USDeComposer is VaultComposerSync {
         _sendParam.amountLD = shareAmount;
         _sendParam.minAmountLD = 0;
 
-        _send(collateralAssetOFT, _sendParam, _refundAddress);
+        _send(SHARE_OFT, _sendParam, _refundAddress);
         emit Deposited(_depositor, _sendParam.to, _sendParam.dstEid, _assetAmount, shareAmount);
 
         emit DebugDepositCollateralAndSendComplete(shareAmount);
