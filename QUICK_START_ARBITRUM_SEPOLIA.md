@@ -221,8 +221,14 @@ npx hardhat deploy --network sepolia --tags staked-usde-oft
 
 ### 3. Wire LayerZero Peers
 
+Update the contract addresses in respective config files. Then, run these commands:
+
 ```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
+# USDe peers (hub adapter ↔ spoke OFT)
+npx hardhat lz:oapp:wire --oapp-config layerzero.usde.config.ts
+
+# sUSDe peers (hub adapter ↔ spoke OFT)
+npx hardhat lz:oapp:wire --oapp-config layerzero.susde.config.ts
 ```
 
 ---
