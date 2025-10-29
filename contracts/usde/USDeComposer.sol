@@ -48,12 +48,15 @@ contract USDeComposer is VaultComposerSync {
     event DebugLzComposeComplete();
     event DebugError(bytes errorData);
     event DepositedUSDe(
-        bytes32 sender,
-        bytes32 recipient,
+        address share,
+        address recipient,
         uint32 dstEid,
-        uint256 assetAmt,
-        uint256 shareAmt,
-        uint256 msgValue
+        bytes32 to,
+        uint256 amountLD,
+        uint256 minAmountLD,
+        bytes extraOptions,
+        bytes composeMsg,
+        bytes oftCmd
     );
 
     /**
@@ -96,7 +99,17 @@ contract USDeComposer is VaultComposerSync {
         _sendParam.minAmountLD = 0;
 
         _send(SHARE_OFT, _sendParam, _refundAddress);
-        emit DepositedUSDe(_depositor, _sendParam.to, _sendParam.dstEid, _assetAmount, shareAmount, msg.value);
+        emit DepositedUSDe(
+            SHARE_OFT,
+            _refundAddress,
+            _sendParam.dstEid,
+            _sendParam.to,
+            _sendParam.amountLD,
+            _sendParam.minAmountLD,
+            _sendParam.extraOptions,
+            _sendParam.composeMsg,
+            _sendParam.oftCmd
+        );
 
         emit DebugDepositCollateralAndSendComplete(shareAmount);
     }
