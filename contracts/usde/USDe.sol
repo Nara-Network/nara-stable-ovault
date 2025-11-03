@@ -209,37 +209,6 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         return _mintWithCollateral(collateralAsset, collateralAmount, beneficiary);
     }
 
-    /**
-     * @notice Redeem USDe for collateral
-     * @param collateralAsset The collateral asset to receive
-     * @param usdeAmount The amount of USDe to redeem
-     * @return collateralAmount The amount of collateral received
-     */
-    function redeemForCollateral(
-        address collateralAsset,
-        uint256 usdeAmount
-    ) external nonReentrant returns (uint256 collateralAmount) {
-        return _redeemForCollateral(collateralAsset, usdeAmount, msg.sender);
-    }
-
-    /**
-     * @notice Redeem USDe on behalf of a beneficiary
-     * @param collateralAsset The collateral asset to receive
-     * @param usdeAmount The amount of USDe to redeem
-     * @param beneficiary The address to burn USDe from and receive collateral
-     * @return collateralAmount The amount of collateral received
-     */
-    function redeemForCollateralFor(
-        address collateralAsset,
-        uint256 usdeAmount,
-        address beneficiary
-    ) external nonReentrant returns (uint256 collateralAmount) {
-        if (delegatedSigner[msg.sender][beneficiary] != DelegatedSignerStatus.ACCEPTED) {
-            revert InvalidSignature();
-        }
-        return _redeemForCollateral(collateralAsset, usdeAmount, beneficiary);
-    }
-
     /* --------------- COOLDOWN REDEMPTION --------------- */
 
     /**
@@ -430,40 +399,6 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Internal redeem logic for collateral
-     * @param collateralAsset The collateral asset to receive
-     * @param usdeAmount The amount of USDe to burn
-     * @param beneficiary The address to receive collateral
-     * @return collateralAmount The amount of collateral received
-     */
-    function _redeemForCollateral(
-        address collateralAsset,
-        uint256 usdeAmount,
-        address beneficiary
-    ) internal belowMaxRedeemPerBlock(usdeAmount) returns (uint256 collateralAmount) {
-        if (usdeAmount == 0) revert InvalidAmount();
-        if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
-        if (beneficiary == address(0)) revert ZeroAddressException();
-
-        // Convert USDe amount to collateral amount
-        collateralAmount = _convertToCollateralAmount(collateralAsset, usdeAmount);
-
-        // Track redeemed amount
-        redeemedPerBlock[block.number] += usdeAmount;
-
-        // Burn USDe from beneficiary (1:1 with MCT)
-        _burn(beneficiary, usdeAmount);
-
-        // Approve MCT to burn
-        IERC20(address(mct)).safeIncreaseAllowance(address(mct), usdeAmount);
-
-        // Redeem MCT for collateral
-        uint256 receivedCollateral = mct.redeem(collateralAsset, usdeAmount, beneficiary);
-
-        emit Redeem(beneficiary, collateralAsset, usdeAmount, receivedCollateral);
-    }
-
-    /**
      * @notice Convert collateral amount to USDe amount (normalize decimals to 18)
      * @param collateralAsset The collateral asset address
      * @param collateralAmount The amount of collateral
@@ -524,6 +459,22 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     }
 
     /* --------------- OVERRIDES --------------- */
+
+    /**
+     * @notice Override ERC4626 withdraw to enforce cooldown - disabled
+     * @dev Use cooldownRedeem/completeRedeem instead
+     */
+    function withdraw(uint256, address, address) public pure override returns (uint256) {
+        revert("Use cooldownRedeem");
+    }
+
+    /**
+     * @notice Override ERC4626 redeem to enforce cooldown - disabled
+     * @dev Use cooldownRedeem/completeRedeem instead
+     */
+    function redeem(uint256, address, address) public pure override returns (uint256) {
+        revert("Use cooldownRedeem");
+    }
 
     /// @dev Override decimals to ensure 18 decimals
     function decimals() public pure override(ERC4626, ERC20) returns (uint8) {
