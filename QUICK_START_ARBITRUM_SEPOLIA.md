@@ -212,10 +212,6 @@ npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft
 # 3) Re-run ovault on hub to deploy StakedUSDeComposer once the adapter exists
 npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
-# On Optimism Sepolia (spoke)
-npx hardhat deploy --network optimism-sepolia --tags ovault
-npx hardhat deploy --network optimism-sepolia --tags staked-usde-oft
-
 # On Base Sepolia (spoke)
 npx hardhat deploy --network base-sepolia --tags ovault
 npx hardhat deploy --network base-sepolia --tags staked-usde-oft
