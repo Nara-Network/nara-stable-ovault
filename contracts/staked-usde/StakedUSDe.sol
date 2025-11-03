@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./interfaces/IStakedUSDeCooldown.sol";
 import "./USDeSilo.sol";
 
@@ -22,7 +23,7 @@ import "./USDeSilo.sol";
  *      than zero, the ERC4626 withdrawal and redeem functions are disabled, breaking the ERC4626
  *      standard, and enabling the cooldownShares and the cooldownAssets functions.
  */
-contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IStakedUSDeCooldown {
+contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IStakedUSDeCooldown, Pausable {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -122,7 +123,9 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @notice Transfer rewards from the rewarder into this contract
      * @param amount The amount of rewards to transfer
      */
-    function transferInRewards(uint256 amount) external nonReentrant onlyRole(REWARDER_ROLE) notZero(amount) {
+    function transferInRewards(
+        uint256 amount
+    ) external nonReentrant whenNotPaused onlyRole(REWARDER_ROLE) notZero(amount) {
         _updateVestingAmount(amount);
 
         // Transfer assets from rewarder to this contract
@@ -203,7 +206,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override(ERC4626, IERC4626) ensureCooldownOff returns (uint256) {
+    ) public virtual override(ERC4626, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
         return super.withdraw(assets, receiver, owner);
     }
 
@@ -215,7 +218,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override(ERC4626, IERC4626) ensureCooldownOff returns (uint256) {
+    ) public virtual override(ERC4626, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
         return super.redeem(shares, receiver, owner);
     }
 
@@ -224,7 +227,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @dev unstake can be called after cooldown have been set to 0, to let accounts claim remaining assets locked at Silo
      * @param receiver Address to send the assets by the staker
      */
-    function unstake(address receiver) external {
+    function unstake(address receiver) external whenNotPaused {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
         uint256 assets = userCooldown.underlyingAmount;
 
@@ -242,7 +245,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @notice Redeem assets and starts a cooldown to claim the converted underlying asset
      * @param assets assets to redeem
      */
-    function cooldownAssets(uint256 assets) external ensureCooldownOn returns (uint256 shares) {
+    function cooldownAssets(uint256 assets) external whenNotPaused ensureCooldownOn returns (uint256 shares) {
         if (assets > maxWithdraw(msg.sender)) revert ExcessiveWithdrawAmount();
 
         shares = previewWithdraw(assets);
@@ -257,7 +260,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @notice Redeem shares into assets and starts a cooldown to claim the converted underlying asset
      * @param shares shares to redeem
      */
-    function cooldownShares(uint256 shares) external ensureCooldownOn returns (uint256 assets) {
+    function cooldownShares(uint256 shares) external whenNotPaused ensureCooldownOn returns (uint256 assets) {
         if (shares > maxRedeem(msg.sender)) revert ExcessiveRedeemAmount();
 
         assets = previewRedeem(shares);
@@ -284,6 +287,20 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         uint24 previousDuration = cooldownDuration;
         cooldownDuration = duration;
         emit CooldownDurationUpdated(previousDuration, cooldownDuration);
+    }
+
+    /**
+     * @notice Pause all deposits, withdrawals, and cooldown operations
+     */
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause all deposits, withdrawals, and cooldown operations
+     */
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     /* --------------- PUBLIC --------------- */

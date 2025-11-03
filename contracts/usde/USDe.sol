@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../mct/MultiCollateralToken.sol";
 import "./USDeRedeemSilo.sol";
 
@@ -22,7 +23,7 @@ import "./USDeRedeemSilo.sol";
  * - Redemptions require cooldown: lock USDe → wait X days → redeem to collateral → release
  * - Users can cancel redemption requests during cooldown period
  */
-contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
+contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -187,7 +188,7 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external nonReentrant returns (uint256 usdeAmount) {
+    ) external nonReentrant whenNotPaused returns (uint256 usdeAmount) {
         return _mintWithCollateral(collateralAsset, collateralAmount, msg.sender);
     }
 
@@ -202,7 +203,7 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) external nonReentrant returns (uint256 usdeAmount) {
+    ) external nonReentrant whenNotPaused returns (uint256 usdeAmount) {
         if (delegatedSigner[msg.sender][beneficiary] != DelegatedSignerStatus.ACCEPTED) {
             revert InvalidSignature();
         }
@@ -216,7 +217,7 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
      * @param collateralAsset The collateral asset to receive after cooldown
      * @param usdeAmount The amount of USDe to lock for redemption
      */
-    function cooldownRedeem(address collateralAsset, uint256 usdeAmount) external nonReentrant {
+    function cooldownRedeem(address collateralAsset, uint256 usdeAmount) external nonReentrant whenNotPaused {
         if (usdeAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (redemptionRequests[msg.sender].usdeAmount > 0) revert ExistingRedemptionRequest();
@@ -237,7 +238,7 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     /**
      * @notice Complete redemption after cooldown period - redeems USDe for collateral
      */
-    function completeRedeem() external nonReentrant returns (uint256 collateralAmount) {
+    function completeRedeem() external nonReentrant whenNotPaused returns (uint256 collateralAmount) {
         RedemptionRequest memory request = redemptionRequests[msg.sender];
 
         if (request.usdeAmount == 0) revert NoRedemptionRequest();
@@ -324,6 +325,20 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         uint24 previousDuration = cooldownDuration;
         cooldownDuration = duration;
         emit CooldownDurationUpdated(previousDuration, cooldownDuration);
+    }
+
+    /**
+     * @notice Pause all mint and redeem operations
+     */
+    function pause() external onlyRole(GATEKEEPER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause all mint and redeem operations
+     */
+    function unpause() external onlyRole(GATEKEEPER_ROLE) {
+        _unpause();
     }
 
     /* --------------- DELEGATED SIGNER FUNCTIONS --------------- */
