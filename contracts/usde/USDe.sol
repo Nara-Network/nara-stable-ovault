@@ -8,18 +8,22 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../mct/MultiCollateralToken.sol";
+import "./USDeRedeemSilo.sol";
 
 /**
  * @title USDe
- * @notice Omnichain vault version of USDe with integrated minting functionality
+ * @notice Omnichain vault version of USDe with integrated minting functionality and redemption cooldown
  * @dev This contract combines ERC4626 vault with direct collateral minting
  * - Underlying asset: MCT (MultiCollateralToken)
  * - Exchange rate: 1:1 with MCT
  * - Users can mint by depositing collateral (USDC, etc.)
  * - Collateral is converted to MCT, then USDe shares are minted
+ * - Redemptions require cooldown: lock USDe → wait X days → redeem to collateral → release
+ * - Users can cancel redemption requests during cooldown period
  */
-contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
+contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -29,6 +33,18 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
 
     /// @notice Role for managing collateral operations
     bytes32 public constant COLLATERAL_MANAGER_ROLE = keccak256("COLLATERAL_MANAGER_ROLE");
+
+    /// @notice Maximum cooldown duration (90 days)
+    uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
+
+    /* --------------- STRUCTS --------------- */
+
+    /// @notice Redemption request structure
+    struct RedemptionRequest {
+        uint104 cooldownEnd; // Timestamp when cooldown ends
+        uint152 usdeAmount; // Amount of USDe locked for redemption
+        address collateralAsset; // Collateral asset to receive
+    }
 
     /* --------------- STATE VARIABLES --------------- */
 
@@ -49,6 +65,15 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
 
     /// @notice Delegated signer status for smart contracts
     mapping(address => mapping(address => DelegatedSignerStatus)) public delegatedSigner;
+
+    /// @notice Cooldown duration in seconds for redemptions
+    uint24 public cooldownDuration;
+
+    /// @notice Mapping of user addresses to their redemption requests
+    mapping(address => RedemptionRequest) public redemptionRequests;
+
+    /// @notice Silo contract for holding locked USDe during cooldown
+    USDeRedeemSilo public immutable redeemSilo;
 
     /* --------------- ENUMS --------------- */
 
@@ -77,6 +102,20 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
     event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
     event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
+    event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
+    event RedemptionRequested(
+        address indexed user,
+        uint256 usdeAmount,
+        address indexed collateralAsset,
+        uint256 cooldownEnd
+    );
+    event RedemptionCompleted(
+        address indexed user,
+        uint256 usdeAmount,
+        address indexed collateralAsset,
+        uint256 collateralAmount
+    );
+    event RedemptionCancelled(address indexed user, uint256 usdeAmount);
 
     /* --------------- ERRORS --------------- */
 
@@ -88,6 +127,10 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     error InvalidSignature();
     error DelegationNotInitiated();
     error CantRenounceOwnership();
+    error InvalidCooldown();
+    error NoRedemptionRequest();
+    error CooldownNotFinished();
+    error ExistingRedemptionRequest();
 
     /* --------------- MODIFIERS --------------- */
 
@@ -126,6 +169,12 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
 
         _setMaxMintPerBlock(_maxMintPerBlock);
         _setMaxRedeemPerBlock(_maxRedeemPerBlock);
+
+        // Create silo for holding locked USDe during redemption cooldown
+        redeemSilo = new USDeRedeemSilo(address(this), address(this));
+
+        // Default cooldown to 7 days
+        cooldownDuration = 7 days;
     }
 
     /* --------------- EXTERNAL MINT/REDEEM --------------- */
@@ -139,7 +188,7 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external nonReentrant returns (uint256 usdeAmount) {
+    ) external nonReentrant whenNotPaused returns (uint256 usdeAmount) {
         return _mintWithCollateral(collateralAsset, collateralAmount, msg.sender);
     }
 
@@ -154,42 +203,88 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) external nonReentrant returns (uint256 usdeAmount) {
+    ) external nonReentrant whenNotPaused returns (uint256 usdeAmount) {
         if (delegatedSigner[msg.sender][beneficiary] != DelegatedSignerStatus.ACCEPTED) {
             revert InvalidSignature();
         }
         return _mintWithCollateral(collateralAsset, collateralAmount, beneficiary);
     }
 
+    /* --------------- COOLDOWN REDEMPTION --------------- */
+
     /**
-     * @notice Redeem USDe for collateral
-     * @param collateralAsset The collateral asset to receive
-     * @param usdeAmount The amount of USDe to redeem
-     * @return collateralAmount The amount of collateral received
+     * @notice Request redemption with cooldown - locks USDe and starts cooldown timer
+     * @param collateralAsset The collateral asset to receive after cooldown
+     * @param usdeAmount The amount of USDe to lock for redemption
      */
-    function redeemForCollateral(
-        address collateralAsset,
-        uint256 usdeAmount
-    ) external nonReentrant returns (uint256 collateralAmount) {
-        return _redeemForCollateral(collateralAsset, usdeAmount, msg.sender);
+    function cooldownRedeem(address collateralAsset, uint256 usdeAmount) external nonReentrant whenNotPaused {
+        if (usdeAmount == 0) revert InvalidAmount();
+        if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
+        if (redemptionRequests[msg.sender].usdeAmount > 0) revert ExistingRedemptionRequest();
+
+        // Transfer USDe from user to silo (locks it)
+        _transfer(msg.sender, address(redeemSilo), usdeAmount);
+
+        // Record redemption request
+        redemptionRequests[msg.sender] = RedemptionRequest({
+            cooldownEnd: uint104(block.timestamp + cooldownDuration),
+            usdeAmount: uint152(usdeAmount),
+            collateralAsset: collateralAsset
+        });
+
+        emit RedemptionRequested(msg.sender, usdeAmount, collateralAsset, block.timestamp + cooldownDuration);
     }
 
     /**
-     * @notice Redeem USDe on behalf of a beneficiary
-     * @param collateralAsset The collateral asset to receive
-     * @param usdeAmount The amount of USDe to redeem
-     * @param beneficiary The address to burn USDe from and receive collateral
-     * @return collateralAmount The amount of collateral received
+     * @notice Complete redemption after cooldown period - redeems USDe for collateral
      */
-    function redeemForCollateralFor(
-        address collateralAsset,
-        uint256 usdeAmount,
-        address beneficiary
-    ) external nonReentrant returns (uint256 collateralAmount) {
-        if (delegatedSigner[msg.sender][beneficiary] != DelegatedSignerStatus.ACCEPTED) {
-            revert InvalidSignature();
-        }
-        return _redeemForCollateral(collateralAsset, usdeAmount, beneficiary);
+    function completeRedeem() external nonReentrant whenNotPaused returns (uint256 collateralAmount) {
+        RedemptionRequest memory request = redemptionRequests[msg.sender];
+
+        if (request.usdeAmount == 0) revert NoRedemptionRequest();
+        if (block.timestamp < request.cooldownEnd) revert CooldownNotFinished();
+
+        uint256 usdeAmount = request.usdeAmount;
+        address collateralAsset = request.collateralAsset;
+
+        // Clear redemption request
+        delete redemptionRequests[msg.sender];
+
+        // Withdraw USDe from silo back to this contract
+        redeemSilo.withdraw(address(this), usdeAmount);
+
+        // Convert USDe amount to collateral amount
+        collateralAmount = _convertToCollateralAmount(collateralAsset, usdeAmount);
+
+        // Burn USDe (now it's in this contract)
+        _burn(address(this), usdeAmount);
+
+        // Approve MCT to burn
+        IERC20(address(mct)).safeIncreaseAllowance(address(mct), usdeAmount);
+
+        // Redeem MCT for collateral and send to user
+        uint256 receivedCollateral = mct.redeem(collateralAsset, usdeAmount, msg.sender);
+
+        emit RedemptionCompleted(msg.sender, usdeAmount, collateralAsset, receivedCollateral);
+    }
+
+    /**
+     * @notice Cancel redemption request and return locked USDe to user
+     */
+    function cancelRedeem() external nonReentrant {
+        RedemptionRequest memory request = redemptionRequests[msg.sender];
+
+        if (request.usdeAmount == 0) revert NoRedemptionRequest();
+
+        uint256 usdeAmount = request.usdeAmount;
+
+        // Clear redemption request
+        delete redemptionRequests[msg.sender];
+
+        // Return USDe from silo to user
+        redeemSilo.withdraw(msg.sender, usdeAmount);
+
+        emit RedemptionCancelled(msg.sender, usdeAmount);
     }
 
     /* --------------- ADMIN FUNCTIONS --------------- */
@@ -216,6 +311,34 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     function disableMintRedeem() external onlyRole(GATEKEEPER_ROLE) {
         _setMaxMintPerBlock(0);
         _setMaxRedeemPerBlock(0);
+    }
+
+    /**
+     * @notice Set cooldown duration for redemptions
+     * @param duration New cooldown duration (max 90 days)
+     */
+    function setCooldownDuration(uint24 duration) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (duration > MAX_COOLDOWN_DURATION) {
+            revert InvalidCooldown();
+        }
+
+        uint24 previousDuration = cooldownDuration;
+        cooldownDuration = duration;
+        emit CooldownDurationUpdated(previousDuration, cooldownDuration);
+    }
+
+    /**
+     * @notice Pause all mint and redeem operations
+     */
+    function pause() external onlyRole(GATEKEEPER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause all mint and redeem operations
+     */
+    function unpause() external onlyRole(GATEKEEPER_ROLE) {
+        _unpause();
     }
 
     /* --------------- DELEGATED SIGNER FUNCTIONS --------------- */
@@ -291,40 +414,6 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Internal redeem logic for collateral
-     * @param collateralAsset The collateral asset to receive
-     * @param usdeAmount The amount of USDe to burn
-     * @param beneficiary The address to receive collateral
-     * @return collateralAmount The amount of collateral received
-     */
-    function _redeemForCollateral(
-        address collateralAsset,
-        uint256 usdeAmount,
-        address beneficiary
-    ) internal belowMaxRedeemPerBlock(usdeAmount) returns (uint256 collateralAmount) {
-        if (usdeAmount == 0) revert InvalidAmount();
-        if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
-        if (beneficiary == address(0)) revert ZeroAddressException();
-
-        // Convert USDe amount to collateral amount
-        collateralAmount = _convertToCollateralAmount(collateralAsset, usdeAmount);
-
-        // Track redeemed amount
-        redeemedPerBlock[block.number] += usdeAmount;
-
-        // Burn USDe from beneficiary (1:1 with MCT)
-        _burn(beneficiary, usdeAmount);
-
-        // Approve MCT to burn
-        IERC20(address(mct)).safeIncreaseAllowance(address(mct), usdeAmount);
-
-        // Redeem MCT for collateral
-        uint256 receivedCollateral = mct.redeem(collateralAsset, usdeAmount, beneficiary);
-
-        emit Redeem(beneficiary, collateralAsset, usdeAmount, receivedCollateral);
-    }
-
-    /**
      * @notice Convert collateral amount to USDe amount (normalize decimals to 18)
      * @param collateralAsset The collateral asset address
      * @param collateralAmount The amount of collateral
@@ -385,6 +474,22 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     }
 
     /* --------------- OVERRIDES --------------- */
+
+    /**
+     * @notice Override ERC4626 withdraw to enforce cooldown - disabled
+     * @dev Use cooldownRedeem/completeRedeem instead
+     */
+    function withdraw(uint256, address, address) public pure override returns (uint256) {
+        revert("Use cooldownRedeem");
+    }
+
+    /**
+     * @notice Override ERC4626 redeem to enforce cooldown - disabled
+     * @dev Use cooldownRedeem/completeRedeem instead
+     */
+    function redeem(uint256, address, address) public pure override returns (uint256) {
+        revert("Use cooldownRedeem");
+    }
 
     /// @dev Override decimals to ensure 18 decimals
     function decimals() public pure override(ERC4626, ERC20) returns (uint8) {

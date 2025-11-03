@@ -6,16 +6,24 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "./interfaces/IStakedUSDeCooldown.sol";
+import "./USDeSilo.sol";
 
 /**
  * @title StakedUSDe
- * @notice Staking contract for USDe tokens with OVault integration
+ * @notice Staking contract for USDe tokens with OVault integration and cooldown functionality (V2)
  * @dev Users stake USDe tokens and earn rewards. The contract uses ERC4626 standard
  *      for vault operations and can be integrated with LayerZero's OVault for omnichain functionality.
  *
  *      Rewards are distributed by REWARDER_ROLE and vest over time to prevent MEV attacks.
+ *
+ * @dev If cooldown duration is set to zero, the StakedUSDe behavior follows ERC4626 standard
+ *      and disables cooldownShares and cooldownAssets methods. If cooldown duration is greater
+ *      than zero, the ERC4626 withdrawal and redeem functions are disabled, breaking the ERC4626
+ *      standard, and enabling the cooldownShares and the cooldownAssets functions.
  */
-contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
+contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IStakedUSDeCooldown, Pausable {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -38,6 +46,9 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
     /// @notice Minimum non-zero shares to prevent donation attack
     uint256 public constant MIN_SHARES = 1 ether;
 
+    /// @notice Maximum cooldown duration (90 days)
+    uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
+
     /* --------------- STATE VARIABLES --------------- */
 
     /// @notice Amount of the last asset distribution + unvested remainder
@@ -46,21 +57,14 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
     /// @notice Timestamp of the last asset distribution
     uint256 public lastDistributionTimestamp;
 
-    /* --------------- EVENTS --------------- */
+    /// @notice Cooldown duration in seconds
+    uint24 public cooldownDuration;
 
-    event RewardsReceived(uint256 amount);
-    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
+    /// @notice Mapping of user addresses to their cooldown data
+    mapping(address => UserCooldown) public cooldowns;
 
-    /* --------------- ERRORS --------------- */
-
-    error InvalidZeroAddress();
-    error InvalidAmount();
-    error InvalidToken();
-    error CantBlacklistOwner();
-    error OperationNotAllowed();
-    error MinSharesViolation();
-    error StillVesting();
-    error CantRenounceOwnership();
+    /// @notice Silo contract for holding assets during cooldown
+    USDeSilo public immutable silo;
 
     /* --------------- MODIFIERS --------------- */
 
@@ -73,6 +77,18 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
     /// @notice Ensure blacklist target is not admin
     modifier notAdmin(address target) {
         if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+        _;
+    }
+
+    /// @notice Ensure cooldownDuration is zero
+    modifier ensureCooldownOff() {
+        if (cooldownDuration != 0) revert OperationNotAllowed();
+        _;
+    }
+
+    /// @notice Ensure cooldownDuration is gt 0
+    modifier ensureCooldownOn() {
+        if (cooldownDuration == 0) revert OperationNotAllowed();
         _;
     }
 
@@ -96,6 +112,9 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(REWARDER_ROLE, _initialRewarder);
         _grantRole(BLACKLIST_MANAGER_ROLE, _admin);
+
+        silo = new USDeSilo(address(this), address(_asset));
+        cooldownDuration = MAX_COOLDOWN_DURATION;
     }
 
     /* --------------- EXTERNAL --------------- */
@@ -104,7 +123,9 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
      * @notice Transfer rewards from the rewarder into this contract
      * @param amount The amount of rewards to transfer
      */
-    function transferInRewards(uint256 amount) external nonReentrant onlyRole(REWARDER_ROLE) notZero(amount) {
+    function transferInRewards(
+        uint256 amount
+    ) external nonReentrant whenNotPaused onlyRole(REWARDER_ROLE) notZero(amount) {
         _updateVestingAmount(amount);
 
         // Transfer assets from rewarder to this contract
@@ -177,13 +198,118 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
         }
     }
 
+    /**
+     * @dev See {IERC4626-withdraw}.
+     * @notice Only enabled when cooldown is off
+     */
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) public virtual override(ERC4626, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
+        return super.withdraw(assets, receiver, owner);
+    }
+
+    /**
+     * @dev See {IERC4626-redeem}.
+     * @notice Only enabled when cooldown is off
+     */
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public virtual override(ERC4626, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
+        return super.redeem(shares, receiver, owner);
+    }
+
+    /**
+     * @notice Claim the staking amount after the cooldown has finished
+     * @dev unstake can be called after cooldown have been set to 0, to let accounts claim remaining assets locked at Silo
+     * @param receiver Address to send the assets by the staker
+     */
+    function unstake(address receiver) external whenNotPaused {
+        UserCooldown storage userCooldown = cooldowns[msg.sender];
+        uint256 assets = userCooldown.underlyingAmount;
+
+        if (block.timestamp >= userCooldown.cooldownEnd || cooldownDuration == 0) {
+            userCooldown.cooldownEnd = 0;
+            userCooldown.underlyingAmount = 0;
+
+            silo.withdraw(receiver, assets);
+        } else {
+            revert InvalidCooldown();
+        }
+    }
+
+    /**
+     * @notice Redeem assets and starts a cooldown to claim the converted underlying asset
+     * @param assets assets to redeem
+     */
+    function cooldownAssets(uint256 assets) external whenNotPaused ensureCooldownOn returns (uint256 shares) {
+        if (assets > maxWithdraw(msg.sender)) revert ExcessiveWithdrawAmount();
+
+        shares = previewWithdraw(assets);
+
+        cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
+        cooldowns[msg.sender].underlyingAmount += uint152(assets);
+
+        _withdraw(msg.sender, address(silo), msg.sender, assets, shares);
+    }
+
+    /**
+     * @notice Redeem shares into assets and starts a cooldown to claim the converted underlying asset
+     * @param shares shares to redeem
+     */
+    function cooldownShares(uint256 shares) external whenNotPaused ensureCooldownOn returns (uint256 assets) {
+        if (shares > maxRedeem(msg.sender)) revert ExcessiveRedeemAmount();
+
+        assets = previewRedeem(shares);
+
+        cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
+        cooldowns[msg.sender].underlyingAmount += uint152(assets);
+
+        _withdraw(msg.sender, address(silo), msg.sender, assets, shares);
+    }
+
+    /**
+     * @notice Set cooldown duration
+     * @dev If cooldown duration is set to zero, the behavior follows ERC4626 standard and disables
+     *      cooldownShares and cooldownAssets methods. If cooldown duration is greater than zero,
+     *      the ERC4626 withdrawal and redeem functions are disabled, breaking the ERC4626 standard,
+     *      and enabling the cooldownShares and the cooldownAssets functions.
+     * @param duration Duration of the cooldown
+     */
+    function setCooldownDuration(uint24 duration) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (duration > MAX_COOLDOWN_DURATION) {
+            revert InvalidCooldown();
+        }
+
+        uint24 previousDuration = cooldownDuration;
+        cooldownDuration = duration;
+        emit CooldownDurationUpdated(previousDuration, cooldownDuration);
+    }
+
+    /**
+     * @notice Pause all deposits, withdrawals, and cooldown operations
+     */
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause all deposits, withdrawals, and cooldown operations
+     */
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
+    }
+
     /* --------------- PUBLIC --------------- */
 
     /**
      * @notice Returns the amount of USDe tokens that are vested in the contract
      * @return The total vested assets
      */
-    function totalAssets() public view override returns (uint256) {
+    function totalAssets() public view override(ERC4626, IERC4626) returns (uint256) {
         return IERC20(asset()).balanceOf(address(this)) - getUnvestedAmount();
     }
 
@@ -206,8 +332,13 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
     }
 
     /// @dev Necessary because both ERC20 (from ERC20Permit) and ERC4626 declare decimals()
-    function decimals() public pure override(ERC4626, ERC20) returns (uint8) {
+    function decimals() public pure override(ERC4626, ERC20, IERC20Metadata) returns (uint8) {
         return 18;
+    }
+
+    /// @dev Override nonces to resolve conflict between ERC20Permit and other base classes
+    function nonces(address owner) public view virtual override(ERC20Permit, IERC20Permit) returns (uint256) {
+        return super.nonces(owner);
     }
 
     /* --------------- INTERNAL --------------- */
@@ -240,19 +371,19 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626 {
     function _withdraw(
         address caller,
         address receiver,
-        address _owner,
+        address owner,
         uint256 assets,
         uint256 shares
     ) internal override nonReentrant notZero(assets) notZero(shares) {
         if (
             hasRole(FULL_RESTRICTED_STAKER_ROLE, caller) ||
             hasRole(FULL_RESTRICTED_STAKER_ROLE, receiver) ||
-            hasRole(FULL_RESTRICTED_STAKER_ROLE, _owner)
+            hasRole(FULL_RESTRICTED_STAKER_ROLE, owner)
         ) {
             revert OperationNotAllowed();
         }
 
-        super._withdraw(caller, receiver, _owner, assets, shares);
+        super._withdraw(caller, receiver, owner, assets, shares);
         _checkMinShares();
     }
 
