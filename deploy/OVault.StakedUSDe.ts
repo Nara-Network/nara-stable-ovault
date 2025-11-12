@@ -117,13 +117,43 @@ const deploy: DeployFunction = async (hre) => {
 
     console.log('========================================')
 
+    // ========================================
+    // VERIFICATION COMMANDS
+    // ========================================
+    if (Object.keys(deployedContracts).length > 0) {
+        console.log('\n========================================')
+        console.log('VERIFICATION COMMANDS')
+        console.log('========================================\n')
+
+        if (isStakedUsdeVaultChain(networkEid)) {
+            // Hub chain verification commands
+            if (deployedContracts.sUsdeAdapter) {
+                const stakedUsde = await hre.deployments.get('StakedUSDe')
+                console.log(`# StakedUSDeOFTAdapter`)
+                console.log(
+                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.sUsdeAdapter} "${stakedUsde.address}" "${endpointV2.address}" "${deployer}"\n`
+                )
+            }
+        } else {
+            // Spoke chain verification commands
+            if (deployedContracts.sUsdeOFT) {
+                console.log(`# StakedUSDeOFT`)
+                console.log(
+                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.sUsdeOFT} "${endpointV2.address}" "${deployer}"\n`
+                )
+            }
+        }
+
+        console.log('========================================\n')
+    }
+
     if (isStakedUsdeVaultChain(networkEid)) {
-        console.log('\n📝 Next Steps:')
+        console.log('📝 Next Steps:')
         console.log('1. Deploy StakedUSDeOFT on spoke chains')
         console.log('2. Wire LayerZero peers for sUSDe')
         console.log('3. Test cross-chain sUSDe transfers\n')
     } else {
-        console.log('\n📝 Next Steps:')
+        console.log('📝 Next Steps:')
         console.log('1. Deploy on other spoke chains (if needed)')
         console.log('2. Wire LayerZero peers for sUSDe')
         console.log('3. Test cross-chain sUSDe transfers\n')
