@@ -1,17 +1,7 @@
-<p align="center">
-  <a href="https://layerzero.network">
-    <img alt="LayerZero" style="width: 400px" src="https://docs.layerzero.network/img/LayerZero_Logo_White.svg"/>
-  </a>
-</p>
+<h1 align="center">Nara Stable Omnichain Vault</h1>
 
 <p align="center">
-  <a href="https://layerzero.network" style="color: #a77dff">Homepage</a> | <a href="https://docs.layerzero.network/" style="color: #a77dff">Docs</a> | <a href="https://layerzero.network/developers" style="color: #a77dff">Developers</a>
-</p>
-
-<h1 align="center">USDe & StakedUSDe Omnichain Vault</h1>
-
-<p align="center">
-  <strong>Omnichain stablecoin vault with integrated minting, staking, and cross-chain functionality</strong>
+  <strong>USDe & StakedUSDe - Omnichain stablecoin vault with integrated minting, staking, and cross-chain functionality</strong>
 </p>
 
 ---
@@ -266,5 +256,5 @@ GPL-3.0
 ---
 
 <p align="center">
-  Built with ❤️ using <a href="https://layerzero.network">LayerZero OVault</a>
+  Built by <strong>Nara</strong> • Powered by <a href="https://layerzero.network">LayerZero V2</a>
 </p>
