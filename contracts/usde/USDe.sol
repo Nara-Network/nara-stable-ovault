@@ -341,6 +341,24 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         _unpause();
     }
 
+    /**
+     * @notice Burn USDe tokens and underlying MCT without withdrawing collateral
+     * @dev This creates a deflationary effect: burns both USDe and MCT while keeping collateral in MCT
+     * @dev Burns tokens from msg.sender only (caller must own the tokens)
+     * @param amount The amount of USDe to burn
+     */
+    function burn(uint256 amount) external {
+        if (amount == 0) revert InvalidAmount();
+
+        // Burn USDe from caller (1:1 with MCT)
+        _burn(msg.sender, amount);
+
+        // Burn the equivalent MCT tokens held by this contract
+        // This keeps the collateral in MCT but reduces MCT supply
+        // Making remaining MCT more valuable (since same collateral backs fewer tokens)
+        mct.burn(amount);
+    }
+
     /* --------------- DELEGATED SIGNER FUNCTIONS --------------- */
 
     /**

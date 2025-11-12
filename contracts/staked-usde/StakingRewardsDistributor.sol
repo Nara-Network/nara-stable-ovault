@@ -102,17 +102,15 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     }
 
     /**
-     * @notice Remove USDe assets from the staking contract to decrease sUSDe exchange rate
-     * @param _amount The amount of USDe to remove from staking vault
-     * @param _to The address to send the removed USDe to
+     * @notice Burn USDe assets from the staking contract to decrease sUSDe exchange rate
+     * @param _amount The amount of USDe to burn from staking vault
      * @dev Only the operator can call this function
      * @dev This contract must have REWARDER_ROLE in the staking contract
      */
-    function removeAssets(uint256 _amount, address _to) external nonReentrant {
+    function burnAssets(uint256 _amount) external nonReentrant {
         if (msg.sender != operator) revert OnlyOperator();
-        if (_to == address(0)) revert InvalidZeroAddress();
 
-        STAKING_VAULT.removeAssets(_amount, _to);
+        STAKING_VAULT.burnAssets(_amount);
     }
 
     /**
