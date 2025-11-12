@@ -152,12 +152,12 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     console.log('# StakedUSDe')
     console.log(
-        `npx hardhat verify --network ${hre.network.name} ${stakedUsdeAddress} "${USDE_ADDRESS}" "${initialRewarder}" "${ADMIN_ADDRESS}"\n`
+        `npx hardhat verify --contract contracts/staked-usde/StakedUSDe.sol:StakedUSDe --network ${hre.network.name} ${stakedUsdeAddress} "${USDE_ADDRESS}" "${initialRewarder}" "${ADMIN_ADDRESS}"\n`
     )
 
     console.log('# StakingRewardsDistributor')
     console.log(
-        `npx hardhat verify --network ${hre.network.name} ${distributorDeployment.address} "${stakedUsdeAddress}" "${USDE_ADDRESS}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"\n`
+        `npx hardhat verify --contract contracts/staked-usde/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${hre.network.name} ${distributorDeployment.address} "${stakedUsdeAddress}" "${USDE_ADDRESS}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"\n`
     )
 
     console.log('========================================\n')

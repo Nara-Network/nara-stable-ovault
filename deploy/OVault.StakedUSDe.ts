@@ -131,7 +131,7 @@ const deploy: DeployFunction = async (hre) => {
                 const stakedUsde = await hre.deployments.get('StakedUSDe')
                 console.log(`# StakedUSDeOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.sUsdeAdapter} "${stakedUsde.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/staked-usde/StakedUSDeOFTAdapter.sol:StakedUSDeOFTAdapter --network ${hre.network.name} ${deployedContracts.sUsdeAdapter} "${stakedUsde.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         } else {
@@ -139,7 +139,7 @@ const deploy: DeployFunction = async (hre) => {
             if (deployedContracts.sUsdeOFT) {
                 console.log(`# StakedUSDeOFT`)
                 console.log(
-                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.sUsdeOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/staked-usde/StakedUSDeOFT.sol:StakedUSDeOFT --network ${hre.network.name} ${deployedContracts.sUsdeOFT} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         }

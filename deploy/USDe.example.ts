@@ -106,12 +106,12 @@ const deployUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     console.log('# MultiCollateralToken')
     console.log(
-        `npx hardhat verify --network ${hre.network.name} ${mctDeployment.address} "${ADMIN_ADDRESS}" '${assetsArrayString}'\n`
+        `npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network ${hre.network.name} ${mctDeployment.address} "${ADMIN_ADDRESS}" '${assetsArrayString}'\n`
     )
 
     console.log('# USDe')
     console.log(
-        `npx hardhat verify --network ${hre.network.name} ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
+        `npx hardhat verify --contract contracts/usde/USDe.sol:USDe --network ${hre.network.name} ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
     )
 
     console.log('========================================\n')

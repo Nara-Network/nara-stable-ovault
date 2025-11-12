@@ -288,7 +288,7 @@ const deploy: DeployFunction = async (hre) => {
                 const mct = await hre.deployments.get('MultiCollateralToken')
                 console.log(`# MCTOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.mctAdapter} "${mct.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter --network ${hre.network.name} ${deployedContracts.mctAdapter} "${mct.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
 
@@ -296,7 +296,7 @@ const deploy: DeployFunction = async (hre) => {
                 const usde = await hre.deployments.get('USDe')
                 console.log(`# USDeOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.usdeAdapter} "${usde.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/usde/USDeOFTAdapter.sol:USDeOFTAdapter --network ${hre.network.name} ${deployedContracts.usdeAdapter} "${usde.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
 
@@ -308,7 +308,7 @@ const deploy: DeployFunction = async (hre) => {
                 const collateralAssetOFT = DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress
                 console.log(`# USDeComposer`)
                 console.log(
-                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.composer} "${usde.address}" "${mctAdapter.address}" "${usdeAdapter.address}" "${collateralAsset}" "${collateralAssetOFT}"\n`
+                    `npx hardhat verify --contract contracts/usde/USDeComposer.sol:USDeComposer --network ${hre.network.name} ${deployedContracts.composer} "${usde.address}" "${mctAdapter.address}" "${usdeAdapter.address}" "${collateralAsset}" "${collateralAssetOFT}"\n`
                 )
             }
 
@@ -318,7 +318,7 @@ const deploy: DeployFunction = async (hre) => {
                 const stakedUsdeAdapter = await hre.deployments.get('StakedUSDeOFTAdapter')
                 console.log(`# StakedUSDeComposer`)
                 console.log(
-                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.stakedComposer} "${stakedUsde.address}" "${usdeAdapter.address}" "${stakedUsdeAdapter.address}"\n`
+                    `npx hardhat verify --contract contracts/staked-usde/StakedUSDeComposer.sol:StakedUSDeComposer --network ${hre.network.name} ${deployedContracts.stakedComposer} "${stakedUsde.address}" "${usdeAdapter.address}" "${stakedUsdeAdapter.address}"\n`
                 )
             }
         } else {
@@ -326,14 +326,14 @@ const deploy: DeployFunction = async (hre) => {
             if (deployedContracts.mctOFT) {
                 console.log(`# MCTOFT`)
                 console.log(
-                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.mctOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/mct/MCTOFT.sol:MCTOFT --network ${hre.network.name} ${deployedContracts.mctOFT} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
 
             if (deployedContracts.usdeOFT) {
                 console.log(`# USDeOFT`)
                 console.log(
-                    `npx hardhat verify --network ${hre.network.name} ${deployedContracts.usdeOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/usde/USDeOFT.sol:USDeOFT --network ${hre.network.name} ${deployedContracts.usdeOFT} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         }
