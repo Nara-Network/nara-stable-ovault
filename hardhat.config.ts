@@ -114,7 +114,7 @@ const config: HardhatUserConfig = {
                 network: 'baseSepolia',
                 chainId: 84532,
                 urls: {
-                    apiURL: 'https://api-sepolia.basescan.org/api',
+                    apiURL: 'https://api.etherscan.io/v2/api?chainid=84532',
                     browserURL: 'https://sepolia.basescan.org',
                 },
             },
@@ -122,7 +122,7 @@ const config: HardhatUserConfig = {
                 network: 'sepolia',
                 chainId: 11155111,
                 urls: {
-                    apiURL: 'https://api.sepolia.etherscan.io/api',
+                    apiURL: 'https://api.etherscan.io/v2/api?chainid=11155111',
                     browserURL: 'https://sepolia.etherscan.io',
                 },
             },
