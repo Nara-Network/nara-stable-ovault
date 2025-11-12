@@ -135,6 +135,25 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
     }
 
     /**
+     * @notice Remove USDe from the contract to decrease sUSDe exchange rate
+     * @dev This burns USDe from the contract, decreasing totalAssets and thus the exchange rate
+     * @dev Unlike transferInRewards, this happens instantly without vesting
+     * @param amount The amount of USDe to remove
+     * @param to The address to send the removed USDe to
+     */
+    function removeAssets(
+        uint256 amount,
+        address to
+    ) external nonReentrant whenNotPaused onlyRole(REWARDER_ROLE) notZero(amount) {
+        if (to == address(0)) revert InvalidZeroAddress();
+
+        // Transfer USDe out of the contract, decreasing totalAssets
+        IERC20(asset()).safeTransfer(to, amount);
+
+        emit AssetsRemoved(to, amount);
+    }
+
+    /**
      * @notice Add an address to blacklist
      * @param target The address to blacklist
      * @param isFullBlacklisting Soft or full blacklisting level
