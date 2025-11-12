@@ -116,6 +116,12 @@ interface IUSDe is IERC4626, IERC20Permit {
     function disableMintRedeem() external;
 
     /**
+     * @notice Burn USDe and underlying MCT without withdrawing collateral
+     * @param amount The amount to burn (from msg.sender)
+     */
+    function burn(uint256 amount) external;
+
+    /**
      * @notice Enable smart contracts to delegate signing
      * @param _delegateTo The address to delegate to
      */

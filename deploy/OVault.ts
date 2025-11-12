@@ -274,13 +274,80 @@ const deploy: DeployFunction = async (hre) => {
 
     console.log('========================================')
 
+    // ========================================
+    // VERIFICATION COMMANDS
+    // ========================================
+    if (Object.keys(deployedContracts).length > 0) {
+        console.log('\n========================================')
+        console.log('VERIFICATION COMMANDS')
+        console.log('========================================\n')
+
+        if (isVaultChain(networkEid)) {
+            // Hub chain verification commands
+            if (deployedContracts.mctAdapter) {
+                const mct = await hre.deployments.get('MultiCollateralToken')
+                console.log(`# MCTOFTAdapter`)
+                console.log(
+                    `npx hardhat verify --contract contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter --network ${hre.network.name} ${deployedContracts.mctAdapter} "${mct.address}" "${endpointV2.address}" "${deployer}"\n`
+                )
+            }
+
+            if (deployedContracts.usdeAdapter) {
+                const usde = await hre.deployments.get('USDe')
+                console.log(`# USDeOFTAdapter`)
+                console.log(
+                    `npx hardhat verify --contract contracts/usde/USDeOFTAdapter.sol:USDeOFTAdapter --network ${hre.network.name} ${deployedContracts.usdeAdapter} "${usde.address}" "${endpointV2.address}" "${deployer}"\n`
+                )
+            }
+
+            if (deployedContracts.composer) {
+                const usde = await hre.deployments.get('USDe')
+                const mctAdapter = await hre.deployments.get('MCTOFTAdapter')
+                const usdeAdapter = await hre.deployments.get('USDeOFTAdapter')
+                const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
+                const collateralAssetOFT = DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress
+                console.log(`# USDeComposer`)
+                console.log(
+                    `npx hardhat verify --contract contracts/usde/USDeComposer.sol:USDeComposer --network ${hre.network.name} ${deployedContracts.composer} "${usde.address}" "${mctAdapter.address}" "${usdeAdapter.address}" "${collateralAsset}" "${collateralAssetOFT}"\n`
+                )
+            }
+
+            if (deployedContracts.stakedComposer) {
+                const stakedUsde = await hre.deployments.get('StakedUSDe')
+                const usdeAdapter = await hre.deployments.get('USDeOFTAdapter')
+                const stakedUsdeAdapter = await hre.deployments.get('StakedUSDeOFTAdapter')
+                console.log(`# StakedUSDeComposer`)
+                console.log(
+                    `npx hardhat verify --contract contracts/staked-usde/StakedUSDeComposer.sol:StakedUSDeComposer --network ${hre.network.name} ${deployedContracts.stakedComposer} "${stakedUsde.address}" "${usdeAdapter.address}" "${stakedUsdeAdapter.address}"\n`
+                )
+            }
+        } else {
+            // Spoke chain verification commands
+            if (deployedContracts.mctOFT) {
+                console.log(`# MCTOFT`)
+                console.log(
+                    `npx hardhat verify --contract contracts/mct/MCTOFT.sol:MCTOFT --network ${hre.network.name} ${deployedContracts.mctOFT} "${endpointV2.address}" "${deployer}"\n`
+                )
+            }
+
+            if (deployedContracts.usdeOFT) {
+                console.log(`# USDeOFT`)
+                console.log(
+                    `npx hardhat verify --contract contracts/usde/USDeOFT.sol:USDeOFT --network ${hre.network.name} ${deployedContracts.usdeOFT} "${endpointV2.address}" "${deployer}"\n`
+                )
+            }
+        }
+
+        console.log('========================================\n')
+    }
+
     if (isVaultChain(networkEid)) {
-        console.log('\n📝 Next Steps:')
+        console.log('📝 Next Steps:')
         console.log('1. Deploy OFTs on spoke chains')
         console.log('2. Wire LayerZero peers using: npx hardhat lz:oapp:wire')
         console.log('3. Test cross-chain transfers\n')
     } else {
-        console.log('\n📝 Next Steps:')
+        console.log('📝 Next Steps:')
         console.log('1. Deploy on other spoke chains (if needed)')
         console.log('2. Wire LayerZero peers using: npx hardhat lz:oapp:wire')
         console.log('3. Test cross-chain transfers\n')

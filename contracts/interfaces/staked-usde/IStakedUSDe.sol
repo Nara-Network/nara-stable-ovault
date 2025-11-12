@@ -13,6 +13,7 @@ interface IStakedUSDe is IERC4626, IERC20Permit {
 
     event RewardsReceived(uint256 amount);
     event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
+    event AssetsBurned(uint256 amount);
 
     /* --------------- ERRORS --------------- */
 
@@ -32,6 +33,12 @@ interface IStakedUSDe is IERC4626, IERC20Permit {
      * @param amount The amount of rewards to transfer
      */
     function transferInRewards(uint256 amount) external;
+
+    /**
+     * @notice Burn USDe from the contract to decrease sUSDe exchange rate
+     * @param amount The amount of USDe to burn
+     */
+    function burnAssets(uint256 amount) external;
 
     /**
      * @notice Add an address to blacklist

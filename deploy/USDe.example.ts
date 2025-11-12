@@ -97,14 +97,34 @@ const deployUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     console.log('Max Redeem Per Block:', MAX_REDEEM_PER_BLOCK)
     console.log('========================================\n')
 
+    // Verification commands
+    console.log('========================================')
+    console.log('VERIFICATION COMMANDS')
+    console.log('========================================\n')
+
+    const assetsArrayString = '["' + INITIAL_SUPPORTED_ASSETS.join('","') + '"]'
+
+    console.log('# MultiCollateralToken')
+    console.log(
+        `npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network ${hre.network.name} ${mctDeployment.address} "${ADMIN_ADDRESS}" '${assetsArrayString}'\n`
+    )
+
+    console.log('# USDe')
+    console.log(
+        `npx hardhat verify --contract contracts/usde/USDe.sol:USDe --network ${hre.network.name} ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
+    )
+
+    console.log('========================================\n')
+
     // Next steps
     console.log('Next Steps:')
-    console.log('1. Verify MINTER_ROLE was granted to USDe')
-    console.log('2. (Optional) Add more supported assets via MCT.addSupportedAsset()')
-    console.log('3. (Optional) Grant COLLATERAL_MANAGER_ROLE to team members')
-    console.log('4. (Optional) Grant GATEKEEPER_ROLE to emergency responders')
-    console.log('5. Test mint/redeem functionality')
-    console.log('6. (Optional) Deploy OVault adapters for omnichain functionality\n')
+    console.log('1. Verify contracts on block explorer using commands above')
+    console.log('2. Verify MINTER_ROLE was granted to USDe')
+    console.log('3. (Optional) Add more supported assets via MCT.addSupportedAsset()')
+    console.log('4. (Optional) Grant COLLATERAL_MANAGER_ROLE to team members')
+    console.log('5. (Optional) Grant GATEKEEPER_ROLE to emergency responders')
+    console.log('6. Test mint/redeem functionality')
+    console.log('7. (Optional) Deploy OVault adapters for omnichain functionality\n')
 }
 
 export default deployUSDe

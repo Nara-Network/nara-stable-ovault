@@ -102,6 +102,18 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     }
 
     /**
+     * @notice Burn USDe assets from the staking contract to decrease sUSDe exchange rate
+     * @param _amount The amount of USDe to burn from staking vault
+     * @dev Only the operator can call this function
+     * @dev This contract must have REWARDER_ROLE in the staking contract
+     */
+    function burnAssets(uint256 _amount) external nonReentrant {
+        if (msg.sender != operator) revert OnlyOperator();
+
+        STAKING_VAULT.burnAssets(_amount);
+    }
+
+    /**
      * @notice Rescue tokens accidentally sent to the contract
      * @param _token The token to rescue (or ETH_ADDRESS for native ETH)
      * @param _to The address to send rescued tokens to

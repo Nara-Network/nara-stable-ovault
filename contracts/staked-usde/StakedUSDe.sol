@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./interfaces/IStakedUSDeCooldown.sol";
 import "./USDeSilo.sol";
+import "../interfaces/usde/IUSDe.sol";
 
 /**
  * @title StakedUSDe
@@ -132,6 +133,26 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         IERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
 
         emit RewardsReceived(amount);
+    }
+
+    /**
+     * @notice Burn USDe from the contract to decrease sUSDe exchange rate
+     * @dev This calls USDe's burn function which burns both USDe and underlying MCT
+     * @dev Collateral stays in MCT, making remaining tokens more valuable (deflationary)
+     * @dev Unlike transferInRewards, this happens instantly without vesting
+     * @param amount The amount of USDe to burn
+     */
+    function burnAssets(uint256 amount) external nonReentrant whenNotPaused onlyRole(REWARDER_ROLE) notZero(amount) {
+        // Verify contract has enough USDe balance
+        uint256 contractBalance = IERC20(asset()).balanceOf(address(this));
+        if (contractBalance < amount) revert InvalidAmount();
+
+        // Call USDe's burn function to properly burn USDe and MCT
+        // USDe.burn() burns from msg.sender (this contract), so StakedUSDe must own the tokens
+        IUSDe usde = IUSDe(asset());
+        usde.burn(amount);
+
+        emit AssetsBurned(amount);
     }
 
     /**

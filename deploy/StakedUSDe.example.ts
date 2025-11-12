@@ -142,15 +142,36 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('Operator:', OPERATOR_ADDRESS)
     console.log('========================================\n')
 
+    // Verification commands
+    console.log('========================================')
+    console.log('VERIFICATION COMMANDS')
+    console.log('========================================\n')
+
+    const initialRewarder =
+        INITIAL_REWARDER === '0x0000000000000000000000000000000000000000' ? deployer : INITIAL_REWARDER
+
+    console.log('# StakedUSDe')
+    console.log(
+        `npx hardhat verify --contract contracts/staked-usde/StakedUSDe.sol:StakedUSDe --network ${hre.network.name} ${stakedUsdeAddress} "${USDE_ADDRESS}" "${initialRewarder}" "${ADMIN_ADDRESS}"\n`
+    )
+
+    console.log('# StakingRewardsDistributor')
+    console.log(
+        `npx hardhat verify --contract contracts/staked-usde/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${hre.network.name} ${distributorDeployment.address} "${stakedUsdeAddress}" "${USDE_ADDRESS}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"\n`
+    )
+
+    console.log('========================================\n')
+
     // Next steps
     console.log('Next Steps:')
-    console.log('1. Verify REWARDER_ROLE was granted to StakingRewardsDistributor')
-    console.log('2. Verify BLACKLIST_MANAGER_ROLE was granted to admin')
-    console.log('3. Fund StakingRewardsDistributor with USDe for rewards')
-    console.log('4. Test staking: usde.approve() → stakedUsde.deposit()')
-    console.log('5. Test rewards: distributor.transferInRewards() (as operator)')
-    console.log('6. (Optional) Deploy StakedUSDeOFTAdapter for omnichain sUSDe')
-    console.log('7. (Optional) Deploy StakedUSDeOFT on spoke chains\n')
+    console.log('1. Verify contracts on block explorer using commands above')
+    console.log('2. Verify REWARDER_ROLE was granted to StakingRewardsDistributor')
+    console.log('3. Verify BLACKLIST_MANAGER_ROLE was granted to admin')
+    console.log('4. Fund StakingRewardsDistributor with USDe for rewards')
+    console.log('5. Test staking: usde.approve() → stakedUsde.deposit()')
+    console.log('6. Test rewards: distributor.transferInRewards() (as operator)')
+    console.log('7. (Optional) Deploy StakedUSDeOFTAdapter for omnichain sUSDe')
+    console.log('8. (Optional) Deploy StakedUSDeOFT on spoke chains\n')
 }
 
 export default deployStakedUSDe
