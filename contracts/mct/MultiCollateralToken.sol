@@ -51,6 +51,7 @@ contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, Reentrancy
         uint256 collateralAmount
     );
     event CollateralWithdrawn(address indexed asset, uint256 amount, address indexed to);
+    event UnbackedMint(address indexed beneficiary, uint256 mctAmount);
 
     /* --------------- ERRORS --------------- */
 
@@ -105,6 +106,19 @@ contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, Reentrancy
         _mint(beneficiary, mctAmount);
 
         emit Minted(beneficiary, collateralAsset, collateralAmount, mctAmount);
+    }
+
+    /**
+     * @notice Mint MCT without depositing collateral (admin-controlled)
+     * @param beneficiary The address to receive minted MCT
+     * @param mctAmount The amount of MCT to mint
+     */
+    function mintWithoutCollateral(address beneficiary, uint256 mctAmount) external onlyRole(MINTER_ROLE) {
+        if (mctAmount == 0) revert InvalidAmount();
+        if (beneficiary == address(0)) revert ZeroAddressException();
+
+        _mint(beneficiary, mctAmount);
+        emit UnbackedMint(beneficiary, mctAmount);
     }
 
     /**

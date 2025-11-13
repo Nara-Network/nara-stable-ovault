@@ -34,6 +34,9 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @notice Role for managing collateral operations
     bytes32 public constant COLLATERAL_MANAGER_ROLE = keccak256("COLLATERAL_MANAGER_ROLE");
 
+    /// @notice Role allowed to mint USDe without collateral backing
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
     /// @notice Maximum cooldown duration (90 days)
     uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
 
@@ -166,6 +169,7 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GATEKEEPER_ROLE, admin);
         _grantRole(COLLATERAL_MANAGER_ROLE, admin);
+        _grantRole(MINTER_ROLE, admin);
 
         _setMaxMintPerBlock(_maxMintPerBlock);
         _setMaxRedeemPerBlock(_maxRedeemPerBlock);
@@ -208,6 +212,21 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
             revert InvalidSignature();
         }
         return _mintWithCollateral(collateralAsset, collateralAmount, beneficiary);
+    }
+
+    /**
+     * @notice Mint USDe without collateral backing (admin-controlled)
+     * @param to The address to receive freshly minted USDe
+     * @param amount The amount of USDe to mint
+     * @dev Intended for protocol-controlled operations such as incentive programs
+     */
+    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused {
+        if (to == address(0)) revert ZeroAddressException();
+        if (amount == 0) revert InvalidAmount();
+        _mint(to, amount);
+
+        // Mint corresponding MCT to maintain 1:1 backing
+        mct.mintWithoutCollateral(address(this), amount);
     }
 
     /* --------------- COOLDOWN REDEMPTION --------------- */
