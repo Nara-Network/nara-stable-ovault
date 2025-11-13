@@ -25,6 +25,7 @@ interface IMultiCollateralToken is IERC20 {
         uint256 collateralAmount
     );
     event CollateralWithdrawn(address indexed asset, uint256 amount, address indexed to);
+    event UnbackedMint(address indexed beneficiary, uint256 mctAmount);
 
     /* --------------- ERRORS --------------- */
 
@@ -48,6 +49,13 @@ interface IMultiCollateralToken is IERC20 {
         uint256 collateralAmount,
         address beneficiary
     ) external returns (uint256 mctAmount);
+
+    /**
+     * @notice Mint MCT without depositing collateral (admin-controlled)
+     * @param beneficiary The address to receive minted MCT
+     * @param mctAmount The amount of MCT to mint
+     */
+    function mintWithoutCollateral(address beneficiary, uint256 mctAmount) external;
 
     /**
      * @notice Redeem MCT for collateral

@@ -247,7 +247,7 @@ The deployment scripts automatically skip existing deployments, so you can safel
 
 > **Note**: Skip this section if using an existing asset OFT (i.e., `vault.assetOFTAddress` is set in your deployment config). Asset OFT configuration is only needed if you deployed new AssetOFTs.
 
-Set up your Asset OFT configuration in `layerzero.asset.config.ts`. The example uses the `TwoWayConfig` pattern for simplified bidirectional connections:
+Set up your Asset OFT configuration in `layerzero.usde.config.ts`. The example uses the `TwoWayConfig` pattern for simplified bidirectional connections:
 
 ```typescript
 import { EndpointId } from "@layerzerolabs/lz-definitions";
@@ -336,7 +336,7 @@ export default async function () {
 
 ### 2. Configure Share OFT Network
 
-Set up your Share OFT configuration in `layerzero.share.config.ts`. **Critical**: The hub chain must use `MyShareOFTAdapter` (lockbox model):
+Set up your Share OFT configuration in `layerzero.susde.config.ts`. **Critical**: The hub chain must use `MyShareOFTAdapter` (lockbox model):
 
 ```typescript
 import { EndpointId } from "@layerzerolabs/lz-definitions";
@@ -449,7 +449,7 @@ Configure and wire the Asset OFT connections:
 
 ```bash
 # Wire Asset OFT network (only for new deployments)
-pnpm hardhat lz:oapp:wire --oapp-config layerzero.asset.config.ts
+pnpm hardhat lz:oapp:wire --oapp-config layerzero.usde.config.ts
 ```
 
 ### 5. Wire Share OFT Network
@@ -458,7 +458,7 @@ Configure and wire the Share OFT connections:
 
 ```bash
 # Wire Share OFT network
-pnpm hardhat lz:oapp:wire --oapp-config layerzero.share.config.ts
+pnpm hardhat lz:oapp:wire --oapp-config layerzero.susde.config.ts
 ```
 
 ## Cross-Chain Operations
@@ -713,7 +713,7 @@ To add additional chains to your OVault:
 
 1. **Update Hardhat Config**: Add new network to `hardhat.config.ts`
 2. **Deploy Contracts**: Deploy Asset OFT and Share OFT to new chain
-3. **Update Configs**: Add new chain to both `layerzero.asset.config.ts` and `layerzero.share.config.ts`
+3. **Update Configs**: Add new chain to both `layerzero.usde.config.ts` and `layerzero.susde.config.ts`
 4. **Add Connections**: Define peer connections from/to new chain
 5. **Wire Networks**: Re-run wiring commands with updated configs
 

@@ -116,6 +116,13 @@ interface IUSDe is IERC4626, IERC20Permit {
     function disableMintRedeem() external;
 
     /**
+     * @notice Mint USDe without collateral backing (protocol controlled)
+     * @param to The recipient of newly minted USDe
+     * @param amount The amount to mint
+     */
+    function mint(address to, uint256 amount) external;
+
+    /**
      * @notice Burn USDe and underlying MCT without withdrawing collateral
      * @param amount The amount to burn (from msg.sender)
      */
