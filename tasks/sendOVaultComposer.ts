@@ -44,8 +44,8 @@ task('lz:ovault:send', 'Sends assets or shares through OVaultComposer with autom
         undefined,
         types.string
     )
-    .addOptionalParam('assetOappConfig', 'Path to the Asset OFT config file', 'layerzero.asset.config.ts', types.string)
-    .addOptionalParam('shareOappConfig', 'Path to the Share OFT config file', 'layerzero.share.config.ts', types.string)
+    .addOptionalParam('assetOappConfig', 'Path to the Asset OFT config file', 'layerzero.usde.config.ts', types.string)
+    .addOptionalParam('shareOappConfig', 'Path to the Share OFT config file', 'layerzero.susde.config.ts', types.string)
     .addOptionalParam(
         'minAmount',
         'Minimum amount to receive in case of custom slippage or fees (human readable units, e.g. "1.5")',
@@ -369,7 +369,7 @@ task('lz:ovault:send', 'Sends assets or shares through OVaultComposer with autom
             // Determine which OFT to quote (opposite of what we're sending)
             const outputTokenConfig =
                 args.tokenType === 'asset'
-                    ? args.shareOappConfig || 'layerzero.share.config.ts' // Asset input → Share output
+                    ? args.shareOappConfig || 'layerzero.susde.config.ts' // Asset input → Share output
                     : args.assetOappConfig || 'layerzero.asset.config.ts' // Share input → Asset output
 
             const outputLayerZeroConfig = (await import(path.resolve('./', outputTokenConfig))).default
