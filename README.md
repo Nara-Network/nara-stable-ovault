@@ -28,7 +28,8 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 | --------------------------------------------------------------- | ----------------------------------------------------------- |
 | **[Quick Start](./QUICK_START_ARBITRUM_SEPOLIA.md)**            | 🎯 Deploy complete system on Arbitrum Sepolia (recommended) |
 | **[Cross-Chain Deployment](./docs/CROSS_CHAIN_DEPLOYMENT.md)**  | 🌐 Deploy OFT infrastructure for omnichain functionality    |
-| **[StakedUSDe Integration](./docs/STAKED_USDE_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns (V2)           |
+| **[USDe Integration](./docs/USDE_INTEGRATION.md)** | 🏦 USDe + MCT vault architecture and admin flows |
+| **[StakedUSDe Integration](./docs/STAKED_USDE_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns |
 | **[Project Structure](./docs/PROJECT_STRUCTURE.md)**            | 📁 System architecture and contract overview                |
 | **[LayerZero OVault Guide](./docs/LAYERZERO_OVAULT_GUIDE.md)**  | 🔧 Advanced LayerZero integration details                   |
 
@@ -205,7 +206,7 @@ For detailed technical information, see:
 | --------------------------- | --------------------------------- | ------------------------ |
 | `MultiCollateralToken`      | Multi-collateral backing          | `contracts/mct/`         |
 | `USDe`                      | Stablecoin vault with minting     | `contracts/usde/`        |
-| `StakedUSDe`                | Staking vault (V2 with cooldowns) | `contracts/staked-usde/` |
+| `StakedUSDe`                | Staking vault with cooldowns | `contracts/staked-usde/` |
 | `StakingRewardsDistributor` | Automated rewards                 | `contracts/staked-usde/` |
 
 ### OFT Infrastructure
