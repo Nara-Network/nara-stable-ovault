@@ -153,6 +153,9 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         usde.burn(amount);
 
         emit AssetsBurned(amount);
+
+        // Auto-pause after deflationary burn so admin can review balances before resuming
+        _pause();
     }
 
     /**
