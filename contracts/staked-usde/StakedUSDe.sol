@@ -142,7 +142,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @dev Unlike transferInRewards, this happens instantly without vesting
      * @param amount The amount of USDe to burn
      */
-    function burnAssets(uint256 amount) external nonReentrant whenNotPaused onlyRole(REWARDER_ROLE) notZero(amount) {
+    function burnAssets(uint256 amount) external nonReentrant onlyRole(REWARDER_ROLE) notZero(amount) {
         // Verify contract has enough USDe balance
         uint256 contractBalance = IERC20(asset()).balanceOf(address(this));
         if (contractBalance < amount) revert InvalidAmount();
@@ -252,7 +252,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @dev unstake can be called after cooldown have been set to 0, to let accounts claim remaining assets locked at Silo
      * @param receiver Address to send the assets by the staker
      */
-    function unstake(address receiver) external whenNotPaused {
+    function unstake(address receiver) external {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
         uint256 assets = userCooldown.underlyingAmount;
 
@@ -382,7 +382,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         address receiver,
         uint256 assets,
         uint256 shares
-    ) internal override nonReentrant notZero(assets) notZero(shares) {
+    ) internal override nonReentrant whenNotPaused notZero(assets) notZero(shares) {
         if (hasRole(SOFT_RESTRICTED_STAKER_ROLE, caller) || hasRole(SOFT_RESTRICTED_STAKER_ROLE, receiver)) {
             revert OperationNotAllowed();
         }
@@ -399,7 +399,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         address owner,
         uint256 assets,
         uint256 shares
-    ) internal override nonReentrant notZero(assets) notZero(shares) {
+    ) internal override nonReentrant whenNotPaused notZero(assets) notZero(shares) {
         if (
             hasRole(FULL_RESTRICTED_STAKER_ROLE, caller) ||
             hasRole(FULL_RESTRICTED_STAKER_ROLE, receiver) ||
