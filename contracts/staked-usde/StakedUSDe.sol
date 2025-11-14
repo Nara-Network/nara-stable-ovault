@@ -146,6 +146,7 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         // Verify contract has enough USDe balance
         uint256 contractBalance = IERC20(asset()).balanceOf(address(this));
         if (contractBalance < amount) revert InvalidAmount();
+        if (contractBalance - amount < 1 ether) revert ReserveTooLowAfterBurn();
 
         // Call USDe's burn function to properly burn USDe and MCT
         // USDe.burn() burns from msg.sender (this contract), so StakedUSDe must own the tokens
@@ -153,6 +154,9 @@ contract StakedUSDe is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         usde.burn(amount);
 
         emit AssetsBurned(amount);
+
+        // Auto-pause after deflationary burn so admin can review balances before resuming
+        _pause();
     }
 
     /**

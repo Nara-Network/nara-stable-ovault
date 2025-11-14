@@ -25,6 +25,7 @@ interface IStakedUSDe is IERC4626, IERC20Permit {
     error MinSharesViolation();
     error StillVesting();
     error CantRenounceOwnership();
+    error ReserveTooLowAfterBurn();
 
     /* --------------- FUNCTIONS --------------- */
 
