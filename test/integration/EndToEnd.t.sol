@@ -221,7 +221,8 @@ contract EndToEndTest is TestHelper {
         stakedUsdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
+        // Deliver packet FROM SPOKE TO HUB at stakedUsdeAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
 
         // Alice redeems and should have accumulated rewards
         _switchToHub();
