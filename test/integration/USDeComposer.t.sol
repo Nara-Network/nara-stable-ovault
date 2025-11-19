@@ -228,7 +228,15 @@ contract USDeComposerTest is TestHelper {
 
         usde.approve(address(usdeAdapter), usdeAmount);
 
-        SendParam memory sendParam = _buildSendParam(SPOKE_EID, bob, usdeAmount, minUsde, "", "", "");
+        SendParam memory sendParam = _buildSendParam(
+            SPOKE_EID,
+            bob,
+            usdeAmount,
+            minUsde,
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0),
+            "",
+            ""
+        );
 
         MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
         usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
