@@ -50,7 +50,8 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         _switchToSpoke();
         assertEq(stakedUsdeOFT.balanceOf(bob), sUsdeReceived, "Bob should have sUSDe on spoke");
@@ -73,7 +74,8 @@ contract StakedUSDeComposerTest is TestHelper {
         usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         _switchToSpoke();
         assertEq(usdeOFT.balanceOf(bob), usdeAmount, "Bob should have USDe on spoke");
@@ -113,8 +115,8 @@ contract StakedUSDeComposerTest is TestHelper {
         // USDe should have been staked (no USDe left in composer)
         assertEq(usde.balanceOf(address(stakedUsdeComposer)), 0, "Composer should stake all USDe");
 
-        // Verify sUSDe sent back to spoke
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver sUSDe packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         _switchToSpoke();
         // Bob should have received sUSDe on spoke
@@ -171,8 +173,8 @@ contract StakedUSDeComposerTest is TestHelper {
         _switchToHub();
         assertEq(stakedUsde.balanceOf(address(stakedUsdeComposer)), 0, "Composer should redeem all sUSDe");
 
-        // Verify USDe sent back to spoke
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver USDe packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         // Bob should have received USDe on spoke
         _switchToSpoke();
@@ -205,7 +207,7 @@ contract StakedUSDeComposerTest is TestHelper {
             MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
 
             stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
-            verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+            verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
         }
         vm.stopPrank();
 
@@ -228,12 +230,13 @@ contract StakedUSDeComposerTest is TestHelper {
         uint256 initialShares = stakedUsde.deposit(usdeAmount, alice);
         vm.stopPrank();
 
-        // Add rewards
-        vm.startPrank(owner);
-        usde.mint(owner, rewardsAmount);
+        // Add rewards (test contract has REWARDER_ROLE)
+        usde.mint(address(this), rewardsAmount);
         usde.approve(address(stakedUsde), rewardsAmount);
         stakedUsde.transferInRewards(rewardsAmount);
-        vm.stopPrank();
+
+        // Wait for rewards to vest
+        vm.warp(block.timestamp + 8 hours);
 
         // Alice stakes more
         vm.startPrank(alice);
@@ -253,7 +256,8 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         _switchToSpoke();
         assertEq(stakedUsdeOFT.balanceOf(bob), totalShares, "Bob should have all shares");
@@ -344,7 +348,8 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         _switchToSpoke();
         assertGe(stakedUsdeOFT.balanceOf(bob), minShares, "Bob should have at least min shares");
@@ -435,7 +440,8 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         _switchToSpoke();
         assertEq(stakedUsdeOFT.totalSupply(), shares, "Total supply should increase");
@@ -471,7 +477,8 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         _switchToSpoke();
         assertEq(stakedUsdeOFT.balanceOf(bob), shares, "Bob should have correct shares");
@@ -504,7 +511,8 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         // Step 4: Verify Bob has sUSDe on spoke
         _switchToSpoke();
@@ -518,7 +526,8 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
+        // Deliver packet to HUB chain at stakedUsdeAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
 
         // Step 6: Verify Alice received sUSDe back on hub
         _switchToHub();
@@ -547,12 +556,13 @@ contract StakedUSDeComposerTest is TestHelper {
         uint256 sharesBefore = stakedUsde.deposit(usdeAmount, alice);
         vm.stopPrank();
 
-        // Distribute rewards
-        vm.startPrank(owner);
-        usde.mint(owner, rewardsAmount);
+        // Distribute rewards (test contract has REWARDER_ROLE)
+        usde.mint(address(this), rewardsAmount);
         usde.approve(address(stakedUsde), rewardsAmount);
         stakedUsde.transferInRewards(rewardsAmount);
-        vm.stopPrank();
+
+        // Wait for rewards to vest
+        vm.warp(block.timestamp + 8 hours);
 
         // Second stake should give fewer shares
         vm.startPrank(bob);

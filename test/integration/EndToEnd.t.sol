@@ -25,10 +25,11 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 1: User deposits collateral to mint USDe ===
         vm.startPrank(alice);
+        uint256 aliceUsdeBefore = usde.balanceOf(alice);
         usdc.approve(address(usde), usdcAmount);
         uint256 usdeAmount = usde.mintWithCollateral(address(usdc), usdcAmount);
         assertEq(usdeAmount, expectedUsde, "Step 1: Should mint correct USDe");
-        assertEq(usde.balanceOf(alice), expectedUsde, "Step 1: Alice should have USDe");
+        assertEq(usde.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Step 1: Alice should have additional USDe");
 
         // === STEP 2: User stakes USDe to earn yield ===
         usde.approve(address(stakedUsde), usdeAmount);
@@ -38,12 +39,11 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 3: Rewards are distributed (time passes) ===
         vm.stopPrank();
-        vm.startPrank(owner);
+        // Test contract has REWARDER_ROLE
         uint256 rewardsAmount = 100e18; // 10% yield
-        usde.mint(owner, rewardsAmount);
+        usde.mint(address(this), rewardsAmount);
         usde.approve(address(stakedUsde), rewardsAmount);
         stakedUsde.transferInRewards(rewardsAmount);
-        vm.stopPrank();
 
         // === STEP 4: User transfers sUSDe to another chain ===
         vm.startPrank(alice);
@@ -53,10 +53,11 @@ contract EndToEndTest is TestHelper {
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSUsde);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
 
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         // === STEP 5: Verify Bob received sUSDe on spoke chain ===
         _switchToSpoke();
@@ -67,10 +68,11 @@ contract EndToEndTest is TestHelper {
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSUsde);
         MessagingFee memory fee2 = _getMessagingFee(address(stakedUsdeOFT), sendParam2);
 
-        stakedUsdeOFT.send{value: fee2.nativeFee}(sendParam2, fee2, bob);
+        stakedUsdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
+        // Deliver packet to HUB chain at stakedUsdeAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
 
         // === STEP 7: Bob unstakes on hub to get USDe back ===
         _switchToHub();
@@ -97,20 +99,22 @@ contract EndToEndTest is TestHelper {
         usde.approve(address(usdeAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, alice, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
-        usdeAdapter.send{value: fee1.nativeFee}(sendParam1, fee1, alice);
+        usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         // Bob sends USDe to spoke
         vm.startPrank(bob);
         usde.approve(address(usdeAdapter), amount);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee2 = _getMessagingFee(address(usdeAdapter), sendParam2);
-        usdeAdapter.send{value: fee2.nativeFee}(sendParam2, fee2, bob);
+        usdeAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         // Verify both have USDe on spoke
         _switchToSpoke();
@@ -143,20 +147,22 @@ contract EndToEndTest is TestHelper {
         usde.approve(address(usdeAdapter), usdeAmount);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, usdeAmount);
         MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
-        usdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         // On spoke, send back to hub
         _switchToSpoke();
         vm.startPrank(alice);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, usdeAmount);
         MessagingFee memory fee2 = _getMessagingFee(address(usdeOFT), sendParam2);
-        usdeOFT.send{value: fee2.nativeFee}(sendParam2, fee2, alice);
+        usdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to HUB chain at usdeAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
 
         // Back on hub, redeem for MCT
         _switchToHub();
@@ -181,37 +187,38 @@ contract EndToEndTest is TestHelper {
         uint256 shares = stakedUsde.deposit(stakeAmount, alice);
         vm.stopPrank();
 
-        // Rewards distributed
-        vm.startPrank(owner);
-        usde.mint(owner, rewardAmount);
+        // Rewards distributed (test contract has REWARDER_ROLE)
+        usde.mint(address(this), rewardAmount);
         usde.approve(address(stakedUsde), rewardAmount);
         stakedUsde.transferInRewards(rewardAmount);
-        vm.stopPrank();
 
         // Alice sends shares to spoke
         vm.startPrank(alice);
         stakedUsde.approve(address(stakedUsdeAdapter), shares);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, shares);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         // More rewards distributed while Alice is on spoke
         _switchToHub();
-        vm.startPrank(owner);
-        usde.mint(owner, rewardAmount);
+        // Wait for previous rewards to finish vesting
+        vm.warp(block.timestamp + 8 hours);
+
+        // Test contract has REWARDER_ROLE
+        usde.mint(address(this), rewardAmount);
         usde.approve(address(stakedUsde), rewardAmount);
         stakedUsde.transferInRewards(rewardAmount);
-        vm.stopPrank();
 
         // Alice sends back to hub
         _switchToSpoke();
         vm.startPrank(alice);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, shares);
         MessagingFee memory fee2 = _getMessagingFee(address(stakedUsdeOFT), sendParam2);
-        stakedUsdeOFT.send{value: fee2.nativeFee}(sendParam2, fee2, alice);
+        stakedUsdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
         verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
@@ -244,16 +251,17 @@ contract EndToEndTest is TestHelper {
         usde.approve(address(usdeAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
-        usdeAdapter.send{value: fee1.nativeFee}(sendParam1, fee1, alice);
+        usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
+
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         // Bob operations on hub (parallel)
         vm.startPrank(bob);
         mct.approve(address(usde), amount);
         usde.deposit(amount, bob);
         vm.stopPrank();
-
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
 
         // === Spoke operations ===
         _switchToSpoke();
@@ -290,11 +298,11 @@ contract EndToEndTest is TestHelper {
         MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
 
         // Send successfully
-        usdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Verify delivery
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         _switchToSpoke();
         assertEq(usdeOFT.balanceOf(bob), amount, "Should receive tokens");
@@ -328,12 +336,13 @@ contract EndToEndTest is TestHelper {
             MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
 
             uint256 gasBefore = gasleft();
-            usdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+            usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
             uint256 gasUsed = gasBefore - gasleft();
 
             vm.stopPrank();
 
-            verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+            // Deliver packet to SPOKE chain at usdeOFT
+            verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
             // Gas should not scale linearly with amount (OFT is efficient)
             assertLt(gasUsed, 500000, "Gas usage should be reasonable");
@@ -387,10 +396,11 @@ contract EndToEndTest is TestHelper {
         usde.approve(address(usdeAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
-        usdeAdapter.send{value: fee1.nativeFee}(sendParam1, fee1, alice);
+        usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         // Send sUSDe to spoke
         vm.startPrank(alice);
@@ -399,10 +409,11 @@ contract EndToEndTest is TestHelper {
         stakedUsde.approve(address(stakedUsdeAdapter), shares);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, shares);
         MessagingFee memory fee2 = _getMessagingFee(address(stakedUsdeAdapter), sendParam2);
-        stakedUsdeAdapter.send{value: fee2.nativeFee}(sendParam2, fee2, alice);
+        stakedUsdeAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to SPOKE chain at stakedUsdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
         // Verify tokens on spoke (MCT stays on hub, not cross-chain)
         _switchToSpoke();
@@ -423,10 +434,11 @@ contract EndToEndTest is TestHelper {
         usde.approve(address(usdeAdapter), amount);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, recipientAddr, amount);
         MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
-        usdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         _switchToSpoke();
         assertEq(usdeOFT.balanceOf(recipientAddr), amount, "Recipient should have USDe");

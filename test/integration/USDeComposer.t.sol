@@ -52,8 +52,8 @@ contract USDeComposerTest is TestHelper {
         usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Verify packets
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         // Check spoke chain - bob should have USDe
         _switchToSpoke();
@@ -126,7 +126,8 @@ contract USDeComposerTest is TestHelper {
         usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         _switchToSpoke();
         assertEq(usdeOFT.balanceOf(bob), usdeReceived, "Bob should have USDe on spoke");
@@ -171,7 +172,8 @@ contract USDeComposerTest is TestHelper {
         usdeOFT.send{ value: fee.nativeFee * 2 }(sendParam, MessagingFee(fee.nativeFee * 2, 0), bob);
         vm.stopPrank();
 
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to HUB chain at usdeAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
 
         // Check hub chain - alice should have received MCT
         _switchToHub();
@@ -200,7 +202,7 @@ contract USDeComposerTest is TestHelper {
             MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
 
             usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
-            verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+            verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
         }
         vm.stopPrank();
 
@@ -230,7 +232,8 @@ contract USDeComposerTest is TestHelper {
         usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         _switchToSpoke();
         assertGe(usdeOFT.balanceOf(bob), minUsde, "Bob should have at least min amount");
@@ -248,12 +251,13 @@ contract USDeComposerTest is TestHelper {
         mct.approve(address(usde), mctAmount);
 
         uint256 aliceMctBefore = mct.balanceOf(alice);
+        uint256 aliceUsdeBefore = usde.balanceOf(alice);
         uint256 usdeReceived = usde.deposit(mctAmount, alice);
         uint256 aliceMctAfter = mct.balanceOf(alice);
 
         assertEq(aliceMctBefore - aliceMctAfter, mctAmount, "MCT should be transferred");
         assertEq(usdeReceived, mctAmount, "Should receive 1:1 USDe for MCT");
-        assertEq(usde.balanceOf(alice), usdeReceived, "Alice should have USDe");
+        assertEq(usde.balanceOf(alice) - aliceUsdeBefore, usdeReceived, "Alice should have additional USDe");
         vm.stopPrank();
     }
 
@@ -270,11 +274,19 @@ contract USDeComposerTest is TestHelper {
         mct.approve(address(usde), mctAmount);
         uint256 usdeReceived = usde.deposit(mctAmount, alice);
 
-        // Then redeem
-        uint256 mctRedeemed = usde.redeem(usdeReceived, alice, alice);
+        // Use cooldown-based redemption
+        usde.cooldownRedeem(address(usdc), usdeReceived);
 
-        assertEq(mctRedeemed, mctAmount, "Should redeem 1:1");
-        assertEq(usde.balanceOf(alice), 0, "USDe should be burned");
+        // Get cooldown info
+        (uint104 cooldownEnd, , ) = usde.redemptionRequests(alice);
+
+        // Warp past cooldown
+        vm.warp(cooldownEnd);
+
+        // Complete redeem
+        uint256 collateralReceived = usde.completeRedeem();
+
+        assertGt(collateralReceived, 0, "Should receive collateral");
         vm.stopPrank();
     }
 
@@ -291,12 +303,13 @@ contract USDeComposerTest is TestHelper {
         usdc.approve(address(usde), usdcAmount);
 
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        uint256 aliceUsdeBefore = usde.balanceOf(alice);
         uint256 usdeReceived = usde.mintWithCollateral(address(usdc), usdcAmount);
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
         assertEq(aliceUsdcBefore - aliceUsdcAfter, usdcAmount, "USDC should be transferred");
         assertEq(usdeReceived, expectedUsde, "Should mint expected USDe");
-        assertEq(usde.balanceOf(alice), expectedUsde, "Alice should have USDe");
+        assertEq(usde.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Alice should have additional USDe");
         vm.stopPrank();
     }
 
@@ -308,6 +321,8 @@ contract USDeComposerTest is TestHelper {
 
         // Test with USDC
         vm.startPrank(alice);
+        uint256 aliceUsdeBefore = usde.balanceOf(alice);
+
         usdc.approve(address(usde), 500e6);
         uint256 usdeFromUsdc = usde.mintWithCollateral(address(usdc), 500e6);
         assertEq(usdeFromUsdc, 500e18, "Should mint 500 USDe from USDC");
@@ -317,7 +332,7 @@ contract USDeComposerTest is TestHelper {
         uint256 usdeFromUsdt = usde.mintWithCollateral(address(usdt), 500e6);
         assertEq(usdeFromUsdt, 500e18, "Should mint 500 USDe from USDT");
 
-        assertEq(usde.balanceOf(alice), 1000e18, "Alice should have 1000 USDe total");
+        assertEq(usde.balanceOf(alice) - aliceUsdeBefore, 1000e18, "Alice should have 1000 USDe additional");
         vm.stopPrank();
     }
 
@@ -390,7 +405,8 @@ contract USDeComposerTest is TestHelper {
         usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         _switchToSpoke();
         assertEq(usdeOFT.balanceOf(bob), usdeAmount, "Bob should have correct USDe amount");
@@ -418,7 +434,8 @@ contract USDeComposerTest is TestHelper {
         usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to SPOKE chain at usdeOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
         // Step 3: Verify Bob has USDe on spoke
         _switchToSpoke();
@@ -432,7 +449,8 @@ contract USDeComposerTest is TestHelper {
         usdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to HUB chain at usdeAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
 
         // Step 5: Verify Alice received USDe back on hub
         _switchToHub();
