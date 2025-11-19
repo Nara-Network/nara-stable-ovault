@@ -421,7 +421,12 @@ contract USDeComposerTest is TestHelper {
 
         _switchToSpoke();
         // Use approximate equality for fuzz tests due to potential rounding in mock OFT (0.1% tolerance)
-        assertApproxEqAbs(usdeOFT.balanceOf(bob), usdeAmount, usdeAmount / 1000, "Bob should have ~correct USDe amount");
+        assertApproxEqAbs(
+            usdeOFT.balanceOf(bob),
+            usdeAmount,
+            usdeAmount / 1000,
+            "Bob should have ~correct USDe amount"
+        );
     }
 
     /**
