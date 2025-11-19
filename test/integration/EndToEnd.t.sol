@@ -45,6 +45,9 @@ contract EndToEndTest is TestHelper {
         usde.approve(address(stakedUsde), rewardsAmount);
         stakedUsde.transferInRewards(rewardsAmount);
 
+        // Wait for rewards to vest (8 hour vesting period)
+        vm.warp(block.timestamp + 8 hours);
+
         // === STEP 4: User transfers sUSDe to another chain ===
         vm.startPrank(alice);
         uint256 aliceSUsde = stakedUsde.balanceOf(alice);
@@ -168,16 +171,16 @@ contract EndToEndTest is TestHelper {
         // Back on hub, use cooldown-based redemption
         _switchToHub();
         vm.startPrank(alice);
-        
+
         // Start cooldown (USDe uses cooldown, not direct redeem)
         usde.cooldownRedeem(address(usdc), usdeAmount);
-        
+
         // Get cooldown info
         (uint104 cooldownEnd, , ) = usde.redemptionRequests(alice);
-        
+
         // Warp past cooldown
         vm.warp(cooldownEnd);
-        
+
         // Complete redemption
         uint256 collateralReceived = usde.completeRedeem();
         assertGt(collateralReceived, 0, "Should receive collateral");
