@@ -17,11 +17,44 @@ interface IUSDe {
 
 /**
  * @title USDeComposer
- * @notice Composer that routes deposits through USDe.mintWithCollateral instead of ERC4626.deposit
- * @dev Collateral flows: user sends collateralAsset to composer → composer approves USDe →
- *      calls USDe.mintWithCollateralFor(collateralAsset, amount, address(this)) → sends shares cross-chain
- * @dev Cross-chain deposits of collateral require a collateral OFT and base composer support; this contract
- *      overrides local deposit flow via depositAndSend().
+ * @notice Composer that enables cross-chain USDe minting via collateral deposits
+ *
+ * @dev Overview:
+ * This composer allows users to deposit collateral (USDC/USDT) on any chain and receive
+ * USDe shares on any destination chain in a single transaction.
+ *
+ * User Flow:
+ * 1. User sends collateral (USDC) from spoke chain via Stargate/collateral OFT
+ * 2. USDeComposer receives collateral on hub chain via lzCompose
+ * 3. Composer calls USDe.mintWithCollateral(collateralAsset, amount)
+ * 4. USDe internally manages MCT (MultiCollateralToken) - user never sees it
+ * 5. Composer sends USDe shares cross-chain via SHARE_OFT (USDeOFTAdapter)
+ * 6. User receives USDe on destination chain
+ *
+ * @dev IMPORTANT - ASSET_OFT Parameter (Validation Only):
+ *
+ * This contract inherits from VaultComposerSync which requires an ASSET_OFT parameter
+ * that must satisfy: ASSET_OFT.token() == VAULT.asset()
+ *
+ * For USDe vault:
+ * - VAULT.asset() = MCT (MultiCollateralToken)
+ * - Therefore ASSET_OFT must be MCTOFTAdapter
+ * - BUT: MCT NEVER goes cross-chain! It's hub-only and invisible to users.
+ *
+ * The ASSET_OFT (MCTOFTAdapter) exists ONLY to pass constructor validation.
+ * It is NEVER used in the actual compose flow!
+ *
+ * Actual Flow Uses:
+ * ✅ collateralAsset - What users actually deposit (USDC/USDT)
+ * ✅ collateralAssetOFT - For cross-chain collateral (Stargate USDC OFT)
+ * ✅ SHARE_OFT - For sending USDe cross-chain (USDeOFTAdapter)
+ * ❌ ASSET_OFT - Only for validation, never used in operations
+ *
+ * See _depositCollateralAndSend() for the actual deposit logic that uses
+ * collateralAsset, not ASSET_OFT.
+ *
+ * @custom:security MCT stays on hub chain only, ASSET_OFT is not used for cross-chain
+ * @custom:note See MCTOFTAdapter.sol and WHY_MCTOFT_ADAPTER_EXISTS.md for details
  */
 contract USDeComposer is VaultComposerSync {
     using SafeERC20 for IERC20;
@@ -60,10 +93,27 @@ contract USDeComposer is VaultComposerSync {
     );
 
     /**
-     * @param _vault The USDe contract implementing ERC4626
-     * @param _assetOFT The asset OFT address expected by base (must match vault.asset(), i.e., MCT)
-     * @param _shareOFT The USDe OFT adapter contract for cross-chain share transfers
-     * @param _collateralAsset The ERC20 collateral to mint with (e.g., USDC)
+     * @notice Creates a new USDeComposer for cross-chain USDe minting
+     *
+     * @param _vault The USDe vault contract implementing ERC4626
+     *
+     * @param _assetOFT VALIDATION ONLY - MCTOFTAdapter that satisfies vault.asset() check
+     *                  This is NEVER used for actual cross-chain operations!
+     *                  MCT (vault's underlying asset) stays on hub chain only.
+     *                  Passed only to satisfy VaultComposerSync constructor validation.
+     *                  See contract-level documentation for detailed explanation.
+     *
+     * @param _shareOFT The USDe OFT adapter for cross-chain share transfers (ACTUALLY USED)
+     *                  This is what sends USDe cross-chain to users.
+     *
+     * @param _collateralAsset The collateral token users deposit (e.g., USDC, USDT)
+     *                         This is what users actually send and deposit.
+     *
+     * @param _collateralAssetOFT The OFT for cross-chain collateral (e.g., Stargate USDC OFT)
+     *                            This is how users send collateral cross-chain.
+     *
+     * @dev Key Point: _assetOFT (MCT) is required by base class but never used.
+     *      The actual flow uses _collateralAsset and _shareOFT.
      */
     constructor(
         address _vault,
@@ -79,7 +129,20 @@ contract USDeComposer is VaultComposerSync {
     }
 
     /**
-     * @dev Collateral deposit path: mints shares using USDe.mintWithCollateralFor and sends them
+     * @notice Internal function to handle collateral deposits and cross-chain share sending
+     * @dev This is the ACTUAL deposit flow used by this composer.
+     *      Note: Does NOT use ASSET_OFT (MCT). Uses collateralAsset instead.
+     *
+     * Flow:
+     * 1. Approve USDe to pull collateral
+     * 2. Call USDe.mintWithCollateral(collateralAsset, amount) - MCT handled internally
+     * 3. Receive USDe shares
+     * 4. Send shares cross-chain via SHARE_OFT (not ASSET_OFT!)
+     *
+     * @param _depositor The address requesting the deposit
+     * @param _assetAmount The amount of collateral to deposit
+     * @param _sendParam Parameters for sending shares cross-chain
+     * @param _refundAddress Address to refund excess msg.value
      */
     function _depositCollateralAndSend(
         bytes32 _depositor,
