@@ -72,6 +72,7 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 ┌─────────────────────────┐          ┌──────────────────────┐
 │ MultiCollateralToken    │          │                      │
+│ (MCT - Hub Only!)       │          │                      │
 │ USDe (ERC4626 Vault)    │          │                      │
 │ StakedUSDe (Staking)    │          │                      │
 │ StakingRewardsDistrib.  │          │                      │
@@ -79,14 +80,37 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
           │                                     │
           ▼                                     ▼
 ┌─────────────────────────┐          ┌──────────────────────┐
-│ MCTOFTAdapter           │◄────────►│ MCTOFT               │
+│ MCTOFTAdapter*          │          │ (No MCTOFT)          │
 │ USDeOFTAdapter          │◄────────►│ USDeOFT              │
 │ StakedUSDeOFTAdapter    │◄────────►│ StakedUSDeOFT        │
 │ USDeComposer            │          │                      │
 │ StakedUSDeComposer      │          │                      │
 └─────────────────────────┘          └──────────────────────┘
        LayerZero V2 Messaging
+       
+       * MCTOFTAdapter exists for validation only
+         (see MCT Architecture note below)
 ```
+
+### 🔑 Important: MCT Architecture (Hub-Only)
+
+**MCT (MultiCollateralToken) does NOT go cross-chain:**
+
+- **MCT stays on hub chain only** - It's an internal backing token, invisible to users
+- **Users never interact with MCT directly** - They deposit collateral (USDC/USDT) and receive USDe
+- **Cross-chain flow**: Users send collateral → Hub mints USDe → USDe goes cross-chain
+
+**Why MCTOFTAdapter exists:**
+- MCTOFTAdapter exists on hub chain but is **validation only**
+- It satisfies `VaultComposerSync` constructor validation (requires `ASSET_OFT.token() == VAULT.asset()`)
+- It is **NEVER wired to spoke chains** and **NEVER used for cross-chain operations**
+- See `contracts/mct/MCTOFTAdapter.sol` for detailed explanation
+
+**What actually goes cross-chain:**
+- ✅ **USDe** - Via USDeOFTAdapter (hub) ↔ USDeOFT (spoke)
+- ✅ **StakedUSDe** - Via StakedUSDeOFTAdapter (hub) ↔ StakedUSDeOFT (spoke)
+- ✅ **Collateral (USDC/USDT)** - Via Stargate or other collateral OFTs
+- ❌ **MCT** - Stays on hub only
 
 ---
 
@@ -101,7 +125,7 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 
 ### OFT Infrastructure (Hub + Spoke Chains)
 
-5. **MCTOFTAdapter / MCTOFT** - Cross-chain MCT transfers
+5. **MCTOFTAdapter** (Hub only) - Validation only, NOT for cross-chain (see MCT Architecture above)
 6. **USDeOFTAdapter / USDeOFT** - Cross-chain USDe transfers
 7. **StakedUSDeOFTAdapter / StakedUSDeOFT** - Cross-chain sUSDe transfers
 8. **Composers** - Cross-chain vault operations
@@ -110,12 +134,29 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 
 ## 🎯 Usage Examples
 
-### Mint USDe
+### Mint USDe (Hub Chain)
 
 ```javascript
 // Deposit 100 USDC to mint 100 USDe
+// Note: MCT is created internally - users never see it
 await usdc.approve(usde.address, 100e6);
 await usde.mintWithCollateral(usdc.address, 100e6);
+```
+
+### Mint USDe Cross-Chain (Single Transaction)
+
+```javascript
+// User on Base sends USDC → receives USDe on Base
+// 1. USDC bridges to hub via collateral OFT
+// 2. USDeComposer mints USDe on hub (MCT handled internally)
+// 3. USDe bridges back to Base
+// All in one transaction from user's perspective
+await stargateUSDC.send(
+  hubChainId,
+  composerAddress,
+  amount,
+  composeMessage // includes destination for USDe
+);
 ```
 
 ### Stake USDe
@@ -211,21 +252,20 @@ For detailed technical information, see:
 
 ### OFT Infrastructure
 
-| Contract               | Chain Type | Description                             |
-| ---------------------- | ---------- | --------------------------------------- |
-| `MCTOFTAdapter`        | Hub        | Lockbox for MCT cross-chain transfers   |
-| `USDeOFTAdapter`       | Hub        | Lockbox for USDe cross-chain transfers  |
-| `StakedUSDeOFTAdapter` | Hub        | Lockbox for sUSDe cross-chain transfers |
-| `MCTOFT`               | Spoke      | Mint/burn OFT for MCT on spoke chains   |
-| `USDeOFT`              | Spoke      | Mint/burn OFT for USDe on spoke chains  |
-| `StakedUSDeOFT`        | Spoke      | Mint/burn OFT for sUSDe on spoke chains |
+| Contract               | Chain Type | Description                                      |
+| ---------------------- | ---------- | ------------------------------------------------ |
+| `MCTOFTAdapter`        | Hub        | **Validation only** - MCT doesn't go cross-chain |
+| `USDeOFTAdapter`       | Hub        | Lockbox for USDe cross-chain transfers           |
+| `StakedUSDeOFTAdapter` | Hub        | Lockbox for sUSDe cross-chain transfers          |
+| `USDeOFT`              | Spoke      | Mint/burn OFT for USDe on spoke chains           |
+| `StakedUSDeOFT`        | Spoke      | Mint/burn OFT for sUSDe on spoke chains          |
 
 ### Composers
 
-| Contract             | Description                           |
-| -------------------- | ------------------------------------- |
-| `USDeComposer`       | Cross-chain deposit/redeem operations |
-| `StakedUSDeComposer` | Cross-chain staking operations        |
+| Contract             | Description                                                     |
+| -------------------- | --------------------------------------------------------------- |
+| `USDeComposer`       | Cross-chain collateral deposits (USDC → USDe), MCT stays on hub |
+| `StakedUSDeComposer` | Cross-chain staking operations (USDe → sUSDe)                   |
 
 ---
 
@@ -237,6 +277,7 @@ For detailed technical information, see:
 - **Pause Functionality**: Emergency stop for all operations
 - **Blacklist System**: Soft and full restriction levels
 - **No Renounce**: Admin roles cannot be renounced
+- **Hub-Only MCT**: MCT never goes cross-chain, reducing attack surface
 
 ---
 
@@ -253,6 +294,14 @@ For detailed technical information, see:
 ## 📄 License
 
 GPL-3.0
+
+---
+
+## 📖 Additional Documentation
+
+For detailed technical information:
+- **MCT Architecture**: See `MCT_ARCHITECTURE.md` for why MCT stays on hub and why MCTOFTAdapter exists but isn't used for cross-chain
+- **Contract Documentation**: See `contracts/mct/MCTOFTAdapter.sol` and `contracts/usde/USDeComposer.sol` for detailed NatSpec documentation
 
 ---
 
