@@ -37,25 +37,28 @@ contract StakedUSDeOFTTest is TestHelper {
         vm.startPrank(alice);
         usde.approve(address(stakedUsde), usdeAmount);
         uint256 shares = stakedUsde.deposit(usdeAmount, alice);
-        
+
         // Now try to send sUSDe cross-chain
         stakedUsde.approve(address(stakedUsdeAdapter), shares);
-        
+
         uint256 adapterBalanceBefore = stakedUsde.balanceOf(address(stakedUsdeAdapter));
         uint256 aliceBalanceBefore = stakedUsde.balanceOf(alice);
-        
+
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
-        
+
         // Send (will fail at LayerZero level but adapter logic should execute)
-        try stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice) {
+        try stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice) {
             // If successful, verify adapter locked tokens
-            assertEq(stakedUsde.balanceOf(address(stakedUsdeAdapter)), adapterBalanceBefore + shares, "Tokens not locked");
+            assertEq(
+                stakedUsde.balanceOf(address(stakedUsdeAdapter)),
+                adapterBalanceBefore + shares,
+                "Tokens not locked"
+            );
             assertEq(stakedUsde.balanceOf(alice), aliceBalanceBefore - shares, "Tokens not deducted");
         } catch {
             // If LayerZero fails, at least verify approval/balance checks worked
         }
-        
         vm.stopPrank();
     }
 
@@ -64,19 +67,19 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_AdapterRequiresApproval() public {
         uint256 amount = 100e18;
-        
+
         vm.startPrank(alice);
         // Stake to get sUSDe
         usde.approve(address(stakedUsde), amount);
         stakedUsde.deposit(amount, alice);
-        
+
         // No approval for adapter
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
-        
+
         vm.expectRevert();
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
-        
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+
         vm.stopPrank();
     }
 
@@ -85,11 +88,11 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_AdapterQuoteSend() public {
         uint256 amount = 100e18;
-        
+
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amount);
-        
+
         MessagingFee memory fee = stakedUsdeAdapter.quoteSend(sendParam, false);
-        
+
         assertGt(fee.nativeFee, 0, "Native fee should be > 0");
         assertEq(fee.lzTokenFee, 0, "LZ token fee should be 0");
     }
@@ -99,7 +102,7 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_AdapterOwnership() public {
         assertEq(stakedUsdeAdapter.owner(), delegate, "Wrong owner");
-        
+
         // Only owner can set peer
         vm.prank(alice);
         vm.expectRevert();
@@ -136,24 +139,25 @@ contract StakedUSDeOFTTest is TestHelper {
     function test_OFTLocalTransfer() public {
         // Simulate receiving tokens cross-chain by minting directly (for testing)
         uint256 amount = 100e18;
-        
+
         // Mint to alice (simulating cross-chain receive)
         vm.prank(address(endpoints[SPOKE_EID]));
-        try stakedUsdeOFT.lzReceive(
-            Origin({ srcEid: HUB_EID, sender: addressToBytes32(address(stakedUsdeAdapter)), nonce: 1 }),
-            addressToBytes32(address(stakedUsdeOFT)),
-            abi.encodePacked(addressToBytes32(alice), uint64(amount)),
-            address(0),
-            ""
-        ) {} catch {}
-        
+        try
+            stakedUsdeOFT.lzReceive(
+                Origin({ srcEid: HUB_EID, sender: addressToBytes32(address(stakedUsdeAdapter)), nonce: 1 }),
+                addressToBytes32(address(stakedUsdeOFT)),
+                abi.encodePacked(addressToBytes32(alice), uint64(amount)),
+                address(0),
+                ""
+            )
+        {} catch {}
         uint256 aliceBalance = stakedUsdeOFT.balanceOf(alice);
-        
+
         if (aliceBalance > 0) {
             // Test local transfer
             vm.prank(alice);
             stakedUsdeOFT.transfer(bob, aliceBalance / 2);
-            
+
             assertEq(stakedUsdeOFT.balanceOf(bob), aliceBalance / 2, "Bob should receive half");
             assertEq(stakedUsdeOFT.balanceOf(alice), aliceBalance / 2, "Alice should have half");
         }
@@ -164,14 +168,14 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_OFTApproval() public {
         vm.startPrank(alice);
-        
+
         stakedUsdeOFT.approve(bob, 100e18);
         assertEq(stakedUsdeOFT.allowance(alice, bob), 100e18, "Allowance not set");
-        
+
         // Increase allowance
         stakedUsdeOFT.approve(bob, 200e18);
         assertEq(stakedUsdeOFT.allowance(alice, bob), 200e18, "Allowance not increased");
-        
+
         vm.stopPrank();
     }
 
@@ -180,11 +184,11 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_OFTQuoteSend() public {
         uint256 amount = 100e18;
-        
+
         SendParam memory sendParam = _buildBasicSendParam(HUB_EID, alice, amount);
-        
+
         MessagingFee memory fee = stakedUsdeOFT.quoteSend(sendParam, false);
-        
+
         assertGt(fee.nativeFee, 0, "Native fee should be > 0");
         assertEq(fee.lzTokenFee, 0, "LZ token fee should be 0");
     }
@@ -194,7 +198,7 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_OFTOwnership() public {
         assertEq(stakedUsdeOFT.owner(), delegate, "Wrong owner");
-        
+
         // Only owner can set peer
         vm.prank(alice);
         vm.expectRevert();
@@ -221,27 +225,27 @@ contract StakedUSDeOFTTest is TestHelper {
     function test_ExchangeRatePreservation() public {
         // Stake USDe to get sUSDe with 1:1 rate initially
         uint256 usdeAmount = 1000e18;
-        
+
         vm.startPrank(alice);
         usde.approve(address(stakedUsde), usdeAmount);
         uint256 shares = stakedUsde.deposit(usdeAmount, alice);
         vm.stopPrank();
-        
+
         // Initial exchange rate should be 1:1
         assertEq(shares, usdeAmount, "Initial rate should be 1:1");
-        
+
         // Distribute rewards to change exchange rate
         usde.mint(address(this), 100e18);
         usde.approve(address(stakedUsde), 100e18);
         stakedUsde.transferInRewards(100e18);
-        
+
         // Warp past vesting
         vm.warp(block.timestamp + 8 hours);
-        
+
         // Now 1 sUSDe should be worth more than 1 USDe
         uint256 assetsPerShare = stakedUsde.convertToAssets(1e18);
         assertGt(assetsPerShare, 1e18, "Exchange rate should improve after rewards");
-        
+
         // This exchange rate should be preserved when bridged
         // (tested in integration tests, here we just verify the rate exists)
     }
@@ -252,10 +256,10 @@ contract StakedUSDeOFTTest is TestHelper {
     function test_DecimalsConfiguration() public {
         // sUSDe uses 18 decimals natively
         assertEq(stakedUsdeOFT.decimals(), 18, "Native decimals should be 18");
-        
+
         // Shared decimals for cross-chain should be 6 (for precision)
         assertEq(stakedUsdeOFT.sharedDecimals(), 6, "Shared decimals should be 6");
-        
+
         // This ensures efficient cross-chain messaging while maintaining precision
     }
 
@@ -270,7 +274,7 @@ contract StakedUSDeOFTTest is TestHelper {
         vm.prank(alice);
         vm.expectRevert();
         stakedUsdeAdapter.setPeer(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
-        
+
         vm.prank(delegate);
         stakedUsdeAdapter.setPeer(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
     }
@@ -286,22 +290,21 @@ contract StakedUSDeOFTTest is TestHelper {
         vm.startPrank(alice);
         usde.approve(address(stakedUsde), 100e18);
         stakedUsde.deposit(100e18, alice);
-        
+
         stakedUsde.approve(address(stakedUsdeAdapter), 100e18);
-        
+
         uint256 aliceBalanceBefore = stakedUsde.balanceOf(alice);
-        
+
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, 0);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
-        
+
         // OFT protocol allows zero amount sends (they just send zero)
-        try stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice) {
+        try stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice) {
             // If successful, verify no tokens moved
             assertEq(stakedUsde.balanceOf(alice), aliceBalanceBefore, "No tokens should move");
         } catch {
             // LayerZero may still fail for other reasons
         }
-        
         vm.stopPrank();
     }
 
@@ -310,10 +313,10 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_LargeAmount() public {
         uint256 largeAmount = INITIAL_BALANCE_18;
-        
+
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, largeAmount);
         MessagingFee memory fee = stakedUsdeAdapter.quoteSend(sendParam, false);
-        
+
         // Quote should work for large amounts
         assertGt(fee.nativeFee, 0, "Should quote large amounts");
     }
@@ -323,24 +326,24 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_StakeThenSend() public {
         uint256 usdeAmount = 100e18;
-        
+
         vm.startPrank(alice);
-        
+
         // Stake USDe
         usde.approve(address(stakedUsde), usdeAmount);
         uint256 shares = stakedUsde.deposit(usdeAmount, alice);
-        
+
         assertEq(stakedUsde.balanceOf(alice), shares, "Alice should have sUSDe");
-        
+
         // Approve adapter
         stakedUsde.approve(address(stakedUsdeAdapter), shares);
-        
+
         // Verify can quote send
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
         MessagingFee memory fee = stakedUsdeAdapter.quoteSend(sendParam, false);
-        
+
         assertGt(fee.nativeFee, 0, "Should be able to quote send");
-        
+
         vm.stopPrank();
     }
 
@@ -349,15 +352,15 @@ contract StakedUSDeOFTTest is TestHelper {
      */
     function test_QuoteVariousAmounts() public {
         uint256[] memory amounts = new uint256[](4);
-        amounts[0] = 1e18;       // 1 token
-        amounts[1] = 100e18;     // 100 tokens
-        amounts[2] = 10_000e18;  // 10k tokens
+        amounts[0] = 1e18; // 1 token
+        amounts[1] = 100e18; // 100 tokens
+        amounts[2] = 10_000e18; // 10k tokens
         amounts[3] = 100_000e18; // 100k tokens
-        
+
         for (uint256 i = 0; i < amounts.length; i++) {
             SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amounts[i]);
             MessagingFee memory fee = stakedUsdeAdapter.quoteSend(sendParam, false);
-            
+
             assertGt(fee.nativeFee, 0, "Should quote valid amount");
         }
     }
@@ -371,4 +374,3 @@ contract StakedUSDeOFTTest is TestHelper {
         assertEq(stakedUsdeOFT.decimals(), 18, "Correct decimals");
     }
 }
-
