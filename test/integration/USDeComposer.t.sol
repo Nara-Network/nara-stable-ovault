@@ -62,20 +62,44 @@ contract USDeComposerTest is TestHelper {
 
     /**
      * @notice Test cross-chain minting with collateral
+     * @dev NOTE: This test demonstrates the EXPECTED flow but cannot be fully tested
+     *      without a Stargate USDC OFT integration. The flow would be:
+     *
+     *      1. User on spoke chain calls stargateUSDC.send() with compose message
+     *      2. USDC arrives on hub, lzCompose() called on USDeComposer
+     *      3. USDeComposer._depositCollateralAndSend() mints USDe from USDC
+     *      4. USDe sent back to user on spoke chain
+     *
+     *      Current test setup only has mock USDC, not Stargate USDC OFT.
+     *      Full integration test requires Stargate testnet/mainnet deployment.
      */
-    function test_CrossChainMintWithCollateral() public {
-        uint256 usdcAmount = 1000e6; // 1000 USDC
-        uint256 expectedUsde = 1000e18; // 1000 USDe
-
-        _switchToHub();
-
-        // Alice wants to deposit USDC and receive USDe on spoke
-        vm.startPrank(alice);
-        usdc.approve(address(usdeComposer), usdcAmount);
-
-        // This would require the collateral OFT to be properly set up
-        // For now, we test the direct deposit path
-        vm.stopPrank();
+    function test_CrossChainMintWithCollateral_Explanation() public view {
+        // This test documents the expected flow for cross-chain minting
+        
+        // Step 1: User has USDC on spoke (e.g., Base)
+        // Step 2: User calls stargateUSDC.send() with:
+        //   - Destination: Hub chain (Arbitrum)
+        //   - To: USDeComposer address
+        //   - Amount: USDC amount
+        //   - ComposeMsg: abi.encode(SendParam for USDe return, minMsgValue)
+        
+        // Step 3: On hub chain, LayerZero endpoint calls:
+        //   USDeComposer.lzCompose(stargateUSDC, guid, message)
+        
+        // Step 4: USDeComposer executes:
+        //   a) Approves USDC to USDe
+        //   b) Calls USDe.mintWithCollateral(USDC, amount)
+        //   c) Receives USDe
+        //   d) Calls usdeAdapter.send() to return USDe to spoke
+        
+        // Step 5: User receives USDe on spoke chain
+        
+        // For actual testing, see:
+        // - test_LocalDepositThenCrossChain() - tests local mint + send
+        // - test_MintWithCollateral() - tests local mint mechanics
+        // - Integration with Stargate requires separate testnet deployment
+        
+        assertTrue(true, "See comments for expected cross-chain mint flow");
     }
 
     /**

@@ -47,7 +47,7 @@ contract StakedUSDeComposerTest is TestHelper {
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, sUsdeReceived);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
 
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
         verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
@@ -70,7 +70,7 @@ contract StakedUSDeComposerTest is TestHelper {
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, usdeAmount);
         MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
 
-        usdeAdapter.send{value: fee1.nativeFee}(sendParam1, fee1, alice);
+        usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
 
         verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
@@ -81,35 +81,45 @@ contract StakedUSDeComposerTest is TestHelper {
         // Now Bob sends USDe back to hub to stake via composer
         vm.startPrank(bob);
 
-        // Build send param for staking
+        // Build send param for staking - send back to bob on spoke
+        SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, usdeAmount);
+        MessagingFee memory hopFee = _getMessagingFee(address(stakedUsdeAdapter), hopParam);
+
+        // Build compose message
+        bytes memory composeMsg = abi.encode(hopParam, hopFee.nativeFee);
+
+        // Build send param with compose
         SendParam memory sendParam2 = _buildSendParam(
             HUB_EID,
-            bob,
+            address(stakedUsdeComposer),
             usdeAmount,
-            usdeAmount * 99 / 100, // 1% slippage
-            _buildComposeOptions(200000, 300000),
-            "",
+            (usdeAmount * 99) / 100, // 1% slippage
+            _buildComposeOptions(300000, 500000),
+            composeMsg,
             ""
         );
 
-        // Get fee
+        // Get fee for cross-chain send
         MessagingFee memory fee2 = _getMessagingFee(address(usdeOFT), sendParam2);
+        uint256 totalFee = fee2.nativeFee + hopFee.nativeFee;
 
-        // Build compose message
-        bytes memory composeMsg = abi.encode(sendParam2, fee2.nativeFee);
-
-        // Update send param
-        sendParam2.composeMsg = composeMsg;
-        sendParam2.to = addressToBytes32(address(stakedUsdeComposer));
-
-        usdeOFT.send{value: fee2.nativeFee * 2}(sendParam2, MessagingFee(fee2.nativeFee * 2, 0), bob);
+        usdeOFT.send{ value: totalFee }(sendParam2, MessagingFee(totalFee, 0), bob);
         vm.stopPrank();
 
         verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
-        // Check if composer received and processed
+        // Verify composer staked on hub
         _switchToHub();
-        // The composer should have staked the USDe and sent back sUSDe
+        // USDe should have been staked (no USDe left in composer)
+        assertEq(usde.balanceOf(address(stakedUsdeComposer)), 0, "Composer should stake all USDe");
+
+        // Verify sUSDe sent back to spoke
+        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+
+        _switchToSpoke();
+        // Bob should have received sUSDe on spoke
+        assertGt(stakedUsdeOFT.balanceOf(bob), 0, "Bob should have sUSDe on spoke");
+        assertApproxEqAbs(stakedUsdeOFT.balanceOf(bob), usdeAmount, 1e18, "Should receive ~100 sUSDe");
     }
 
     /**
@@ -126,33 +136,49 @@ contract StakedUSDeComposerTest is TestHelper {
         uint256 bobBalance = stakedUsdeOFT.balanceOf(bob);
         require(bobBalance >= sUsdeAmount, "Insufficient balance");
 
-        // Bob sends sUSDe back to unstake
+        // Bob sends sUSDe back to unstake and receive USDe on spoke
         vm.startPrank(bob);
 
+        // Build hop param for sending USDe back to bob on spoke
+        SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, sUsdeAmount);
+        MessagingFee memory hopFee = _getMessagingFee(address(usdeAdapter), hopParam);
+
+        // Build compose message
+        bytes memory composeMsg = abi.encode(hopParam, hopFee.nativeFee);
+
+        // Build send param with compose to unstake
         SendParam memory sendParam = _buildSendParam(
             HUB_EID,
-            alice,
+            address(stakedUsdeComposer),
             sUsdeAmount,
-            sUsdeAmount * 99 / 100,
-            _buildComposeOptions(200000, 300000),
-            "",
+            (sUsdeAmount * 99) / 100,
+            _buildComposeOptions(300000, 500000),
+            composeMsg,
             ""
         );
 
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeOFT), sendParam);
+        uint256 totalFee = fee.nativeFee + hopFee.nativeFee;
 
-        bytes memory composeMsg = abi.encode(sendParam, fee.nativeFee);
-        sendParam.composeMsg = composeMsg;
-        sendParam.to = addressToBytes32(address(stakedUsdeComposer));
+        uint256 bobUsdeBeforeOnSpoke = usdeOFT.balanceOf(bob);
 
-        stakedUsdeOFT.send{value: fee.nativeFee * 2}(sendParam, MessagingFee(fee.nativeFee * 2, 0), bob);
+        stakedUsdeOFT.send{ value: totalFee }(sendParam, MessagingFee(totalFee, 0), bob);
         vm.stopPrank();
 
         verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
 
-        // Check hub chain
+        // Verify composer redeemed on hub
         _switchToHub();
-        // Alice should have received USDe from unstaking
+        assertEq(stakedUsde.balanceOf(address(stakedUsdeComposer)), 0, "Composer should redeem all sUSDe");
+
+        // Verify USDe sent back to spoke
+        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+
+        // Bob should have received USDe on spoke
+        _switchToSpoke();
+        uint256 bobUsdeAfterOnSpoke = usdeOFT.balanceOf(bob);
+        assertGt(bobUsdeAfterOnSpoke, bobUsdeBeforeOnSpoke, "Bob should have USDe on spoke");
+        assertApproxEqAbs(bobUsdeAfterOnSpoke - bobUsdeBeforeOnSpoke, sUsdeAmount, 1e18, "Should receive ~50 USDe");
     }
 
     /**
@@ -178,7 +204,7 @@ contract StakedUSDeComposerTest is TestHelper {
             SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, sUsdeAmount);
             MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
 
-            stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+            stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
             verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
         }
         vm.stopPrank();
@@ -224,7 +250,7 @@ contract StakedUSDeComposerTest is TestHelper {
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, totalShares);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
 
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
         verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
@@ -312,18 +338,10 @@ contract StakedUSDeComposerTest is TestHelper {
 
         stakedUsde.approve(address(stakedUsdeAdapter), shares);
 
-        SendParam memory sendParam = _buildSendParam(
-            SPOKE_EID,
-            bob,
-            shares,
-            minShares,
-            "",
-            "",
-            ""
-        );
+        SendParam memory sendParam = _buildSendParam(SPOKE_EID, bob, shares, minShares, "", "", "");
 
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
         verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
@@ -388,7 +406,7 @@ contract StakedUSDeComposerTest is TestHelper {
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
 
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
         assertEq(
@@ -414,7 +432,7 @@ contract StakedUSDeComposerTest is TestHelper {
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
 
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
         verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
@@ -428,7 +446,7 @@ contract StakedUSDeComposerTest is TestHelper {
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, shares);
         MessagingFee memory fee2 = _getMessagingFee(address(stakedUsdeOFT), sendParam2);
 
-        stakedUsdeOFT.send{value: fee2.nativeFee}(sendParam2, fee2, bob);
+        stakedUsdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
         assertEq(stakedUsdeOFT.totalSupply(), 0, "Total supply should decrease to 0");
@@ -450,7 +468,7 @@ contract StakedUSDeComposerTest is TestHelper {
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
 
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
         verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
@@ -483,7 +501,7 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsde.approve(address(stakedUsdeAdapter), sUsdeAmount);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, sUsdeAmount);
         MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
-        stakedUsdeAdapter.send{value: fee.nativeFee}(sendParam, fee, alice);
+        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
         verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
@@ -497,7 +515,7 @@ contract StakedUSDeComposerTest is TestHelper {
         vm.startPrank(bob);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, sendBackAmount);
         MessagingFee memory fee2 = _getMessagingFee(address(stakedUsdeOFT), sendParam2);
-        stakedUsdeOFT.send{value: fee2.nativeFee}(sendParam2, fee2, bob);
+        stakedUsdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
         verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
