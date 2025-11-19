@@ -36,6 +36,28 @@ interface IUSDe is IERC4626, IERC20Permit {
     event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
     event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
     event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
+    event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
+    event RedemptionRequested(
+        address indexed user,
+        uint256 usdeAmount,
+        address indexed collateralAsset,
+        uint256 cooldownEnd
+    );
+    event RedemptionCompleted(
+        address indexed user,
+        uint256 usdeAmount,
+        address indexed collateralAsset,
+        uint256 collateralAmount
+    );
+    event RedemptionCancelled(address indexed user, uint256 usdeAmount);
+
+    /* --------------- STRUCTS --------------- */
+
+    struct RedemptionRequest {
+        uint104 cooldownEnd;
+        uint152 usdeAmount;
+        address collateralAsset;
+    }
 
     /* --------------- ERRORS --------------- */
 
@@ -47,6 +69,10 @@ interface IUSDe is IERC4626, IERC20Permit {
     error InvalidSignature();
     error DelegationNotInitiated();
     error CantRenounceOwnership();
+    error InvalidCooldown();
+    error NoRedemptionRequest();
+    error CooldownNotFinished();
+    error ExistingRedemptionRequest();
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -75,28 +101,22 @@ interface IUSDe is IERC4626, IERC20Permit {
     ) external returns (uint256 usdeAmount);
 
     /**
-     * @notice Redeem USDe for collateral
-     * @param collateralAsset The collateral asset to receive
-     * @param usdeAmount The amount of USDe to redeem
-     * @return collateralAmount The amount of collateral received
+     * @notice Request redemption with cooldown - locks USDe and starts cooldown timer
+     * @param collateralAsset The collateral asset to receive after cooldown
+     * @param usdeAmount The amount of USDe to lock for redemption
      */
-    function redeemForCollateral(
-        address collateralAsset,
-        uint256 usdeAmount
-    ) external returns (uint256 collateralAmount);
+    function cooldownRedeem(address collateralAsset, uint256 usdeAmount) external;
 
     /**
-     * @notice Redeem USDe on behalf of a beneficiary
-     * @param collateralAsset The collateral asset to receive
-     * @param usdeAmount The amount of USDe to redeem
-     * @param beneficiary The address to burn USDe from and receive collateral
+     * @notice Complete redemption after cooldown period - redeems USDe for collateral
      * @return collateralAmount The amount of collateral received
      */
-    function redeemForCollateralFor(
-        address collateralAsset,
-        uint256 usdeAmount,
-        address beneficiary
-    ) external returns (uint256 collateralAmount);
+    function completeRedeem() external returns (uint256 collateralAmount);
+
+    /**
+     * @notice Cancel redemption request and return locked USDe to user
+     */
+    function cancelRedeem() external;
 
     /**
      * @notice Set max mint per block
@@ -114,6 +134,22 @@ interface IUSDe is IERC4626, IERC20Permit {
      * @notice Disable mint and redeem in emergency
      */
     function disableMintRedeem() external;
+
+    /**
+     * @notice Set cooldown duration for redemptions
+     * @param duration New cooldown duration (max 90 days)
+     */
+    function setCooldownDuration(uint24 duration) external;
+
+    /**
+     * @notice Pause all mint and redeem operations
+     */
+    function pause() external;
+
+    /**
+     * @notice Unpause all mint and redeem operations
+     */
+    function unpause() external;
 
     /**
      * @notice Mint USDe without collateral backing (protocol controlled)
@@ -188,5 +224,22 @@ interface IUSDe is IERC4626, IERC20Permit {
      */
     function delegatedSigner(address signer, address delegatedBy) external view returns (DelegatedSignerStatus);
 
-    function safeIncreaseAllowance(address spender, uint256 amount) external;
+    /**
+     * @notice Get cooldown duration
+     * @return uint24 The cooldown duration in seconds
+     */
+    function cooldownDuration() external view returns (uint24);
+
+    /**
+     * @notice Get redemption request for a user
+     * @param user The user address
+     * @return RedemptionRequest The redemption request
+     */
+    function redemptionRequests(address user) external view returns (RedemptionRequest memory);
+
+    /**
+     * @notice Get the redeem silo address
+     * @return address The silo contract address
+     */
+    function redeemSilo() external view returns (address);
 }

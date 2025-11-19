@@ -278,9 +278,6 @@ contract USDe is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Burn USDe (now it's in this contract)
         _burn(address(this), usdeAmount);
 
-        // Approve MCT to burn
-        IERC20(address(mct)).safeIncreaseAllowance(address(mct), usdeAmount);
-
         // Redeem MCT for collateral and send to user
         uint256 receivedCollateral = mct.redeem(collateralAsset, usdeAmount, msg.sender);
 
