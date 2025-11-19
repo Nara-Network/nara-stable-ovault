@@ -93,7 +93,7 @@ abstract contract TestHelper is TestHelperOz5 {
      * @notice Deploy all hub chain contracts
      */
     function _deployHubContracts() internal {
-        // Hub chain deployment (no fork selection needed with TestHelper)
+        // Simulates hub chain using mock endpoints (no Foundry fork switching)
 
         // Deploy mock collateral tokens
         usdc = new MockERC20("USD Coin", "USDC", 6);
@@ -160,7 +160,7 @@ abstract contract TestHelper is TestHelperOz5 {
      * @notice Deploy all spoke chain contracts
      */
     function _deploySpokeContracts() internal {
-        // Spoke chain deployment (no fork selection needed with TestHelper)
+        // Simulates spoke chain using mock endpoints (no Foundry fork switching)
 
         // Deploy OFTs on spoke chain
         usdeOFT = new USDeOFT(address(endpoints[SPOKE_EID]), delegate);
@@ -189,7 +189,7 @@ abstract contract TestHelper is TestHelperOz5 {
      * @notice Setup initial token balances for testing
      */
     function _setupInitialBalances() internal {
-        // Setup balances (no fork selection needed with TestHelper)
+        // Setup balances in mock multi-chain environment
 
         // Mint USDC to test accounts
         usdc.mint(alice, INITIAL_BALANCE);
@@ -276,17 +276,17 @@ abstract contract TestHelper is TestHelperOz5 {
     }
 
     /**
-     * @notice Switch to hub chain (no-op with TestHelper)
+     * @notice Switch to hub chain (no-op - all chains in same test environment)
      */
     function _switchToHub() internal {
-        // TestHelperOz5 manages contract state without fork switching
+        // Mock endpoints handle multi-chain state automatically
     }
 
     /**
-     * @notice Switch to spoke chain (no-op with TestHelper)
+     * @notice Switch to spoke chain (no-op - all chains in same test environment)
      */
     function _switchToSpoke() internal {
-        // TestHelperOz5 manages contract state without fork switching
+        // Mock endpoints handle multi-chain state automatically
     }
 
     /**
