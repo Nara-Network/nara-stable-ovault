@@ -112,9 +112,9 @@ abstract contract TestHelper is TestHelperOz5 {
         // Deploy real USDe vault
         usde = new USDe(
             mct,
-            address(this),  // admin
-            type(uint256).max,  // maxMintPerBlock (unlimited for testing)
-            type(uint256).max   // maxRedeemPerBlock (unlimited for testing)
+            address(this), // admin
+            type(uint256).max, // maxMintPerBlock (unlimited for testing)
+            type(uint256).max // maxRedeemPerBlock (unlimited for testing)
         );
         // Grant necessary roles
         usde.grantRole(usde.MINTER_ROLE(), address(this));
@@ -125,8 +125,8 @@ abstract contract TestHelper is TestHelperOz5 {
         // Deploy real StakedUSDe vault
         stakedUsde = new StakedUSDe(
             usde,
-            address(this),  // initialRewarder
-            address(this)   // admin
+            address(this), // initialRewarder
+            address(this) // admin
         );
         // Set cooldown to 0 for easier testing (can be changed in specific tests)
         stakedUsde.setCooldownDuration(0);
@@ -134,23 +134,11 @@ abstract contract TestHelper is TestHelperOz5 {
         // Deploy OFT Adapters
         // Note: MCT adapter exists on hub but MCT never actually goes cross-chain
         // It's only needed to satisfy composer validation checks
-        mctAdapter = new MCTOFTAdapter(
-            address(mct),
-            address(endpoints[HUB_EID]),
-            delegate
-        );
+        mctAdapter = new MCTOFTAdapter(address(mct), address(endpoints[HUB_EID]), delegate);
 
-        usdeAdapter = new USDeOFTAdapter(
-            address(usde),
-            address(endpoints[HUB_EID]),
-            delegate
-        );
+        usdeAdapter = new USDeOFTAdapter(address(usde), address(endpoints[HUB_EID]), delegate);
 
-        stakedUsdeAdapter = new StakedUSDeOFTAdapter(
-            address(stakedUsde),
-            address(endpoints[HUB_EID]),
-            delegate
-        );
+        stakedUsdeAdapter = new StakedUSDeOFTAdapter(address(stakedUsde), address(endpoints[HUB_EID]), delegate);
 
         // Deploy Composers
         usdeComposer = new USDeComposer(
@@ -175,15 +163,9 @@ abstract contract TestHelper is TestHelperOz5 {
         // Spoke chain deployment (no fork selection needed with TestHelper)
 
         // Deploy OFTs on spoke chain
-        usdeOFT = new USDeOFT(
-            address(endpoints[SPOKE_EID]),
-            delegate
-        );
+        usdeOFT = new USDeOFT(address(endpoints[SPOKE_EID]), delegate);
 
-        stakedUsdeOFT = new StakedUSDeOFT(
-            address(endpoints[SPOKE_EID]),
-            delegate
-        );
+        stakedUsdeOFT = new StakedUSDeOFT(address(endpoints[SPOKE_EID]), delegate);
     }
 
     /**
@@ -243,43 +225,38 @@ abstract contract TestHelper is TestHelperOz5 {
         bytes memory composeMsg,
         bytes memory oftCmd
     ) internal pure returns (SendParam memory) {
-        return SendParam({
-            dstEid: dstEid,
-            to: addressToBytes32(to),
-            amountLD: amount,
-            minAmountLD: minAmount,
-            extraOptions: extraOptions,
-            composeMsg: composeMsg,
-            oftCmd: oftCmd
-        });
+        return
+            SendParam({
+                dstEid: dstEid,
+                to: addressToBytes32(to),
+                amountLD: amount,
+                minAmountLD: minAmount,
+                extraOptions: extraOptions,
+                composeMsg: composeMsg,
+                oftCmd: oftCmd
+            });
     }
 
     /**
      * @notice Helper to build basic send parameters
      */
-    function _buildBasicSendParam(
-        uint32 dstEid,
-        address to,
-        uint256 amount
-    ) internal pure returns (SendParam memory) {
-        return _buildSendParam(
-            dstEid,
-            to,
-            amount,
-            amount, // minAmount = amount (no slippage)
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0), // default gas limit
-            "",     // no compose message
-            ""      // no OFT command
-        );
+    function _buildBasicSendParam(uint32 dstEid, address to, uint256 amount) internal pure returns (SendParam memory) {
+        return
+            _buildSendParam(
+                dstEid,
+                to,
+                amount,
+                amount, // minAmount = amount (no slippage)
+                OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0), // default gas limit
+                "", // no compose message
+                "" // no OFT command
+            );
     }
 
     /**
      * @notice Helper to get messaging fee for an OFT send
      */
-    function _getMessagingFee(
-        address oft,
-        SendParam memory sendParam
-    ) internal view returns (MessagingFee memory) {
+    function _getMessagingFee(address oft, SendParam memory sendParam) internal view returns (MessagingFee memory) {
         return IOFT(oft).quoteSend(sendParam, false);
     }
 
@@ -294,9 +271,8 @@ abstract contract TestHelper is TestHelperOz5 {
      * @notice Helper to build compose options
      */
     function _buildComposeOptions(uint128 gas, uint128 composeGas) internal pure returns (bytes memory) {
-        return OptionsBuilder.newOptions()
-            .addExecutorLzReceiveOption(gas, 0)
-            .addExecutorLzComposeOption(0, composeGas, 0);
+        return
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(gas, 0).addExecutorLzComposeOption(0, composeGas, 0);
     }
 
     /**
