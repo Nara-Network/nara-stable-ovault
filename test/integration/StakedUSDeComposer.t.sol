@@ -301,6 +301,9 @@ contract StakedUSDeComposerTest is TestHelper {
 
         _switchToHub();
 
+        // Enable cooldown (required for cooldown functions to work)
+        stakedUsde.setCooldownDuration(24 hours);
+
         // Stake
         vm.startPrank(alice);
         usde.approve(address(stakedUsde), usdeAmount);

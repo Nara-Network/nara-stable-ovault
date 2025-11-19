@@ -265,14 +265,14 @@ contract USDeComposerTest is TestHelper {
      * @notice Test vault redeem
      */
     function test_VaultRedeem() public {
-        uint256 mctAmount = 100e18;
+        uint256 usdcAmount = 100e6; // 100 USDC
 
         _switchToHub();
 
-        // First deposit
+        // Mint USDe with USDC collateral (so we have USDC to redeem back)
         vm.startPrank(alice);
-        mct.approve(address(usde), mctAmount);
-        uint256 usdeReceived = usde.deposit(mctAmount, alice);
+        usdc.approve(address(usde), usdcAmount);
+        uint256 usdeReceived = usde.mintWithCollateral(address(usdc), usdcAmount);
 
         // Use cooldown-based redemption
         usde.cooldownRedeem(address(usdc), usdeReceived);

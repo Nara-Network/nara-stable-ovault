@@ -138,10 +138,11 @@ contract EndToEndTest is TestHelper {
 
         _switchToHub();
 
-        // User deposits MCT to mint USDe on hub
+        // User mints USDe with USDC collateral on hub
         vm.startPrank(alice);
-        mct.approve(address(usde), amount);
-        uint256 usdeAmount = usde.deposit(amount, alice);
+        uint256 usdcAmount = 100e6; // 100 USDC
+        usdc.approve(address(usde), usdcAmount);
+        uint256 usdeAmount = usde.mintWithCollateral(address(usdc), usdcAmount);
 
         // Send to spoke
         usde.approve(address(usdeAdapter), usdeAmount);
@@ -164,11 +165,22 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to HUB chain at usdeAdapter
         verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
 
-        // Back on hub, redeem for MCT
+        // Back on hub, use cooldown-based redemption
         _switchToHub();
         vm.startPrank(alice);
-        uint256 mctRedeemed = usde.redeem(usdeAmount, alice, alice);
-        assertEq(mctRedeemed, amount, "Should redeem original amount");
+        
+        // Start cooldown (USDe uses cooldown, not direct redeem)
+        usde.cooldownRedeem(address(usdc), usdeAmount);
+        
+        // Get cooldown info
+        (uint104 cooldownEnd, , ) = usde.redemptionRequests(alice);
+        
+        // Warp past cooldown
+        vm.warp(cooldownEnd);
+        
+        // Complete redemption
+        uint256 collateralReceived = usde.completeRedeem();
+        assertGt(collateralReceived, 0, "Should receive collateral");
         vm.stopPrank();
     }
 
