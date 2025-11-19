@@ -267,7 +267,7 @@ abstract contract TestHelper is TestHelperOz5 {
             to,
             amount,
             amount, // minAmount = amount (no slippage)
-            "",     // no extra options
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0), // default gas limit
             "",     // no compose message
             ""      // no OFT command
         );
