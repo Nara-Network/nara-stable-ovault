@@ -108,8 +108,8 @@ contract StakedUSDeComposerTest is TestHelper {
         usdeOFT.send{ value: totalFee }(sendParam2, MessagingFee(totalFee, 0), bob);
         vm.stopPrank();
 
-        // Deliver packet FROM SPOKE TO HUB at usdeAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet FROM SPOKE TO HUB at usdeAdapter (with compose to stakedUsdeComposer)
+        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)), 0, address(stakedUsdeComposer), bytes(""));
 
         // Verify composer staked on hub
         _switchToHub();
@@ -168,8 +168,8 @@ contract StakedUSDeComposerTest is TestHelper {
         stakedUsdeOFT.send{ value: totalFee }(sendParam, MessagingFee(totalFee, 0), bob);
         vm.stopPrank();
 
-        // Deliver packet FROM SPOKE TO HUB at stakedUsdeAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet FROM SPOKE TO HUB at stakedUsdeAdapter (with compose to stakedUsdeComposer)
+        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)), 0, address(stakedUsdeComposer), bytes(""));
 
         // Verify composer redeemed on hub
         _switchToHub();
