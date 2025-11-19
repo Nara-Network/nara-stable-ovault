@@ -311,6 +311,63 @@ contract MultiCollateralTokenTest is TestHelper {
     }
 
     /**
+     * @notice Test minting with unsupported asset reverts
+     */
+    function test_RevertIf_MintUnsupportedAsset() public {
+        MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 18);
+        unsupportedToken.mint(address(this), 1000e18);
+        unsupportedToken.approve(address(mct), 1000e18);
+
+        vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
+        mct.mint(address(unsupportedToken), 1000e18, bob);
+    }
+
+    /**
+     * @notice Test redeeming to unsupported asset reverts
+     */
+    function test_RevertIf_RedeemUnsupportedAsset() public {
+        // Mint some MCT with USDC first
+        _mintMCT(address(usdc), 1000e6, alice);
+
+        // Transfer MCT to usde (which has MINTER_ROLE)
+        vm.prank(alice);
+        mct.transfer(address(usde), 1000e18);
+
+        // Try to redeem to unsupported asset
+        MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 18);
+
+        vm.startPrank(address(usde));
+        mct.approve(address(mct), 1000e18);
+
+        vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
+        mct.redeem(address(unsupportedToken), 1000e18, alice);
+
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test withdrawing unsupported asset reverts
+     */
+    function test_RevertIf_WithdrawUnsupportedAsset() public {
+        MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 18);
+
+        vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
+        mct.withdrawCollateral(address(unsupportedToken), 100e18, owner);
+    }
+
+    /**
+     * @notice Test depositing unsupported asset reverts
+     */
+    function test_RevertIf_DepositUnsupportedAsset() public {
+        MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 18);
+        unsupportedToken.mint(address(this), 1000e18);
+        unsupportedToken.approve(address(mct), 1000e18);
+
+        vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
+        mct.depositCollateral(address(unsupportedToken), 1000e18);
+    }
+
+    /**
      * @notice Fuzz test decimal conversions
      */
     function testFuzz_DecimalConversion(uint256 amount) public {
