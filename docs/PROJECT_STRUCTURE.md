@@ -21,25 +21,25 @@ contracts/
 │   ├── MCTOFTAdapter.sol             # Hub chain OFT adapter (lockbox)
 │   └── MCTOFT.sol                    # Spoke chain OFT (mint/burn)
 │
-├── nusd/                             # nUSD Module
+├── usde/                             # nUSD Module
 │   ├── nUSD.sol                      # ERC4626 vault with minting
-│   ├── USDeOFTAdapter.sol            # Hub chain OFT adapter (lockbox)
-│   ├── USDeOFT.sol                   # Spoke chain OFT (mint/burn)
-│   └── USDeComposer.sol              # Cross-chain composer
+│   ├── nUSDOFTAdapter.sol            # Hub chain OFT adapter (lockbox)
+│   ├── nUSDOFT.sol                   # Spoke chain OFT (mint/burn)
+│   └── nUSDComposer.sol              # Cross-chain composer
 │
-├── staked-nusd/                      # StakednUSD Module
+├── staked-usde/                      # StakednUSD Module
 │   ├── StakednUSD.sol                # ERC4626 staking vault
 │   ├── StakingRewardsDistributor.sol # Automated rewards distribution
-│   ├── StakedUSDeOFTAdapter.sol      # Hub chain OFT adapter (lockbox)
-│   └── StakedUSDeOFT.sol             # Spoke chain OFT (mint/burn)
+│   ├── StakednUSDOFTAdapter.sol      # Hub chain OFT adapter (lockbox)
+│   └── StakednUSDOFT.sol             # Spoke chain OFT (mint/burn)
 │
 └── interfaces/                       # Interfaces
     ├── mct/
     │   └── IMultiCollateralToken.sol
-    ├── nusd/
-    │   └── IUSDe.sol
-    └── staked-nusd/
-        ├── IStakedUSDe.sol
+    ├── usde/
+    │   └── InUSD.sol
+    └── staked-usde/
+        ├── IStakednUSD.sol
         └── IStakingRewardsDistributor.sol
 ```
 
@@ -79,9 +79,9 @@ contracts/
 **Contracts**:
 
 - `nUSD.sol`: Main ERC4626 vault (1:1 with MCT)
-- `USDeOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `USDeOFT.sol`: Spoke chain representation (mint/burn model)
-- `USDeComposer.sol`: Cross-chain operations orchestrator
+- `nUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
+- `nUSDOFT.sol`: Spoke chain representation (mint/burn model)
+- `nUSDComposer.sol`: Cross-chain operations orchestrator
 
 **Key Features**:
 
@@ -112,9 +112,9 @@ Deposit USDC → Mint MCT → Receive nUSD → Transfer cross-chain
 
 - `StakednUSD.sol`: Main ERC4626 staking vault
 - `StakingRewardsDistributor.sol`: Automated rewards helper
-- `StakedUSDeOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `StakedUSDeOFT.sol`: Spoke chain representation (mint/burn model)
-- `StakedUSDeComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
+- `StakednUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
+- `StakednUSDOFT.sol`: Spoke chain representation (mint/burn model)
+- `StakednUSDComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
 
 **Key Features**:
 
@@ -180,7 +180,7 @@ const sendParam = {
     oftCmd: '0x'
 };
 
-await sUsdeOFTAdapter.send(sendParam, { value: nativeFee });
+await stakedNusdOFTAdapter.send(sendParam, { value: nativeFee });
 ```
 
 ### Flow 4: Complete Omnichain Flow
@@ -258,13 +258,13 @@ Bridge back to Hub
 
    ```solidity
    MCTOFTAdapter mctAdapter = new MCTOFTAdapter(mct, lzEndpoint, admin);
-   USDeOFTAdapter usdeAdapter = new USDeOFTAdapter(nusd, lzEndpoint, admin);
-   StakedUSDeOFTAdapter sUsdeAdapter = new StakedUSDeOFTAdapter(stakednUSD, lzEndpoint, admin);
+   nUSDOFTAdapter usdeAdapter = new nUSDOFTAdapter(nusd, lzEndpoint, admin);
+   StakednUSDOFTAdapter stakedNusdAdapter = new StakednUSDOFTAdapter(stakednUSD, lzEndpoint, admin);
    ```
 
 8. **Deploy Composer**
    ```solidity
-   USDeComposer composer = new USDeComposer(nusd, mctAdapter, usdeAdapter);
+   nUSDComposer composer = new nUSDComposer(nusd, mctAdapter, usdeAdapter);
    ```
 
 ### Spoke Chain Deployment
@@ -274,18 +274,18 @@ For each spoke chain:
 ```solidity
 // 1. Deploy OFTs (Mint/Burn)
 MCTOFT mctOFT = new MCTOFT(lzEndpoint, admin);
-USDeOFT usdeOFT = new USDeOFT(lzEndpoint, admin);
-StakedUSDeOFT sUsdeOFT = new StakedUSDeOFT(lzEndpoint, admin);
+nUSDOFT nusdOFT = new nUSDOFT(lzEndpoint, admin);
+StakednUSDOFT stakedNusdOFT = new StakednUSDOFT(lzEndpoint, admin);
 
 // 2. Set peers to hub adapters
 await mctOFT.setPeer(HUB_EID, addressToBytes32(mctAdapter.address));
-await usdeOFT.setPeer(HUB_EID, addressToBytes32(usdeAdapter.address));
-await sUsdeOFT.setPeer(HUB_EID, addressToBytes32(sUsdeAdapter.address));
+await nusdOFT.setPeer(HUB_EID, addressToBytes32(usdeAdapter.address));
+await stakedNusdOFT.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.address));
 
 // 3. Set peers on hub to spoke OFTs
 await mctAdapter.setPeer(SPOKE_EID, addressToBytes32(mctOFT.address));
-await usdeAdapter.setPeer(SPOKE_EID, addressToBytes32(usdeOFT.address));
-await sUsdeAdapter.setPeer(SPOKE_EID, addressToBytes32(sUsdeOFT.address));
+await usdeAdapter.setPeer(SPOKE_EID, addressToBytes32(nusdOFT.address));
+await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT.address));
 ```
 
 ---
@@ -333,20 +333,20 @@ All contracts compile successfully with Solidity ^0.8.22:
 | MCTOFTAdapter             | MCT        | Hub Bridge    |
 | MCTOFT                    | MCT        | Spoke Token   |
 | nUSD                      | nUSD       | Core Vault    |
-| USDeOFTAdapter            | nUSD       | Hub Bridge    |
-| USDeOFT                   | nUSD       | Spoke Token   |
-| USDeComposer              | nUSD       | Composer      |
+| nUSDOFTAdapter            | nUSD       | Hub Bridge    |
+| nUSDOFT                   | nUSD       | Spoke Token   |
+| nUSDComposer              | nUSD       | Composer      |
 | StakednUSD                | StakednUSD | Staking Vault |
 | StakingRewardsDistributor | StakednUSD | Helper        |
-| StakedUSDeOFTAdapter      | StakednUSD | Hub Bridge    |
-| StakedUSDeOFT             | StakednUSD | Spoke Token   |
+| StakednUSDOFTAdapter      | StakednUSD | Hub Bridge    |
+| StakednUSDOFT             | StakednUSD | Spoke Token   |
 
 ---
 
 ## 📖 Documentation
 
 - **nUSD Integration**: See `OVAULT_INTEGRATION.md`
-- **StakednUSD Details**: See `STAKED_USDE_INTEGRATION.md`
+- **StakednUSD Details**: See `STAKED_NUSD_INTEGRATION.md`
 - **Deployment Summary**: See `DEPLOYMENT_SUMMARY.md`
 - **Example Usage**: See `examples/nUSD.usage.ts`
 - **Example Deploy**: See `deploy/nUSD.example.ts`
@@ -382,7 +382,7 @@ All contracts compile successfully with Solidity ^0.8.22:
 - [ ] StakednUSD: Blacklist functionality
 - [ ] StakednUSD: Cross-chain snUSD
 - [ ] StakingRewardsDistributor: Transfer rewards
-- [ ] USDeComposer: Cross-chain deposit
+- [ ] nUSDComposer: Cross-chain deposit
 - [ ] All: Emergency functions
 
 ---

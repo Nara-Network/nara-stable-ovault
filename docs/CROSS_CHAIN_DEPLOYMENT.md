@@ -23,9 +23,9 @@ Hub Chain (Sepolia)                    Spoke Chain (OP Sepolia, Base Sepolia)
          ▼                                      ▼
 ┌──────────────────────┐              ┌──────────────────────┐
 │ MCTOFTAdapter        │◄────peer────►│ MCTOFT               │
-│ USDeOFTAdapter       │◄────peer────►│ USDeOFT              │
-│ StakedUSDeOFTAdapter │◄────peer────►│ StakedUSDeOFT        │
-│ USDeComposer         │              │                      │
+│ nUSDOFTAdapter       │◄────peer────►│ nUSDOFT              │
+│ StakednUSDOFTAdapter │◄────peer────►│ StakednUSDOFT        │
+│ nUSDComposer         │              │                      │
 └──────────────────────┘              └──────────────────────┘
 ```
 
@@ -106,8 +106,8 @@ npx hardhat deploy --network arbitrum-sepolia --tags ovault
 **Deploys:**
 
 - ✅ `MCTOFTAdapter` - Lockbox for MCT on hub
-- ✅ `USDeOFTAdapter` - Lockbox for nUSD on hub
-- ✅ `USDeComposer` - Cross-chain operations coordinator
+- ✅ `nUSDOFTAdapter` - Lockbox for nUSD on hub
+- ✅ `nUSDComposer` - Cross-chain operations coordinator
 
 **What it does:**
 
@@ -133,7 +133,7 @@ npx hardhat deploy --network sepolia --tags ovault
 **Deploys:**
 
 - ✅ `MCTOFT` - Mint/burn OFT for MCT on spoke
-- ✅ `USDeOFT` - Mint/burn OFT for nUSD on spoke
+- ✅ `nUSDOFT` - Mint/burn OFT for nUSD on spoke
 
 **What it does:**
 
@@ -155,7 +155,7 @@ npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
 
 **Deploys:**
 
-- ✅ `StakedUSDeOFTAdapter` - Lockbox for snUSD on hub
+- ✅ `StakednUSDOFTAdapter` - Lockbox for snUSD on hub
 
 #### Spoke Chains
 
@@ -172,7 +172,7 @@ npx hardhat deploy --network sepolia --tags staked-nusd-oft
 
 **Deploys:**
 
-- ✅ `StakedUSDeOFT` - Mint/burn OFT for snUSD on spoke
+- ✅ `StakednUSDOFT` - Mint/burn OFT for snUSD on spoke
 
 ---
 
@@ -193,8 +193,8 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 **Peers that get connected:**
 
 - Hub `MCTOFTAdapter` ↔ Spoke `MCTOFT` (each spoke)
-- Hub `USDeOFTAdapter` ↔ Spoke `USDeOFT` (each spoke)
-- Hub `StakedUSDeOFTAdapter` ↔ Spoke `StakedUSDeOFT` (each spoke)
+- Hub `nUSDOFTAdapter` ↔ Spoke `nUSDOFT` (each spoke)
+- Hub `StakednUSDOFTAdapter` ↔ Spoke `StakednUSDOFT` (each spoke)
 
 ---
 
@@ -276,9 +276,9 @@ Core Contracts:
 
 OFT Infrastructure:
   MCTOFTAdapter: 0x123...
-  USDeOFTAdapter: 0x456...
-  USDeComposer: 0x789...
-  StakedUSDeOFTAdapter: 0x012...
+  nUSDOFTAdapter: 0x456...
+  nUSDComposer: 0x789...
+  StakednUSDOFTAdapter: 0x012...
 ```
 
 ### Spoke Chain 1 (OP Sepolia)
@@ -286,8 +286,8 @@ OFT Infrastructure:
 ```
 OFT Contracts:
   MCTOFT: 0x345...
-  USDeOFT: 0x678...
-  StakedUSDeOFT: 0x901...
+  nUSDOFT: 0x678...
+  StakednUSDOFT: 0x901...
 ```
 
 ### Spoke Chain 2 (Base Sepolia)
@@ -295,8 +295,8 @@ OFT Contracts:
 ```
 OFT Contracts:
   MCTOFT: 0x234...
-  USDeOFT: 0x567...
-  StakedUSDeOFT: 0x890...
+  nUSDOFT: 0x567...
+  StakednUSDOFT: 0x890...
 ```
 
 ### Spoke Chain 3 (Sepolia)
@@ -304,8 +304,8 @@ OFT Contracts:
 ```
 OFT Contracts:
   MCTOFT: 0x345...
-  USDeOFT: 0x678...
-  StakedUSDeOFT: 0x901...
+  nUSDOFT: 0x678...
+  StakednUSDOFT: 0x901...
 ```
 
 ---

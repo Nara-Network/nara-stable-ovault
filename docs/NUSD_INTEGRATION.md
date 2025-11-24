@@ -163,7 +163,7 @@ await nusd.burn(amount);
 This document covers only the hub contracts. For OFT adapters, composers, and wiring commands, see:
 - [Cross-Chain Deployment](./CROSS_CHAIN_DEPLOYMENT.md)
 - [LayerZero OVault Guide](./LAYERZERO_OVAULT_GUIDE.md)
-- [StakednUSD Integration](./STAKED_USDE_INTEGRATION.md)
+- [StakednUSD Integration](./STAKED_NUSD_INTEGRATION.md)
 
 ---
 

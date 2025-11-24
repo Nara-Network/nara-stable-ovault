@@ -146,7 +146,7 @@ Complete unit test coverage for StakednUSD:
 
 ### 4. **Updated Integration Tests**
 
-**StakedUSDeComposer.t.sol:**
+**StakednUSDComposer.t.sol:**
 
 - ✅ **FIXED:** `test_CrossChainStaking()` - Now properly verifies:
   - Compose message execution
@@ -159,7 +159,7 @@ Complete unit test coverage for StakednUSD:
   - nUSD sent back to spoke
   - User receives nUSD on spoke
 
-**USDeComposer.t.sol:**
+**nUSDComposer.t.sol:**
 
 - ✅ **DOCUMENTED:** `test_CrossChainMintWithCollateral_Explanation()`
   - Explains the expected flow
@@ -280,13 +280,13 @@ forge test --match-path test/unit/nUSD.t.sol
 forge test --match-path test/unit/StakednUSD.t.sol
 
 # Integration tests
-forge test --match-path test/integration/USDeComposer.t.sol
-forge test --match-path test/integration/StakedUSDeComposer.t.sol
+forge test --match-path test/integration/nUSDComposer.t.sol
+forge test --match-path test/integration/StakednUSDComposer.t.sol
 forge test --match-path test/integration/EndToEnd.t.sol
 
 # OFT tests
-forge test --match-path test/unit/USDeOFT.t.sol
-forge test --match-path test/unit/StakedUSDeOFT.t.sol
+forge test --match-path test/unit/nUSDOFT.t.sol
+forge test --match-path test/unit/StakednUSDOFT.t.sol
 ```
 
 ### Run with Coverage:
@@ -323,12 +323,12 @@ test/
 │   ├── MultiCollateralToken.t.sol   # 30+ tests
 │   ├── nUSD.t.sol                    # 25+ tests
 │   ├── StakednUSD.t.sol              # 30+ tests
-│   ├── USDeOFT.t.sol                 # 27 tests (existing)
-│   └── StakedUSDeOFT.t.sol           # 25 tests (existing)
+│   ├── nUSDOFT.t.sol                 # 27 tests (existing)
+│   └── StakednUSDOFT.t.sol           # 25 tests (existing)
 │
 ├── integration/                 # Cross-chain integration tests
-│   ├── USDeComposer.t.sol           # Updated with explanations
-│   ├── StakedUSDeComposer.t.sol     # Fixed compose tests
+│   ├── nUSDComposer.t.sol           # Updated with explanations
+│   ├── StakednUSDComposer.t.sol     # Fixed compose tests
 │   └── EndToEnd.t.sol                # 14 end-to-end tests (existing)
 │
 ├── helpers/

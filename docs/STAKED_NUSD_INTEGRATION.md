@@ -8,7 +8,7 @@ The StakednUSD system allows users to stake nUSD tokens and earn rewards. The im
 
 1. **StakednUSD**: ERC4626 vault that accepts nUSD and issues snUSD shares
 2. **StakingRewardsDistributor**: Automated rewards distribution without multisig transactions
-3. **StakedUSDeComposer**: Cross-chain staking operations (mirrors Ethena's implementation)
+3. **StakednUSDComposer**: Cross-chain staking operations (mirrors Ethena's implementation)
 4. **Cross-chain functionality**: OFT adapters for omnichain snUSD transfers
 
 ## Architecture
@@ -27,11 +27,11 @@ The StakednUSD system allows users to stake nUSD tokens and earn rewards. The im
   - Owner (multisig) for configuration
   - Transfers nUSD rewards to staking vault
 
-- **StakedUSDeOFTAdapter.sol**: OFT adapter for hub chain
+- **StakednUSDOFTAdapter.sol**: OFT adapter for hub chain
   - Lockbox model for snUSD
   - Enables cross-chain transfers
 
-- **StakedUSDeComposer.sol**: Cross-chain staking composer
+- **StakednUSDComposer.sol**: Cross-chain staking composer
   - Enables staking from any spoke chain
   - Deployed on hub chain only
   - Handles stake + bridge back logic
@@ -40,7 +40,7 @@ The StakednUSD system allows users to stake nUSD tokens and earn rewards. The im
 
 ### Spoke Chain Contracts
 
-- **StakedUSDeOFT.sol**: OFT for spoke chains
+- **StakednUSDOFT.sol**: OFT for spoke chains
   - Mint/burn model for snUSD
   - Represents snUSD shares cross-chain
 
@@ -145,13 +145,13 @@ const sendParam = {
 };
 
 // Approve nUSD OFT on Base
-await usdeOFT.approve(USDE_OFT_BASE, amount);
+await nusdOFT.approve(USDE_OFT_BASE, amount);
 
 // Quote the fee
-const fee = await usdeOFT.quoteSend(sendParam, false);
+const fee = await nusdOFT.quoteSend(sendParam, false);
 
 // Single transaction: Everything happens automatically!
-await usdeOFT.send(
+await nusdOFT.send(
   sendParam,
   { nativeFee: fee.nativeFee, lzTokenFee: 0 },
   userAddress, // Refund address
@@ -164,9 +164,9 @@ await usdeOFT.send(
 
 **Behind the scenes:**
 
-1. USDeOFT burns nUSD on Base
+1. nUSDOFT burns nUSD on Base
 2. Bridges nUSD to Arbitrum (hub) with compose message
-3. Compose message triggers StakedUSDeComposer.lzCompose() on Arbitrum
+3. Compose message triggers StakednUSDComposer.lzCompose() on Arbitrum
 4. Composer stakes nUSD → receives snUSD
 5. Composer bridges snUSD back to Base
 6. User receives snUSD on Base
@@ -185,7 +185,7 @@ await usdeOFT.send(
 ```solidity
 // User switches to Arbitrum Sepolia
 const stakedComposer = await ethers.getContractAt(
-    "StakedUSDeComposer",
+    "StakednUSDComposer",
     STAKED_COMPOSER_ARBITRUM
 );
 
@@ -215,7 +215,7 @@ const sendParam = {
     oftCmd: '0x'
 };
 
-await sUsdeOFT.send(sendParam, { value: nativeFee });
+await stakedNusdOFT.send(sendParam, { value: nativeFee });
 ```
 
 ### Flow 5: Automated Rewards Distribution
@@ -253,22 +253,22 @@ const REWARDER_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('REWARDER_
 await stakednUSD.grantRole(REWARDER_ROLE, distributor.address);
 ```
 
-### Step 3: Deploy StakedUSDeOFTAdapter (Hub)
+### Step 3: Deploy StakednUSDOFTAdapter (Hub)
 
 ```solidity
-StakedUSDeOFTAdapter sUsdeAdapter = new StakedUSDeOFTAdapter(
+StakednUSDOFTAdapter stakedNusdAdapter = new StakednUSDOFTAdapter(
     stakednUSD.address,        // snUSD token
     LZ_ENDPOINT_HUB,           // LayerZero endpoint
     adminAddress               // Delegate
 );
 ```
 
-### Step 4: Deploy StakedUSDeOFT (Spoke Chains)
+### Step 4: Deploy StakednUSDOFT (Spoke Chains)
 
 For each spoke chain:
 
 ```solidity
-StakedUSDeOFT sUsdeOFT = new StakedUSDeOFT(
+StakednUSDOFT stakedNusdOFT = new StakednUSDOFT(
     LZ_ENDPOINT_SPOKE,         // LayerZero endpoint
     adminAddress               // Delegate
 );
@@ -278,10 +278,10 @@ StakedUSDeOFT sUsdeOFT = new StakedUSDeOFT(
 
 ```solidity
 // On Hub: Connect adapter to spoke OFTs
-await sUsdeAdapter.setPeer(SPOKE_EID, addressToBytes32(sUsdeOFT_spoke.address));
+await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT_spoke.address));
 
 // On Spoke: Connect OFT to hub adapter
-await sUsdeOFT_spoke.setPeer(HUB_EID, addressToBytes32(sUsdeAdapter.address));
+await stakedNusdOFT_spoke.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.address));
 ```
 
 ## Roles and Permissions
@@ -360,11 +360,11 @@ The StakednUSD vault integrates seamlessly with the nUSD OVault system:
 contracts/staked-usde/
 ├── StakednUSD.sol                    # Main staking vault (ERC4626)
 ├── StakingRewardsDistributor.sol     # Automated rewards distribution
-├── StakedUSDeOFTAdapter.sol          # Hub chain OFT adapter (lockbox)
-└── StakedUSDeOFT.sol                 # Spoke chain OFT (mint/burn)
+├── StakednUSDOFTAdapter.sol          # Hub chain OFT adapter (lockbox)
+└── StakednUSDOFT.sol                 # Spoke chain OFT (mint/burn)
 
-contracts/interfaces/staked-nusd/
-├── IStakedUSDe.sol                   # StakednUSD interface
+contracts/interfaces/staked-usde/
+├── IStakednUSD.sol                   # StakednUSD interface
 └── IStakingRewardsDistributor.sol    # Distributor interface
 ```
 

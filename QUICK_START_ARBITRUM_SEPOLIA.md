@@ -85,7 +85,7 @@ const usdc = await ethers.getContractAt(
   "IERC20",
   "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773",
 );
-const nusd = await ethers.getContractAt("nusd/nUSD", "YOUR_USDE_ADDRESS");
+const nusd = await ethers.getContractAt("usde/nUSD", "YOUR_NUSD_ADDRESS");
 
 // Mint 100 nUSD with 100 USDC
 const amount = ethers.utils.parseUnits("100", 6); // 100 USDC (6 decimals)
@@ -102,7 +102,7 @@ console.log("nUSD balance:", ethers.utils.formatEther(balance));
 
 ```javascript
 const stakedNusd = await ethers.getContractAt(
-  "staked-nusd/StakednUSD",
+  "staked-usde/StakednUSD",
   "YOUR_STAKED_USDE_ADDRESS",
 );
 
@@ -122,7 +122,7 @@ console.log("snUSD balance:", ethers.utils.formatEther(sBalance));
 
 ```javascript
 const distributor = await ethers.getContractAt(
-  "staked-nusd/StakingRewardsDistributor",
+  "staked-usde/StakingRewardsDistributor",
   "YOUR_DISTRIBUTOR_ADDRESS",
 );
 
@@ -203,13 +203,13 @@ const _spokeEids = [
 
 ```bash
 # On Arbitrum Sepolia (hub)
-# 1) Deploy nUSD OFT infra (deploys USDeOFTAdapter and USDeComposer on hub)
+# 1) Deploy nUSD OFT infra (deploys nUSDOFTAdapter and nUSDComposer on hub)
 npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
-# 2) Deploy StakednUSD OFT adapter on hub (required for StakedUSDeComposer)
+# 2) Deploy StakednUSD OFT adapter on hub (required for StakednUSDComposer)
 npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
 
-# 3) Re-run ovault on hub to deploy StakedUSDeComposer once the adapter exists
+# 3) Re-run ovault on hub to deploy StakednUSDComposer once the adapter exists
 npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Base Sepolia (spoke)
@@ -250,7 +250,7 @@ await mct.addSupportedAsset("0xNewAssetAddress...");
 ### Update Rate Limits
 
 ```javascript
-const nusd = await ethers.getContractAt("nusd/nUSD", "USDE_ADDRESS");
+const nusd = await ethers.getContractAt("usde/nUSD", "NUSD_ADDRESS");
 await nusd.setMaxMintPerBlock(ethers.utils.parseEther("2000000"));
 await nusd.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
 ```
@@ -271,7 +271,7 @@ await nusd.disableMintRedeem();
 
 ```javascript
 const distributor = await ethers.getContractAt(
-  "staked-nusd/StakingRewardsDistributor",
+  "staked-usde/StakingRewardsDistributor",
   "DISTRIBUTOR_ADDRESS",
 );
 await distributor.setOperator("NEW_OPERATOR_ADDRESS");
@@ -318,7 +318,7 @@ npx hardhat deploy --network arbitrum-sepolia --reset
 2. ✅ Verify on Arbiscan
 3. ✅ Test minting and staking
 4. 📖 Read [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for production deployment
-5. 📖 Read [STAKED_USDE_INTEGRATION.md](./STAKED_USDE_INTEGRATION.md) for details
+5. 📖 Read [STAKED_NUSD_INTEGRATION.md](./STAKED_NUSD_INTEGRATION.md) for details
 6. 🌐 Deploy OFT infrastructure for cross-chain support
 
 ---
@@ -335,7 +335,7 @@ npx hardhat deploy --network arbitrum-sepolia --reset
 
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - Overview
 - [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - nUSD details
-- [STAKED_USDE_INTEGRATION.md](./STAKED_USDE_INTEGRATION.md) - Staking details
+- [STAKED_NUSD_INTEGRATION.md](./STAKED_NUSD_INTEGRATION.md) - Staking details
 
 ---
 
