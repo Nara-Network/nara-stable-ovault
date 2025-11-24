@@ -348,8 +348,6 @@ All contracts compile successfully with Solidity ^0.8.22:
 - **nUSD Integration**: See `OVAULT_INTEGRATION.md`
 - **StakednUSD Details**: See `STAKED_NUSD_INTEGRATION.md`
 - **Deployment Summary**: See `DEPLOYMENT_SUMMARY.md`
-- **Example Usage**: See `examples/nUSD.usage.ts`
-- **Example Deploy**: See `deploy/nUSD.example.ts`
 
 ---
 
