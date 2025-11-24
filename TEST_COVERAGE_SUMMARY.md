@@ -45,9 +45,9 @@ Complete unit test coverage for MCT:
 
 ---
 
-### 2. **USDe.t.sol** (NEW - 25+ tests)
+### 2. **nUSD.t.sol** (NEW - 25+ tests)
 
-Complete unit test coverage for USDe:
+Complete unit test coverage for nUSD:
 
 **Minting:**
 
@@ -70,7 +70,7 @@ Complete unit test coverage for USDe:
 
 **Other Functionality:**
 
-- ✅ Burning USDe (deflationary)
+- ✅ Burning nUSD (deflationary)
 - ✅ Pause/unpause
 - ✅ Delegated signer flow
 - ✅ Remove delegated signer
@@ -89,14 +89,14 @@ Complete unit test coverage for USDe:
 
 ---
 
-### 3. **StakedUSDe.t.sol** (NEW - 30+ tests)
+### 3. **StakednUSD.t.sol** (NEW - 30+ tests)
 
-Complete unit test coverage for StakedUSDe:
+Complete unit test coverage for StakednUSD:
 
 **Basic Staking (Cooldown OFF):**
 
-- ✅ Deposit USDe
-- ✅ Redeem sUSDe for USDe
+- ✅ Deposit nUSD
+- ✅ Redeem snUSD for nUSD
 
 **Cooldown Flow (Critical - Was NOT Tested):**
 
@@ -146,20 +146,20 @@ Complete unit test coverage for StakedUSDe:
 
 ### 4. **Updated Integration Tests**
 
-**StakedUSDeComposer.t.sol:**
+**StakednUSDComposer.t.sol:**
 
 - ✅ **FIXED:** `test_CrossChainStaking()` - Now properly verifies:
   - Compose message execution
-  - USDe staked on hub
-  - sUSDe sent back to spoke
-  - User receives sUSDe on spoke
+  - nUSD staked on hub
+  - snUSD sent back to spoke
+  - User receives snUSD on spoke
 - ✅ **FIXED:** `test_CrossChainUnstaking()` - Now properly verifies:
   - Compose message execution
-  - sUSDe redeemed on hub
-  - USDe sent back to spoke
-  - User receives USDe on spoke
+  - snUSD redeemed on hub
+  - nUSD sent back to spoke
+  - User receives nUSD on spoke
 
-**USDeComposer.t.sol:**
+**nUSDComposer.t.sol:**
 
 - ✅ **DOCUMENTED:** `test_CrossChainMintWithCollateral_Explanation()`
   - Explains the expected flow
@@ -175,8 +175,8 @@ Complete unit test coverage for StakedUSDe:
 | Component           | Tests        | Coverage    |
 | ------------------- | ------------ | ----------- |
 | MCT                 | 0            | 0%          |
-| USDe                | 0            | 0%          |
-| StakedUSDe          | 0            | 0%          |
+| nUSD                | 0            | 0%          |
+| StakednUSD          | 0            | 0%          |
 | Cross-chain compose | 2 incomplete | ~20%        |
 | **Overall**         | **~50**      | **~40-50%** |
 
@@ -185,8 +185,8 @@ Complete unit test coverage for StakedUSDe:
 | Component           | Tests                     | Coverage    |
 | ------------------- | ------------------------- | ----------- |
 | MCT                 | 30+                       | ~95%        |
-| USDe                | 25+                       | ~90%        |
-| StakedUSDe          | 30+                       | ~90%        |
+| nUSD                | 25+                       | ~90%        |
+| StakednUSD          | 30+                       | ~90%        |
 | Cross-chain compose | 2 complete + 1 documented | ~80%        |
 | Cross-chain OFT     | 50+                       | ~95%        |
 | **Overall**         | **~135+**                 | **~85-90%** |
@@ -220,7 +220,7 @@ Foundation of the entire system now tested:
 - Multi-collateral support
 - Redeem mechanics
 
-### 3. **StakedUSDe Rewards & Cooldown** ✅
+### 3. **StakednUSD Rewards & Cooldown** ✅
 
 **Before:** NO TESTS  
 **After:** 15+ tests
@@ -257,7 +257,7 @@ The code is correct, but testing requires:
 
 - `test_LocalDepositThenCrossChain()` - Tests mint + send separately
 - `test_MintWithCollateral()` - Tests minting mechanics
-- Unit tests verify USDe and MCT work correctly
+- Unit tests verify nUSD and MCT work correctly
 
 **Recommendation:** Test on testnet before mainnet deployment.
 
@@ -276,17 +276,17 @@ forge test
 ```bash
 # Unit tests
 forge test --match-path test/unit/MultiCollateralToken.t.sol
-forge test --match-path test/unit/USDe.t.sol
-forge test --match-path test/unit/StakedUSDe.t.sol
+forge test --match-path test/unit/nUSD.t.sol
+forge test --match-path test/unit/StakednUSD.t.sol
 
 # Integration tests
-forge test --match-path test/integration/USDeComposer.t.sol
-forge test --match-path test/integration/StakedUSDeComposer.t.sol
+forge test --match-path test/integration/nUSDComposer.t.sol
+forge test --match-path test/integration/StakednUSDComposer.t.sol
 forge test --match-path test/integration/EndToEnd.t.sol
 
 # OFT tests
-forge test --match-path test/unit/USDeOFT.t.sol
-forge test --match-path test/unit/StakedUSDeOFT.t.sol
+forge test --match-path test/unit/nUSDOFT.t.sol
+forge test --match-path test/unit/StakednUSDOFT.t.sol
 ```
 
 ### Run with Coverage:
@@ -321,14 +321,14 @@ forge test --fuzz-runs 10000
 test/
 ├── unit/                        # NEW: Core contract unit tests
 │   ├── MultiCollateralToken.t.sol   # 30+ tests
-│   ├── USDe.t.sol                    # 25+ tests
-│   ├── StakedUSDe.t.sol              # 30+ tests
-│   ├── USDeOFT.t.sol                 # 27 tests (existing)
-│   └── StakedUSDeOFT.t.sol           # 25 tests (existing)
+│   ├── nUSD.t.sol                    # 25+ tests
+│   ├── StakednUSD.t.sol              # 30+ tests
+│   ├── nUSDOFT.t.sol                 # 27 tests (existing)
+│   └── StakednUSDOFT.t.sol           # 25 tests (existing)
 │
 ├── integration/                 # Cross-chain integration tests
-│   ├── USDeComposer.t.sol           # Updated with explanations
-│   ├── StakedUSDeComposer.t.sol     # Fixed compose tests
+│   ├── nUSDComposer.t.sol           # Updated with explanations
+│   ├── StakednUSDComposer.t.sol     # Fixed compose tests
 │   └── EndToEnd.t.sol                # 14 end-to-end tests (existing)
 │
 ├── helpers/
@@ -349,28 +349,28 @@ test/
 - [x] MultiCollateralToken - Decimal normalization
 - [x] MultiCollateralToken - Collateral withdrawal/deposit
 - [x] MultiCollateralToken - Access control
-- [x] USDe - Mint with collateral
-- [x] USDe - Cooldown redemption (full flow)
-- [x] USDe - Cancel redemption
-- [x] USDe - Rate limiting
-- [x] USDe - Burn functionality
-- [x] USDe - Delegated signers
-- [x] StakedUSDe - Deposit/redeem
-- [x] StakedUSDe - Cooldown flow (shares)
-- [x] StakedUSDe - Cooldown flow (assets)
-- [x] StakedUSDe - Rewards distribution
-- [x] StakedUSDe - Reward vesting
-- [x] StakedUSDe - Blacklist functionality
-- [x] StakedUSDe - Burn assets
+- [x] nUSD - Mint with collateral
+- [x] nUSD - Cooldown redemption (full flow)
+- [x] nUSD - Cancel redemption
+- [x] nUSD - Rate limiting
+- [x] nUSD - Burn functionality
+- [x] nUSD - Delegated signers
+- [x] StakednUSD - Deposit/redeem
+- [x] StakednUSD - Cooldown flow (shares)
+- [x] StakednUSD - Cooldown flow (assets)
+- [x] StakednUSD - Rewards distribution
+- [x] StakednUSD - Reward vesting
+- [x] StakednUSD - Blacklist functionality
+- [x] StakednUSD - Burn assets
 
 ### Cross-Chain
 
-- [x] USDe OFT - Hub to spoke transfers
-- [x] USDe OFT - Spoke to hub transfers
-- [x] USDe OFT - Round trips
-- [x] StakedUSDe OFT - Hub to spoke transfers
-- [x] StakedUSDe OFT - Spoke to hub transfers
-- [x] StakedUSDe OFT - Exchange rate preservation
+- [x] nUSD OFT - Hub to spoke transfers
+- [x] nUSD OFT - Spoke to hub transfers
+- [x] nUSD OFT - Round trips
+- [x] StakednUSD OFT - Hub to spoke transfers
+- [x] StakednUSD OFT - Spoke to hub transfers
+- [x] StakednUSD OFT - Exchange rate preservation
 - [x] Cross-chain staking (compose)
 - [x] Cross-chain unstaking (compose)
 - [⚠️] Cross-chain minting (requires Stargate)
@@ -466,8 +466,8 @@ test/
 **Critical Flows Now Tested:**
 
 - ✅ MCT minting and redemption
-- ✅ USDe cooldown redemption
-- ✅ StakedUSDe cooldown unstaking
+- ✅ nUSD cooldown redemption
+- ✅ StakednUSD cooldown unstaking
 - ✅ Rewards distribution and vesting
 - ✅ Cross-chain staking/unstaking via compose
 - ✅ Blacklist functionality

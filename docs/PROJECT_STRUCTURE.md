@@ -1,14 +1,14 @@
-# 📁 Project Structure - USDe OVault System
+# 📁 Project Structure - nUSD OVault System
 
-Complete omnichain vault system for USDe and StakedUSDe with cross-chain functionality powered by LayerZero.
+Complete omnichain vault system for nUSD and StakednUSD with cross-chain functionality powered by LayerZero.
 
 ## 📊 Overview
 
 This project contains three main modules:
 
-1. **MCT (MultiCollateralToken)**: Multi-collateral backing for USDe
-2. **USDe**: Omnichain stablecoin vault with minting/redeeming
-3. **StakedUSDe**: Staking vault for earning rewards on USDe
+1. **MCT (MultiCollateralToken)**: Multi-collateral backing for nUSD
+2. **nUSD**: Omnichain stablecoin vault with minting/redeeming
+3. **StakednUSD**: Staking vault for earning rewards on nUSD
 
 ---
 
@@ -21,25 +21,25 @@ contracts/
 │   ├── MCTOFTAdapter.sol             # Hub chain OFT adapter (lockbox)
 │   └── MCTOFT.sol                    # Spoke chain OFT (mint/burn)
 │
-├── usde/                             # USDe Module
-│   ├── USDe.sol                      # ERC4626 vault with minting
-│   ├── USDeOFTAdapter.sol            # Hub chain OFT adapter (lockbox)
-│   ├── USDeOFT.sol                   # Spoke chain OFT (mint/burn)
-│   └── USDeComposer.sol              # Cross-chain composer
+├── nusd/                             # nUSD Module
+│   ├── nUSD.sol                      # ERC4626 vault with minting
+│   ├── nUSDOFTAdapter.sol            # Hub chain OFT adapter (lockbox)
+│   ├── nUSDOFT.sol                   # Spoke chain OFT (mint/burn)
+│   └── nUSDComposer.sol              # Cross-chain composer
 │
-├── staked-usde/                      # StakedUSDe Module
-│   ├── StakedUSDe.sol                # ERC4626 staking vault
+├── staked-nusd/                      # StakednUSD Module
+│   ├── StakednUSD.sol                # ERC4626 staking vault
 │   ├── StakingRewardsDistributor.sol # Automated rewards distribution
-│   ├── StakedUSDeOFTAdapter.sol      # Hub chain OFT adapter (lockbox)
-│   └── StakedUSDeOFT.sol             # Spoke chain OFT (mint/burn)
+│   ├── StakednUSDOFTAdapter.sol      # Hub chain OFT adapter (lockbox)
+│   └── StakednUSDOFT.sol             # Spoke chain OFT (mint/burn)
 │
 └── interfaces/                       # Interfaces
     ├── mct/
     │   └── IMultiCollateralToken.sol
-    ├── usde/
-    │   └── IUSDe.sol
-    └── staked-usde/
-        ├── IStakedUSDe.sol
+    ├── nusd/
+    │   └── InUSD.sol
+    └── staked-nusd/
+        ├── IStakednUSD.sol
         └── IStakingRewardsDistributor.sol
 ```
 
@@ -49,7 +49,7 @@ contracts/
 
 ### 1️⃣ MCT (MultiCollateralToken) Module
 
-**Purpose**: Holds various stablecoins (USDC, USDT, DAI, etc.) as collateral for USDe.
+**Purpose**: Holds various stablecoins (USDC, USDT, DAI, etc.) as collateral for nUSD.
 
 **Contracts**:
 
@@ -72,21 +72,21 @@ contracts/
 
 ---
 
-### 2️⃣ USDe Module
+### 2️⃣ nUSD Module
 
 **Purpose**: Omnichain stablecoin with integrated minting/redeeming functionality.
 
 **Contracts**:
 
-- `USDe.sol`: Main ERC4626 vault (1:1 with MCT)
-- `USDeOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `USDeOFT.sol`: Spoke chain representation (mint/burn model)
-- `USDeComposer.sol`: Cross-chain operations orchestrator
+- `nUSD.sol`: Main ERC4626 vault (1:1 with MCT)
+- `nUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
+- `nUSDOFT.sol`: Spoke chain representation (mint/burn model)
+- `nUSDComposer.sol`: Cross-chain operations orchestrator
 
 **Key Features**:
 
 - ERC4626 standard vault
-- Direct collateral minting (USDC → MCT → USDe)
+- Direct collateral minting (USDC → MCT → nUSD)
 - Rate limiting (maxMintPerBlock, maxRedeemPerBlock)
 - Delegated signers for smart contracts
 - Cross-chain transfers
@@ -99,22 +99,22 @@ contracts/
 **User Flow**:
 
 ```
-Deposit USDC → Mint MCT → Receive USDe → Transfer cross-chain
+Deposit USDC → Mint MCT → Receive nUSD → Transfer cross-chain
 ```
 
 ---
 
-### 3️⃣ StakedUSDe Module
+### 3️⃣ StakednUSD Module
 
-**Purpose**: Staking vault for USDe to earn protocol rewards.
+**Purpose**: Staking vault for nUSD to earn protocol rewards.
 
 **Contracts**:
 
-- `StakedUSDe.sol`: Main ERC4626 staking vault
+- `StakednUSD.sol`: Main ERC4626 staking vault
 - `StakingRewardsDistributor.sol`: Automated rewards helper
-- `StakedUSDeOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `StakedUSDeOFT.sol`: Spoke chain representation (mint/burn model)
-- `StakedUSDeComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
+- `StakednUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
+- `StakednUSDOFT.sol`: Spoke chain representation (mint/burn model)
+- `StakednUSDComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
 
 **Key Features**:
 
@@ -122,7 +122,7 @@ Deposit USDC → Mint MCT → Receive USDe → Transfer cross-chain
 - 8-hour reward vesting (prevents MEV)
 - Blacklist system (soft & full restrictions)
 - Minimum shares protection (1 ether)
-- Cross-chain sUSDe transfers
+- Cross-chain snUSD transfers
 - **Cross-chain staking from any spoke chain** ⭐ NEW (mirrors Ethena)
 - Automated rewards distribution
 
@@ -137,39 +137,39 @@ Deposit USDC → Mint MCT → Receive USDe → Transfer cross-chain
 **User Flow**:
 
 ```
-Stake USDe → Receive sUSDe → Earn rewards → Transfer cross-chain
+Stake nUSD → Receive snUSD → Earn rewards → Transfer cross-chain
 ```
 
 ---
 
 ## 🔄 Complete User Flows
 
-### Flow 1: Mint USDe with Collateral (Hub Chain)
+### Flow 1: Mint nUSD with Collateral (Hub Chain)
 
 ```solidity
-// 1. Approve USDC to USDe contract
-usdc.approve(usde, amount);
+// 1. Approve USDC to nUSD contract
+usdc.approve(nusd, amount);
 
-// 2. Mint USDe
-usde.mintWithCollateral(usdcAddress, amount);
-// Result: USDC → MCT → USDe
+// 2. Mint nUSD
+nusd.mintWithCollateral(usdcAddress, amount);
+// Result: USDC → MCT → nUSD
 ```
 
-### Flow 2: Stake USDe for sUSDe (Hub Chain)
+### Flow 2: Stake nUSD for snUSD (Hub Chain)
 
 ```solidity
-// 1. Approve USDe to StakedUSDe contract
-usde.approve(stakedUSDe, amount);
+// 1. Approve nUSD to StakednUSD contract
+nusd.approve(stakednUSD, amount);
 
-// 2. Deposit to receive sUSDe
-stakedUSDe.deposit(amount, userAddress);
-// Result: USDe → sUSDe (earning rewards)
+// 2. Deposit to receive snUSD
+stakednUSD.deposit(amount, userAddress);
+// Result: nUSD → snUSD (earning rewards)
 ```
 
-### Flow 3: Transfer sUSDe Cross-Chain
+### Flow 3: Transfer snUSD Cross-Chain
 
 ```solidity
-// Transfer sUSDe from Hub to Spoke Chain
+// Transfer snUSD from Hub to Spoke Chain
 const sendParam = {
     dstEid: SPOKE_EID,
     to: addressToBytes32(receiver),
@@ -180,7 +180,7 @@ const sendParam = {
     oftCmd: '0x'
 };
 
-await sUsdeOFTAdapter.send(sendParam, { value: nativeFee });
+await stakedNusdOFTAdapter.send(sendParam, { value: nativeFee });
 ```
 
 ### Flow 4: Complete Omnichain Flow
@@ -189,12 +189,12 @@ await sUsdeOFTAdapter.send(sendParam, { value: nativeFee });
 User on Chain A (Spoke)
     ↓ Deposit USDC
 Bridge to Hub Chain
-    ↓ Mint USDe
-    ↓ Stake for sUSDe
-Bridge sUSDe to Chain B (Spoke)
+    ↓ Mint nUSD
+    ↓ Stake for snUSD
+Bridge snUSD to Chain B (Spoke)
     ↓ Hold & Earn Rewards
 Bridge back to Hub
-    ↓ Unstake for USDe
+    ↓ Unstake for nUSD
     ↓ Redeem for USDC
 ```
 
@@ -210,10 +210,10 @@ Bridge back to Hub
    MultiCollateralToken mct = new MultiCollateralToken(admin, [usdc, usdt, dai]);
    ```
 
-2. **Deploy USDe**
+2. **Deploy nUSD**
 
    ```solidity
-   USDe usde = new USDe(
+   nUSD nusd = new nUSD(
        mct,
        admin,
        maxMintPerBlock,
@@ -221,17 +221,17 @@ Bridge back to Hub
    );
    ```
 
-3. **Grant MINTER_ROLE to USDe**
+3. **Grant MINTER_ROLE to nUSD**
 
    ```solidity
-   await mct.grantRole(MINTER_ROLE, usde.address);
+   await mct.grantRole(MINTER_ROLE, nusd.address);
    ```
 
-4. **Deploy StakedUSDe**
+4. **Deploy StakednUSD**
 
    ```solidity
-   StakedUSDe stakedUSDe = new StakedUSDe(
-       usde,
+   StakednUSD stakednUSD = new StakednUSD(
+       nusd,
        rewarder,
        admin
    );
@@ -241,8 +241,8 @@ Bridge back to Hub
 
    ```solidity
    StakingRewardsDistributor distributor = new StakingRewardsDistributor(
-       stakedUSDe,
-       usde,
+       stakednUSD,
+       nusd,
        admin,
        operator
    );
@@ -251,20 +251,20 @@ Bridge back to Hub
 6. **Grant REWARDER_ROLE**
 
    ```solidity
-   await stakedUSDe.grantRole(REWARDER_ROLE, distributor.address);
+   await stakednUSD.grantRole(REWARDER_ROLE, distributor.address);
    ```
 
 7. **Deploy OFT Adapters (Lockbox)**
 
    ```solidity
    MCTOFTAdapter mctAdapter = new MCTOFTAdapter(mct, lzEndpoint, admin);
-   USDeOFTAdapter usdeAdapter = new USDeOFTAdapter(usde, lzEndpoint, admin);
-   StakedUSDeOFTAdapter sUsdeAdapter = new StakedUSDeOFTAdapter(stakedUSDe, lzEndpoint, admin);
+   nUSDOFTAdapter nusdAdapter = new nUSDOFTAdapter(nusd, lzEndpoint, admin);
+   StakednUSDOFTAdapter stakedNusdAdapter = new StakednUSDOFTAdapter(stakednUSD, lzEndpoint, admin);
    ```
 
 8. **Deploy Composer**
    ```solidity
-   USDeComposer composer = new USDeComposer(usde, mctAdapter, usdeAdapter);
+   nUSDComposer composer = new nUSDComposer(nusd, mctAdapter, nusdAdapter);
    ```
 
 ### Spoke Chain Deployment
@@ -274,37 +274,37 @@ For each spoke chain:
 ```solidity
 // 1. Deploy OFTs (Mint/Burn)
 MCTOFT mctOFT = new MCTOFT(lzEndpoint, admin);
-USDeOFT usdeOFT = new USDeOFT(lzEndpoint, admin);
-StakedUSDeOFT sUsdeOFT = new StakedUSDeOFT(lzEndpoint, admin);
+nUSDOFT nusdOFT = new nUSDOFT(lzEndpoint, admin);
+StakednUSDOFT stakedNusdOFT = new StakednUSDOFT(lzEndpoint, admin);
 
 // 2. Set peers to hub adapters
 await mctOFT.setPeer(HUB_EID, addressToBytes32(mctAdapter.address));
-await usdeOFT.setPeer(HUB_EID, addressToBytes32(usdeAdapter.address));
-await sUsdeOFT.setPeer(HUB_EID, addressToBytes32(sUsdeAdapter.address));
+await nusdOFT.setPeer(HUB_EID, addressToBytes32(nusdAdapter.address));
+await stakedNusdOFT.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.address));
 
 // 3. Set peers on hub to spoke OFTs
 await mctAdapter.setPeer(SPOKE_EID, addressToBytes32(mctOFT.address));
-await usdeAdapter.setPeer(SPOKE_EID, addressToBytes32(usdeOFT.address));
-await sUsdeAdapter.setPeer(SPOKE_EID, addressToBytes32(sUsdeOFT.address));
+await nusdAdapter.setPeer(SPOKE_EID, addressToBytes32(nusdOFT.address));
+await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT.address));
 ```
 
 ---
 
 ## 🔐 Security Features
 
-### 1. Rate Limiting (USDe)
+### 1. Rate Limiting (nUSD)
 
 - `maxMintPerBlock`: Limits minting per block
 - `maxRedeemPerBlock`: Limits redeeming per block
 - Emergency disable via `GATEKEEPER_ROLE`
 
-### 2. Reward Vesting (StakedUSDe)
+### 2. Reward Vesting (StakednUSD)
 
 - 8-hour vesting period prevents MEV attacks
 - Cannot add new rewards while vesting
 - Smooth reward distribution
 
-### 3. Blacklist System (StakedUSDe)
+### 3. Blacklist System (StakednUSD)
 
 - **Soft**: Cannot stake new funds
 - **Full**: Cannot transfer/stake/unstake
@@ -312,8 +312,8 @@ await sUsdeAdapter.setPeer(SPOKE_EID, addressToBytes32(sUsdeOFT.address));
 
 ### 4. Minimum Shares Protection
 
-- USDe: Prevents donation attacks
-- StakedUSDe: 1 ether minimum
+- nUSD: Prevents donation attacks
+- StakednUSD: 1 ether minimum
 
 ### 5. Access Control
 
@@ -332,24 +332,22 @@ All contracts compile successfully with Solidity ^0.8.22:
 | MultiCollateralToken      | MCT        | Core Token    |
 | MCTOFTAdapter             | MCT        | Hub Bridge    |
 | MCTOFT                    | MCT        | Spoke Token   |
-| USDe                      | USDe       | Core Vault    |
-| USDeOFTAdapter            | USDe       | Hub Bridge    |
-| USDeOFT                   | USDe       | Spoke Token   |
-| USDeComposer              | USDe       | Composer      |
-| StakedUSDe                | StakedUSDe | Staking Vault |
-| StakingRewardsDistributor | StakedUSDe | Helper        |
-| StakedUSDeOFTAdapter      | StakedUSDe | Hub Bridge    |
-| StakedUSDeOFT             | StakedUSDe | Spoke Token   |
+| nUSD                      | nUSD       | Core Vault    |
+| nUSDOFTAdapter            | nUSD       | Hub Bridge    |
+| nUSDOFT                   | nUSD       | Spoke Token   |
+| nUSDComposer              | nUSD       | Composer      |
+| StakednUSD                | StakednUSD | Staking Vault |
+| StakingRewardsDistributor | StakednUSD | Helper        |
+| StakednUSDOFTAdapter      | StakednUSD | Hub Bridge    |
+| StakednUSDOFT             | StakednUSD | Spoke Token   |
 
 ---
 
 ## 📖 Documentation
 
-- **USDe Integration**: See `OVAULT_INTEGRATION.md`
-- **StakedUSDe Details**: See `STAKED_USDE_INTEGRATION.md`
+- **nUSD Integration**: See `OVAULT_INTEGRATION.md`
+- **StakednUSD Details**: See `STAKED_NUSD_INTEGRATION.md`
 - **Deployment Summary**: See `DEPLOYMENT_SUMMARY.md`
-- **Example Usage**: See `examples/USDe.usage.ts`
-- **Example Deploy**: See `deploy/USDe.example.ts`
 
 ---
 
@@ -357,10 +355,10 @@ All contracts compile successfully with Solidity ^0.8.22:
 
 | Feature      | Original             | OVault Version         |
 | ------------ | -------------------- | ---------------------- |
-| Contracts    | USDe + EthenaMinting | USDe (merged)          |
+| Contracts    | nUSD + EthenaMinting | nUSD (merged)          |
 | Cross-chain  | No                   | Full LayerZero support |
 | Architecture | Single chain         | Hub-and-spoke          |
-| Staking      | StakedUSDe only      | + Cross-chain sUSDe    |
+| Staking      | StakednUSD only      | + Cross-chain snUSD    |
 | Collateral   | Single in minting    | Multi-collateral (MCT) |
 | Solidity     | 0.8.20               | ^0.8.22                |
 | OpenZeppelin | 4.x                  | 5.x                    |
@@ -372,17 +370,17 @@ All contracts compile successfully with Solidity ^0.8.22:
 - [ ] MCT: Add/remove supported assets
 - [ ] MCT: Mint/burn with different collaterals
 - [ ] MCT: Withdraw/deposit collateral
-- [ ] USDe: Mint with collateral (USDC, USDT, DAI)
-- [ ] USDe: Redeem for collateral
-- [ ] USDe: Rate limiting
-- [ ] USDe: Delegated signers
-- [ ] USDe: Cross-chain transfers
-- [ ] StakedUSDe: Stake/unstake
-- [ ] StakedUSDe: Reward vesting
-- [ ] StakedUSDe: Blacklist functionality
-- [ ] StakedUSDe: Cross-chain sUSDe
+- [ ] nUSD: Mint with collateral (USDC, USDT, DAI)
+- [ ] nUSD: Redeem for collateral
+- [ ] nUSD: Rate limiting
+- [ ] nUSD: Delegated signers
+- [ ] nUSD: Cross-chain transfers
+- [ ] StakednUSD: Stake/unstake
+- [ ] StakednUSD: Reward vesting
+- [ ] StakednUSD: Blacklist functionality
+- [ ] StakednUSD: Cross-chain snUSD
 - [ ] StakingRewardsDistributor: Transfer rewards
-- [ ] USDeComposer: Cross-chain deposit
+- [ ] nUSDComposer: Cross-chain deposit
 - [ ] All: Emergency functions
 
 ---

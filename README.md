@@ -1,7 +1,7 @@
 <h1 align="center">Nara Stable Omnichain Vault</h1>
 
 <p align="center">
-  <strong>USDe & StakedUSDe - Omnichain stablecoin vault with integrated minting, staking, and cross-chain functionality</strong>
+  <strong>nUSD & StakednUSD - Omnichain stablecoin vault with integrated minting, staking, and cross-chain functionality</strong>
 </p>
 
 ---
@@ -28,8 +28,8 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 | --------------------------------------------------------------- | ----------------------------------------------------------- |
 | **[Quick Start](./QUICK_START_ARBITRUM_SEPOLIA.md)**            | 🎯 Deploy complete system on Arbitrum Sepolia (recommended) |
 | **[Cross-Chain Deployment](./docs/CROSS_CHAIN_DEPLOYMENT.md)**  | 🌐 Deploy OFT infrastructure for omnichain functionality    |
-| **[USDe Integration](./docs/USDE_INTEGRATION.md)** | 🏦 USDe + MCT vault architecture and admin flows |
-| **[StakedUSDe Integration](./docs/STAKED_USDE_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns |
+| **[nUSD Integration](./docs/NUSD_INTEGRATION.md)** | 🏦 nUSD + MCT vault architecture and admin flows |
+| **[StakednUSD Integration](./docs/STAKED_NUSD_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns |
 | **[Project Structure](./docs/PROJECT_STRUCTURE.md)**            | 📁 System architecture and contract overview                |
 | **[LayerZero OVault Guide](./docs/LAYERZERO_OVAULT_GUIDE.md)**  | 🔧 Advanced LayerZero integration details                   |
 
@@ -40,12 +40,12 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 ### Core Functionality
 
 - ✅ **Multi-Collateral Stablecoin** - Accept USDC, USDT, DAI and other stablecoins
-- ✅ **Integrated Minting** - Direct collateral → USDe minting in single transaction
-- ✅ **1:1 Backing** - USDe maintains 1:1 peg with MCT (multi-collateral token)
+- ✅ **Integrated Minting** - Direct collateral → nUSD minting in single transaction
+- ✅ **1:1 Backing** - nUSD maintains 1:1 peg with MCT (multi-collateral token)
 
 ### Staking & Rewards
 
-- ✅ **StakedUSDe (sUSDe)** - Stake USDe to earn rewards
+- ✅ **StakednUSD (snUSD)** - Stake nUSD to earn rewards
 - ✅ **Automated Rewards** - Operator-controlled distribution with 8-hour vesting
 - ✅ **Deflationary Controls** - Burn mechanism to manage exchange rates
 - ✅ **Cooldown Periods** - 90-day default cooldown for unstaking (configurable)
@@ -59,9 +59,9 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 
 ### Omnichain (Cross-Chain)
 
-- ✅ **Transfer Across Chains** - Send USDe/sUSDe to any LayerZero-supported chain
-- ✅ **Cross-Chain Minting** - Deposit collateral on Chain A, receive USDe on Chain B
-- ✅ **Cross-Chain Staking** - Stake USDe on Chain A, receive sUSDe on Chain B
+- ✅ **Transfer Across Chains** - Send nUSD/snUSD to any LayerZero-supported chain
+- ✅ **Cross-Chain Minting** - Deposit collateral on Chain A, receive nUSD on Chain B
+- ✅ **Cross-Chain Staking** - Stake nUSD on Chain A, receive snUSD on Chain B
 - ✅ **Unified Interface** - Single transaction from user perspective
 
 ---
@@ -73,18 +73,18 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 ┌─────────────────────────┐          ┌──────────────────────┐
 │ MultiCollateralToken    │          │                      │
 │ (MCT - Hub Only!)       │          │                      │
-│ USDe (ERC4626 Vault)    │          │                      │
-│ StakedUSDe (Staking)    │          │                      │
+│ nUSD (ERC4626 Vault)    │          │                      │
+│ StakednUSD (Staking)    │          │                      │
 │ StakingRewardsDistrib.  │          │                      │
 └─────────────────────────┘          └──────────────────────┘
           │                                     │
           ▼                                     ▼
 ┌─────────────────────────┐          ┌──────────────────────┐
 │ MCTOFTAdapter*          │          │ (No MCTOFT)          │
-│ USDeOFTAdapter          │◄────────►│ USDeOFT              │
-│ StakedUSDeOFTAdapter    │◄────────►│ StakedUSDeOFT        │
-│ USDeComposer            │          │                      │
-│ StakedUSDeComposer      │          │                      │
+│ nUSDOFTAdapter          │◄────────►│ nUSDOFT              │
+│ StakednUSDOFTAdapter    │◄────────►│ StakednUSDOFT        │
+│ nUSDComposer            │          │                      │
+│ StakednUSDComposer      │          │                      │
 └─────────────────────────┘          └──────────────────────┘
        LayerZero V2 Messaging
        
@@ -97,8 +97,8 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 **MCT (MultiCollateralToken) does NOT go cross-chain:**
 
 - **MCT stays on hub chain only** - It's an internal backing token, invisible to users
-- **Users never interact with MCT directly** - They deposit collateral (USDC/USDT) and receive USDe
-- **Cross-chain flow**: Users send collateral → Hub mints USDe → USDe goes cross-chain
+- **Users never interact with MCT directly** - They deposit collateral (USDC/USDT) and receive nUSD
+- **Cross-chain flow**: Users send collateral → Hub mints nUSD → nUSD goes cross-chain
 
 **Why MCTOFTAdapter exists:**
 - MCTOFTAdapter exists on hub chain but is **validation only**
@@ -107,8 +107,8 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 - See `contracts/mct/MCTOFTAdapter.sol` for detailed explanation
 
 **What actually goes cross-chain:**
-- ✅ **USDe** - Via USDeOFTAdapter (hub) ↔ USDeOFT (spoke)
-- ✅ **StakedUSDe** - Via StakedUSDeOFTAdapter (hub) ↔ StakedUSDeOFT (spoke)
+- ✅ **nUSD** - Via nUSDOFTAdapter (hub) ↔ nUSDOFT (spoke)
+- ✅ **StakednUSD** - Via StakednUSDOFTAdapter (hub) ↔ StakednUSDOFT (spoke)
 - ✅ **Collateral (USDC/USDT)** - Via Stargate or other collateral OFTs
 - ❌ **MCT** - Stays on hub only
 
@@ -119,79 +119,79 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 ### Core Contracts (Hub Chain Only)
 
 1. **MultiCollateralToken** - Accepts multiple stablecoins as collateral
-2. **USDe** - Stablecoin vault with integrated minting
-3. **StakedUSDe** - Staking vault for earning rewards
+2. **nUSD** - Stablecoin vault with integrated minting
+3. **StakednUSD** - Staking vault for earning rewards
 4. **StakingRewardsDistributor** - Automated reward distribution
 
 ### OFT Infrastructure (Hub + Spoke Chains)
 
 5. **MCTOFTAdapter** (Hub only) - Validation only, NOT for cross-chain (see MCT Architecture above)
-6. **USDeOFTAdapter / USDeOFT** - Cross-chain USDe transfers
-7. **StakedUSDeOFTAdapter / StakedUSDeOFT** - Cross-chain sUSDe transfers
+6. **nUSDOFTAdapter / nUSDOFT** - Cross-chain nUSD transfers
+7. **StakednUSDOFTAdapter / StakednUSDOFT** - Cross-chain snUSD transfers
 8. **Composers** - Cross-chain vault operations
 
 ---
 
 ## 🎯 Usage Examples
 
-### Mint USDe (Hub Chain)
+### Mint nUSD (Hub Chain)
 
 ```javascript
-// Deposit 100 USDC to mint 100 USDe
+// Deposit 100 USDC to mint 100 nUSD
 // Note: MCT is created internally - users never see it
-await usdc.approve(usde.address, 100e6);
-await usde.mintWithCollateral(usdc.address, 100e6);
+await usdc.approve(nusd.address, 100e6);
+await nusd.mintWithCollateral(usdc.address, 100e6);
 ```
 
-### Mint USDe Cross-Chain (Single Transaction)
+### Mint nUSD Cross-Chain (Single Transaction)
 
 ```javascript
-// User on Base sends USDC → receives USDe on Base
+// User on Base sends USDC → receives nUSD on Base
 // 1. USDC bridges to hub via collateral OFT
-// 2. USDeComposer mints USDe on hub (MCT handled internally)
-// 3. USDe bridges back to Base
+// 2. nUSDComposer mints nUSD on hub (MCT handled internally)
+// 3. nUSD bridges back to Base
 // All in one transaction from user's perspective
 await stargateUSDC.send(
   hubChainId,
   composerAddress,
   amount,
-  composeMessage // includes destination for USDe
+  composeMessage // includes destination for nUSD
 );
 ```
 
-### Stake USDe
+### Stake nUSD
 
 ```javascript
-// Stake 50 USDe to receive sUSDe
-await usde.approve(stakedUsde.address, ethers.utils.parseEther("50"));
-await stakedUsde.deposit(ethers.utils.parseEther("50"), yourAddress);
+// Stake 50 nUSD to receive snUSD
+await nusd.approve(stakedNusd.address, ethers.utils.parseEther("50"));
+await stakedNusd.deposit(ethers.utils.parseEther("50"), yourAddress);
 ```
 
-### Redeem USDe (with Cooldown)
+### Redeem nUSD (with Cooldown)
 
 ```javascript
-// Step 1: Request redemption (locks USDe)
-await usde.cooldownRedeem(usdc.address, ethers.utils.parseEther("100"));
+// Step 1: Request redemption (locks nUSD)
+await nusd.cooldownRedeem(usdc.address, ethers.utils.parseEther("100"));
 
 // Step 2: Wait 7 days...
 
 // Step 3: Complete redemption (receive USDC)
-await usde.completeRedeem();
+await nusd.completeRedeem();
 
 // OR cancel anytime:
-await usde.cancelRedeem();
+await nusd.cancelRedeem();
 ```
 
-### Unstake sUSDe (with Cooldown)
+### Unstake snUSD (with Cooldown)
 
 ```javascript
 // Step 1: Start cooldown
-await stakedUsde.cooldownShares(ethers.utils.parseEther("50"));
+await stakedNusd.cooldownShares(ethers.utils.parseEther("50"));
 
 // Step 2: Wait 90 days...
 
-// Step 3: Claim USDe
-await stakedUsde.unstake(yourAddress);
+// Step 3: Claim nUSD
+await stakedNusd.unstake(yourAddress);
 ```
 
 ---
@@ -246,26 +246,26 @@ For detailed technical information, see:
 | Contract                    | Description                       | Location                 |
 | --------------------------- | --------------------------------- | ------------------------ |
 | `MultiCollateralToken`      | Multi-collateral backing          | `contracts/mct/`         |
-| `USDe`                      | Stablecoin vault with minting     | `contracts/usde/`        |
-| `StakedUSDe`                | Staking vault with cooldowns | `contracts/staked-usde/` |
-| `StakingRewardsDistributor` | Automated rewards                 | `contracts/staked-usde/` |
+| `nUSD`                      | Stablecoin vault with minting     | `contracts/nusd/`        |
+| `StakednUSD`                | Staking vault with cooldowns | `contracts/staked-nusd/` |
+| `StakingRewardsDistributor` | Automated rewards                 | `contracts/staked-nusd/` |
 
 ### OFT Infrastructure
 
 | Contract               | Chain Type | Description                                      |
 | ---------------------- | ---------- | ------------------------------------------------ |
 | `MCTOFTAdapter`        | Hub        | **Validation only** - MCT doesn't go cross-chain |
-| `USDeOFTAdapter`       | Hub        | Lockbox for USDe cross-chain transfers           |
-| `StakedUSDeOFTAdapter` | Hub        | Lockbox for sUSDe cross-chain transfers          |
-| `USDeOFT`              | Spoke      | Mint/burn OFT for USDe on spoke chains           |
-| `StakedUSDeOFT`        | Spoke      | Mint/burn OFT for sUSDe on spoke chains          |
+| `nUSDOFTAdapter`       | Hub        | Lockbox for nUSD cross-chain transfers           |
+| `StakednUSDOFTAdapter` | Hub        | Lockbox for snUSD cross-chain transfers          |
+| `nUSDOFT`              | Spoke      | Mint/burn OFT for nUSD on spoke chains           |
+| `StakednUSDOFT`        | Spoke      | Mint/burn OFT for snUSD on spoke chains          |
 
 ### Composers
 
 | Contract             | Description                                                     |
 | -------------------- | --------------------------------------------------------------- |
-| `USDeComposer`       | Cross-chain collateral deposits (USDC → USDe), MCT stays on hub |
-| `StakedUSDeComposer` | Cross-chain staking operations (USDe → sUSDe)                   |
+| `nUSDComposer`       | Cross-chain collateral deposits (USDC → nUSD), MCT stays on hub |
+| `StakednUSDComposer` | Cross-chain staking operations (nUSD → snUSD)                   |
 
 ---
 
@@ -301,7 +301,7 @@ GPL-3.0
 
 For detailed technical information:
 - **MCT Architecture**: See `MCT_ARCHITECTURE.md` for why MCT stays on hub and why MCTOFTAdapter exists but isn't used for cross-chain
-- **Contract Documentation**: See `contracts/mct/MCTOFTAdapter.sol` and `contracts/usde/USDeComposer.sol` for detailed NatSpec documentation
+- **Contract Documentation**: See `contracts/mct/MCTOFTAdapter.sol` and `contracts/nusd/nUSDComposer.sol` for detailed NatSpec documentation
 
 ---
 

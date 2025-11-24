@@ -8,16 +8,16 @@ import { IOFT } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
-import { USDe } from "../../contracts/usde/USDe.sol";
-import { StakedUSDe } from "../../contracts/staked-usde/StakedUSDe.sol";
+import { nUSD } from "../../contracts/nusd/nUSD.sol";
+import { StakednUSD } from "../../contracts/staked-nusd/StakednUSD.sol";
 
 import { MCTOFTAdapter } from "../../contracts/mct/MCTOFTAdapter.sol";
-import { USDeOFTAdapter } from "../../contracts/usde/USDeOFTAdapter.sol";
-import { USDeOFT } from "../../contracts/usde/USDeOFT.sol";
-import { StakedUSDeOFTAdapter } from "../../contracts/staked-usde/StakedUSDeOFTAdapter.sol";
-import { StakedUSDeOFT } from "../../contracts/staked-usde/StakedUSDeOFT.sol";
-import { USDeComposer } from "../../contracts/usde/USDeComposer.sol";
-import { StakedUSDeComposer } from "../../contracts/staked-usde/StakedUSDeComposer.sol";
+import { nUSDOFTAdapter } from "../../contracts/nusd/nUSDOFTAdapter.sol";
+import { nUSDOFT } from "../../contracts/nusd/nUSDOFT.sol";
+import { StakednUSDOFTAdapter } from "../../contracts/staked-nusd/StakednUSDOFTAdapter.sol";
+import { StakednUSDOFT } from "../../contracts/staked-nusd/StakednUSDOFT.sol";
+import { nUSDComposer } from "../../contracts/nusd/nUSDComposer.sol";
+import { StakednUSDComposer } from "../../contracts/staked-nusd/StakednUSDComposer.sol";
 
 /**
  * @title TestHelper
@@ -42,19 +42,19 @@ abstract contract TestHelper is TestHelperOz5 {
 
     // Real contracts
     MultiCollateralToken public mct;
-    USDe public usde;
-    StakedUSDe public stakedUsde;
+    nUSD public nusd;
+    StakednUSD public stakedNusd;
 
     // Hub chain contracts (Arbitrum)
     MCTOFTAdapter public mctAdapter; // Note: MCT doesn't go cross-chain, but adapter needed for composer validation
-    USDeOFTAdapter public usdeAdapter;
-    StakedUSDeOFTAdapter public stakedUsdeAdapter;
-    USDeComposer public usdeComposer;
-    StakedUSDeComposer public stakedUsdeComposer;
+    nUSDOFTAdapter public nusdAdapter;
+    StakednUSDOFTAdapter public stakedNusdAdapter;
+    nUSDComposer public nusdComposer;
+    StakednUSDComposer public stakedNusdComposer;
 
     // Spoke chain contracts (Base, OP, etc.)
-    USDeOFT public usdeOFT;
-    StakedUSDeOFT public stakedUsdeOFT;
+    nUSDOFT public nusdOFT;
+    StakednUSDOFT public stakedNusdOFT;
 
     // Helper variables
     uint256 public constant INITIAL_BALANCE = 1_000_000e6; // 1M USDC
@@ -109,50 +109,50 @@ abstract contract TestHelper is TestHelperOz5 {
         // Grant MINTER_ROLE to test contract for minting without collateral
         mct.grantRole(mct.MINTER_ROLE(), address(this));
 
-        // Deploy real USDe vault
-        usde = new USDe(
+        // Deploy real nUSD vault
+        nusd = new nUSD(
             mct,
             address(this), // admin
             type(uint256).max, // maxMintPerBlock (unlimited for testing)
             type(uint256).max // maxRedeemPerBlock (unlimited for testing)
         );
         // Grant necessary roles
-        usde.grantRole(usde.MINTER_ROLE(), address(this));
-        usde.grantRole(usde.COLLATERAL_MANAGER_ROLE(), address(this));
-        // Add MCT as minter to itself for USDe minting flow
-        mct.grantRole(mct.MINTER_ROLE(), address(usde));
+        nusd.grantRole(nusd.MINTER_ROLE(), address(this));
+        nusd.grantRole(nusd.COLLATERAL_MANAGER_ROLE(), address(this));
+        // Add MCT as minter to itself for nUSD minting flow
+        mct.grantRole(mct.MINTER_ROLE(), address(nusd));
 
-        // Deploy real StakedUSDe vault
-        stakedUsde = new StakedUSDe(
-            usde,
+        // Deploy real StakednUSD vault
+        stakedNusd = new StakednUSD(
+            nusd,
             address(this), // initialRewarder
             address(this) // admin
         );
         // Set cooldown to 0 for easier testing (can be changed in specific tests)
-        stakedUsde.setCooldownDuration(0);
+        stakedNusd.setCooldownDuration(0);
 
         // Deploy OFT Adapters
         // Note: MCT adapter exists on hub but MCT never actually goes cross-chain
         // It's only needed to satisfy composer validation checks
         mctAdapter = new MCTOFTAdapter(address(mct), address(endpoints[HUB_EID]), delegate);
 
-        usdeAdapter = new USDeOFTAdapter(address(usde), address(endpoints[HUB_EID]), delegate);
+        nusdAdapter = new nUSDOFTAdapter(address(nusd), address(endpoints[HUB_EID]), delegate);
 
-        stakedUsdeAdapter = new StakedUSDeOFTAdapter(address(stakedUsde), address(endpoints[HUB_EID]), delegate);
+        stakedNusdAdapter = new StakednUSDOFTAdapter(address(stakedNusd), address(endpoints[HUB_EID]), delegate);
 
         // Deploy Composers
-        usdeComposer = new USDeComposer(
-            address(usde),
+        nusdComposer = new nUSDComposer(
+            address(nusd),
             address(mctAdapter), // ASSET_OFT for validation (MCT is vault's underlying asset)
-            address(usdeAdapter), // SHARE_OFT (USDe goes cross-chain)
+            address(nusdAdapter), // SHARE_OFT (nUSD goes cross-chain)
             address(usdc),
             address(usdc) // Using USDC as both collateral and collateral OFT for simplicity
         );
 
-        stakedUsdeComposer = new StakedUSDeComposer(
-            address(stakedUsde),
-            address(usdeAdapter),
-            address(stakedUsdeAdapter)
+        stakedNusdComposer = new StakednUSDComposer(
+            address(stakedNusd),
+            address(nusdAdapter),
+            address(stakedNusdAdapter)
         );
     }
 
@@ -163,25 +163,25 @@ abstract contract TestHelper is TestHelperOz5 {
         // Simulates spoke chain using mock endpoints (no Foundry fork switching)
 
         // Deploy OFTs on spoke chain
-        usdeOFT = new USDeOFT(address(endpoints[SPOKE_EID]), delegate);
+        nusdOFT = new nUSDOFT(address(endpoints[SPOKE_EID]), delegate);
 
-        stakedUsdeOFT = new StakedUSDeOFT(address(endpoints[SPOKE_EID]), delegate);
+        stakedNusdOFT = new StakednUSDOFT(address(endpoints[SPOKE_EID]), delegate);
     }
 
     /**
      * @notice Wire all OApps together for cross-chain communication
      */
     function _wireOApps() internal {
-        // Wire USDe OFT <-> Adapter
-        address[] memory usdePath = new address[](2);
-        usdePath[0] = address(usdeAdapter);
-        usdePath[1] = address(usdeOFT);
-        this.wireOApps(usdePath);
+        // Wire nUSD OFT <-> Adapter
+        address[] memory nusdPath = new address[](2);
+        nusdPath[0] = address(nusdAdapter);
+        nusdPath[1] = address(nusdOFT);
+        this.wireOApps(nusdPath);
 
-        // Wire StakedUSDe OFT <-> Adapter
+        // Wire StakednUSD OFT <-> Adapter
         address[] memory stakedPath = new address[](2);
-        stakedPath[0] = address(stakedUsdeAdapter);
-        stakedPath[1] = address(stakedUsdeOFT);
+        stakedPath[0] = address(stakedNusdAdapter);
+        stakedPath[1] = address(stakedNusdOFT);
         this.wireOApps(stakedPath);
     }
 
@@ -205,12 +205,12 @@ abstract contract TestHelper is TestHelperOz5 {
         mct.mintWithoutCollateral(alice, INITIAL_BALANCE_18);
         mct.mintWithoutCollateral(bob, INITIAL_BALANCE_18);
 
-        // Mint USDe to test accounts for staking tests
-        // First mint MCT, then deposit to get USDe
+        // Mint nUSD to test accounts for staking tests
+        // First mint MCT, then deposit to get nUSD
         mct.mintWithoutCollateral(address(this), INITIAL_BALANCE_18 * 2);
-        mct.approve(address(usde), INITIAL_BALANCE_18 * 2);
-        usde.deposit(INITIAL_BALANCE_18, alice);
-        usde.deposit(INITIAL_BALANCE_18, bob);
+        mct.approve(address(nusd), INITIAL_BALANCE_18 * 2);
+        nusd.deposit(INITIAL_BALANCE_18, alice);
+        nusd.deposit(INITIAL_BALANCE_18, bob);
     }
 
     /**
