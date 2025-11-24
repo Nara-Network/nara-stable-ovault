@@ -788,6 +788,225 @@ contract nUSDTest is TestHelper {
         
         vm.stopPrank();
     }
+
+    /* --------------- BLACKLIST TESTS --------------- */
+
+    /**
+     * @notice Test soft restriction prevents minting
+     */
+    function test_SoftRestriction_PreventsMinting() public {
+        // Add alice to soft blacklist (address(this) is admin)
+        nusd.addToBlacklist(alice, false);
+
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+
+        // Should revert when trying to mint
+        vm.expectRevert(nUSD.OperationNotAllowed.selector);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test soft restriction allows transfers
+     */
+    function test_SoftRestriction_AllowsTransfers() public {
+        // Mint some nUSD to alice first
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Add alice to soft blacklist
+        nusd.addToBlacklist(alice, false);
+
+        // Alice should still be able to transfer
+        uint256 bobBalanceBefore = nusd.balanceOf(bob);
+        vm.startPrank(alice);
+        nusd.transfer(bob, 100e18);
+        assertEq(nusd.balanceOf(bob) - bobBalanceBefore, 100e18, "Bob should receive 100 nUSD");
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test full restriction prevents transfers
+     */
+    function test_FullRestriction_PreventsTransfers() public {
+        // Mint some nUSD to alice first
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Add alice to full blacklist
+        nusd.addToBlacklist(alice, true);
+
+        // Alice should NOT be able to transfer
+        vm.startPrank(alice);
+        vm.expectRevert(nUSD.OperationNotAllowed.selector);
+        nusd.transfer(bob, 100e18);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test full restriction prevents receiving transfers
+     */
+    function test_FullRestriction_PreventsReceiving() public {
+        // Mint some nUSD to alice
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Add bob to full blacklist
+        nusd.addToBlacklist(bob, true);
+
+        // Alice should NOT be able to send to bob
+        vm.startPrank(alice);
+        vm.expectRevert(nUSD.OperationNotAllowed.selector);
+        nusd.transfer(bob, 100e18);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test full restriction prevents redemption request
+     */
+    function test_FullRestriction_PreventsRedemption() public {
+        // Mint some nUSD to alice first
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Add alice to full blacklist
+        nusd.addToBlacklist(alice, true);
+
+        // Alice should NOT be able to request redemption
+        vm.startPrank(alice);
+        vm.expectRevert(nUSD.OperationNotAllowed.selector);
+        nusd.cooldownRedeem(address(usdc), 500e18);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test removing from blacklist
+     */
+    function test_RemoveFromBlacklist() public {
+        // Mint some nUSD to alice first (before blacklisting)
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Add alice to full blacklist
+        nusd.addToBlacklist(alice, true);
+
+        // Verify she can't transfer
+        vm.startPrank(alice);
+        vm.expectRevert(nUSD.OperationNotAllowed.selector);
+        nusd.transfer(bob, 100e18);
+        vm.stopPrank();
+
+        // Remove from blacklist
+        nusd.removeFromBlacklist(alice, true);
+
+        // Now she should be able to transfer
+        uint256 bobBalanceBefore = nusd.balanceOf(bob);
+        vm.startPrank(alice);
+        nusd.transfer(bob, 100e18);
+        assertEq(nusd.balanceOf(bob) - bobBalanceBefore, 100e18, "Bob should receive 100 nUSD after removal");
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test redistributing locked amount
+     */
+    function test_RedistributeLockedAmount() public {
+        // Mint some nUSD to alice
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        uint256 mintedAmount = nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Add alice to full blacklist
+        nusd.addToBlacklist(alice, true);
+
+        uint256 aliceBalance = nusd.balanceOf(alice);
+        uint256 bobBalanceBefore = nusd.balanceOf(bob);
+
+        // Redistribute alice's balance to bob
+        nusd.redistributeLockedAmount(alice, bob);
+
+        assertEq(nusd.balanceOf(alice), 0, "Alice balance should be 0");
+        assertEq(nusd.balanceOf(bob), bobBalanceBefore + aliceBalance, "Bob should receive alice's balance");
+    }
+
+    /**
+     * @notice Test burning locked amount (redistribute to address(0))
+     */
+    function test_RedistributeLockedAmount_Burn() public {
+        // Mint some nUSD to alice
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Add alice to full blacklist
+        nusd.addToBlacklist(alice, true);
+
+        uint256 totalSupplyBefore = nusd.totalSupply();
+        uint256 aliceBalance = nusd.balanceOf(alice);
+
+        // Burn alice's balance by redistributing to address(0)
+        nusd.redistributeLockedAmount(alice, address(0));
+
+        assertEq(nusd.balanceOf(alice), 0, "Alice balance should be 0");
+        assertEq(nusd.totalSupply(), totalSupplyBefore - aliceBalance, "Total supply should decrease");
+    }
+
+    /**
+     * @notice Test cannot blacklist admin
+     */
+    function test_RevertIf_BlacklistAdmin() public {
+        address admin = address(this);
+
+        vm.expectRevert(nUSD.CantBlacklistOwner.selector);
+        nusd.addToBlacklist(admin, false);
+
+        vm.expectRevert(nUSD.CantBlacklistOwner.selector);
+        nusd.addToBlacklist(admin, true);
+    }
+
+    /**
+     * @notice Test non-admin cannot manage blacklist
+     */
+    function test_RevertIf_NonAdminManagesBlacklist() public {
+        vm.startPrank(alice);
+
+        vm.expectRevert();
+        nusd.addToBlacklist(bob, false);
+
+        vm.expectRevert();
+        nusd.removeFromBlacklist(bob, false);
+
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test redistribute requires full restriction
+     */
+    function test_RevertIf_RedistributeNonRestricted() public {
+        // Mint some nUSD to alice (not blacklisted)
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Try to redistribute without full restriction
+        vm.expectRevert(nUSD.OperationNotAllowed.selector);
+        nusd.redistributeLockedAmount(alice, bob);
+    }
 }
 
 

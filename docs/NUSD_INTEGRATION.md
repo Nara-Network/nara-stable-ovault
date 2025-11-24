@@ -42,11 +42,13 @@ Collateral (USDC/USDT/DAI/...) ──▶ MultiCollateralToken (MCT)
 | **MCT**  | `DEFAULT_ADMIN_ROLE` | Manage supported assets and other roles |
 |          | `COLLATERAL_MANAGER_ROLE` | Withdraw/deposit collateral for treasury ops |
 |          | `MINTER_ROLE` | Mint/redeem MCT (assigned to nUSD) |
-|          | *(new)* | — | — |
 | **nUSD** | `DEFAULT_ADMIN_ROLE` | Global admin / role manager |
 |          | `GATEKEEPER_ROLE` | Can pause mint/redeem/staking pathways |
 |          | `COLLATERAL_MANAGER_ROLE` | Handles redemption cooldown actions |
 |          | `MINTER_ROLE` | Can mint nUSD + corresponding MCT without collateral |
+|          | `BLACKLIST_MANAGER_ROLE` | Can add/remove addresses from blacklist |
+|          | `SOFT_RESTRICTED_ROLE` | Prevents minting but allows transfers |
+|          | `FULL_RESTRICTED_ROLE` | Prevents all transfers, minting, and redemptions |
 
 > ⚠️ When granting `MINTER_ROLE` on nUSD, ensure MCT already granted `MINTER_ROLE` to nUSD so the vault can call `mintWithoutCollateral`.
 
@@ -87,6 +89,63 @@ Internals:
 - `mct.depositCollateral(asset, amount)` – return collateral to back outstanding MCT/nUSD
 
 Keep the on-chain collateral balance ≥ total MCT supply for full backing (unless intentionally running a fractional strategy).
+
+---
+
+## Blacklist System
+
+nUSD implements a two-tier blacklist system similar to Ethena's sUSDe for compliance and security.
+
+### Blacklist Levels
+
+**Soft Restriction** (`SOFT_RESTRICTED_ROLE`):
+- **Prevents**: Minting new nUSD with collateral
+- **Allows**: Transfers and redemptions
+- **Use case**: Restrict new minting while allowing users to exit
+
+**Full Restriction** (`FULL_RESTRICTED_ROLE`):
+- **Prevents**: All transfers (sending and receiving), minting, and redemptions
+- **Use case**: Complete freeze of malicious or sanctioned addresses
+
+### Managing Blacklist
+
+```solidity
+// Add to blacklist (admin only)
+await nusd.addToBlacklist(address, isFullRestriction);  // true = full, false = soft
+
+// Remove from blacklist
+await nusd.removeFromBlacklist(address, isFullRestriction);
+
+// Redistribute locked funds from fully restricted address
+await nusd.redistributeLockedAmount(fromAddress, toAddress);  // or address(0) to burn
+```
+
+### Key Features
+
+- **Admin Protection**: Cannot blacklist addresses with `DEFAULT_ADMIN_ROLE`
+- **Fund Recovery**: Admin can redistribute locked funds from fully restricted addresses
+- **Granular Control**: Two levels allow proportional response to different situations
+- **Access Control**: Only `BLACKLIST_MANAGER_ROLE` can manage blacklist
+
+### Example Scenarios
+
+**Soft Restriction Example:**
+```solidity
+// User can still redeem and transfer existing nUSD
+// But cannot mint new nUSD
+nusd.addToBlacklist(user, false);
+```
+
+**Full Restriction Example:**
+```solidity
+// User is completely frozen
+nusd.addToBlacklist(user, true);
+
+// Later, admin can recover and redistribute funds
+nusd.redistributeLockedAmount(user, treasury);  // Move to treasury
+// or
+nusd.redistributeLockedAmount(user, address(0));  // Burn the tokens
+```
 
 ---
 
@@ -242,6 +301,12 @@ await nusd.mint(incentivesVault, amount);
 await nusd.setMintFee(50);        // 0.5% fee
 await nusd.setRedeemFee(30);      // 0.3% fee
 await nusd.setFeeTreasury(treasury);
+
+// Blacklist management (admin only)
+await nusd.addToBlacklist(address, false);       // Soft restriction
+await nusd.addToBlacklist(address, true);        // Full restriction
+await nusd.removeFromBlacklist(address, true);
+await nusd.redistributeLockedAmount(from, to);   // Recover locked funds
 
 // Redemption lifecycle
 await nusd.cooldownRedeem(USDC, amount);
