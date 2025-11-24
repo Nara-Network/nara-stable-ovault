@@ -35,9 +35,9 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'nusd/nUSD',
-            shareAdapter: 'nusd/nUSDOFTAdapter',
-            composer: 'nusd/nUSDComposer',
+            vault: 'usde/nUSD',
+            shareAdapter: 'usde/nUSDOFTAdapter',
+            composer: 'usde/nUSDComposer',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         // This will skip deployment and use your existing hubEid contract deployments instead
@@ -53,7 +53,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
 
     // Share OFT configuration (nUSD shares on spoke chains)
     shareOFT: {
-        contract: 'nusd/nUSDOFT',
+        contract: 'usde/nUSDOFT',
         metadata: {
             name: 'nUSD',
             symbol: 'nUSD',
@@ -87,14 +87,14 @@ export const shouldDeployShareAdapter = (eid: number): boolean =>
 // StakednUSD Deployment Configuration
 // npx hardhat lz:deploy --tags staked-nusd
 // ============================================
-export const STAKED_USDE_CONFIG = {
+export const STAKED_NUSD_CONFIG = {
     // StakednUSD vault configuration (where the staking vault lives)
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'staked-nusd/StakednUSD',
-            shareAdapter: 'staked-nusd/StakednUSDOFTAdapter',
-            distributor: 'staked-nusd/StakingRewardsDistributor',
+            vault: 'staked-usde/StakednUSD',
+            shareAdapter: 'staked-usde/StakednUSDOFTAdapter',
+            distributor: 'staked-usde/StakingRewardsDistributor',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         vaultAddress: undefined, // Set to '0xabc...' to use existing StakednUSD vault
@@ -104,7 +104,7 @@ export const STAKED_USDE_CONFIG = {
 
     // Share OFT configuration (snUSD shares on spoke chains)
     shareOFT: {
-        contract: 'staked-nusd/StakednUSDOFT',
+        contract: 'staked-usde/StakednUSDOFT',
         metadata: {
             name: 'Staked nUSD',
             symbol: 'snUSD',
@@ -113,10 +113,10 @@ export const STAKED_USDE_CONFIG = {
     },
 } as const
 
-export const isStakedUsdeVaultChain = (eid: number): boolean => eid === STAKED_USDE_CONFIG.vault.deploymentEid
-export const shouldDeployStakedUsdeVault = (eid: number): boolean =>
-    isStakedUsdeVaultChain(eid) && !STAKED_USDE_CONFIG.vault.vaultAddress
-export const shouldDeployStakedUsdeShare = (eid: number): boolean =>
-    !STAKED_USDE_CONFIG.vault.shareOFTAdapterAddress && STAKED_USDE_CONFIG.shareOFT.deploymentEids.includes(eid)
-export const shouldDeployStakedUsdeShareAdapter = (eid: number): boolean =>
-    isStakedUsdeVaultChain(eid) && !STAKED_USDE_CONFIG.vault.shareOFTAdapterAddress
+export const isStakedNusdVaultChain = (eid: number): boolean => eid === STAKED_NUSD_CONFIG.vault.deploymentEid
+export const shouldDeployStakedNusdVault = (eid: number): boolean =>
+    isStakedNusdVaultChain(eid) && !STAKED_NUSD_CONFIG.vault.vaultAddress
+export const shouldDeployStakedNusdShare = (eid: number): boolean =>
+    !STAKED_NUSD_CONFIG.vault.shareOFTAdapterAddress && STAKED_NUSD_CONFIG.shareOFT.deploymentEids.includes(eid)
+export const shouldDeployStakedNusdShareAdapter = (eid: number): boolean =>
+    isStakedNusdVaultChain(eid) && !STAKED_NUSD_CONFIG.vault.shareOFTAdapterAddress

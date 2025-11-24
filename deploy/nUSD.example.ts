@@ -25,7 +25,7 @@ const INITIAL_SUPPORTED_ASSETS: string[] = [
 const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M nUSD (18 decimals)
 const MAX_REDEEM_PER_BLOCK = '1000000000000000000000000' // 1M nUSD (18 decimals)
 
-const deployUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
+const deployNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     const { getNamedAccounts, deployments } = hre
     const { deploy } = deployments
     const { deployer } = await getNamedAccounts()
@@ -60,7 +60,7 @@ const deployUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     // Step 2: Deploy nUSD
     console.log('2. Deploying nUSD...')
-    const usdeDeployment = await deploy('nusd/nUSD', {
+    const usdeDeployment = await deploy('usde/nUSD', {
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
@@ -111,7 +111,7 @@ const deployUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     console.log('# nUSD')
     console.log(
-        `npx hardhat verify --contract contracts/nusd/nUSD.sol:nUSD --network ${hre.network.name} ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
+        `npx hardhat verify --contract contracts/usde/nUSD.sol:nUSD --network ${hre.network.name} ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
     )
 
     console.log('========================================\n')
@@ -127,6 +127,6 @@ const deployUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     console.log('7. (Optional) Deploy OVault adapters for omnichain functionality\n')
 }
 
-export default deployUSDe
+export default deployNUSD
 
-deployUSDe.tags = ['nUSD', 'MCT', 'MultiCollateralToken']
+deployNUSD.tags = ['nUSD', 'MCT', 'MultiCollateralToken']

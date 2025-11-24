@@ -21,7 +21,7 @@ import { ethers } from 'ethers'
 /**
  * Example 1: User mints nUSD with USDC
  */
-async function exampleMintUSDe(
+async function exampleMintNUSD(
     nusd: ethers.Contract,
     usdcToken: ethers.Contract,
     userSigner: ethers.Signer,
@@ -43,26 +43,26 @@ async function exampleMintUSDe(
 
     // 3. Get minted amount from event
     const mintEvent = receipt.events?.find((e: any) => e.event === 'Mint')
-    const usdeAmount = mintEvent?.args?.usdeAmount
-    console.log('   nUSD minted:', ethers.utils.formatEther(usdeAmount))
+    const nusdAmount = mintEvent?.args?.nusdAmount
+    console.log('   nUSD minted:', ethers.utils.formatEther(nusdAmount))
 
-    return usdeAmount
+    return nusdAmount
 }
 
 /**
  * Example 2: User redeems nUSD for USDC
  */
-async function exampleRedeemUSDe(
+async function exampleRedeemNUSD(
     nusd: ethers.Contract,
     usdcToken: ethers.Contract,
     userSigner: ethers.Signer,
-    usdeAmount: string // e.g., "1000000000000000000000" for 1000 nUSD (18 decimals)
+    nusdAmount: string // e.g., "1000000000000000000000" for 1000 nUSD (18 decimals)
 ) {
     console.log('Example: Redeeming nUSD for USDC')
 
     // 1. Redeem nUSD for USDC
     console.log('1. Redeeming nUSD...')
-    const redeemTx = await nusd.connect(userSigner).redeemForCollateral(usdcToken.address, usdeAmount)
+    const redeemTx = await nusd.connect(userSigner).redeemForCollateral(usdcToken.address, nusdAmount)
     const receipt = await redeemTx.wait()
     console.log('   ✓ Redeemed')
 
@@ -288,8 +288,8 @@ async function exampleQueryState(nusd: ethers.Contract, mct: ethers.Contract) {
 
 // Export examples
 export {
-    exampleMintUSDe,
-    exampleRedeemUSDe,
+    exampleMintNUSD,
+    exampleRedeemNUSD,
     exampleDelegatedMint,
     exampleWithdrawCollateral,
     exampleDepositCollateral,

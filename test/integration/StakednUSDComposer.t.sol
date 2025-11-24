@@ -7,11 +7,11 @@ import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTCom
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 
 /**
- * @title StakedUSDeComposerTest
+ * @title StakednUSDComposerTest
  * @notice Integration tests for StakednUSDComposer cross-chain staking functionality
  * @dev Tests the full flow: deposit nUSD -> stake to snUSD -> send cross-chain
  */
-contract StakedUSDeComposerTest is TestHelper {
+contract StakednUSDComposerTest is TestHelper {
     using OFTComposeMsgCodec for bytes;
     using OptionsBuilder for bytes;
 
@@ -25,7 +25,7 @@ contract StakedUSDeComposerTest is TestHelper {
     function test_Setup() public {
         _switchToHub();
         assertEq(address(stakedNusdComposer.VAULT()), address(stakedNusd));
-        assertEq(address(stakedNusdComposer.ASSET_OFT()), address(usdeAdapter));
+        assertEq(address(stakedNusdComposer.ASSET_OFT()), address(nusdAdapter));
         assertEq(address(stakedNusdComposer.SHARE_OFT()), address(stakedNusdAdapter));
     }
 
@@ -33,14 +33,14 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test local stake and send (no compose)
      */
     function test_LocalStakeAndSend() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
 
         _switchToHub();
 
         // Stake nUSD to get snUSD
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 sNusdReceived = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 sNusdReceived = stakedNusd.deposit(nusdAmount, alice);
         assertGt(sNusdReceived, 0, "Should receive snUSD");
 
         // Send snUSD cross-chain via adapter
@@ -63,30 +63,30 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test cross-chain staking: send nUSD from spoke, receive snUSD back on spoke
      */
     function test_CrossChainStaking() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
 
         // First, send nUSD to spoke
         _switchToHub();
         vm.startPrank(alice);
-        nusd.approve(address(usdeAdapter), usdeAmount);
+        nusd.approve(address(nusdAdapter), nusdAmount);
 
-        SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, usdeAmount);
-        MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
+        SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, nusdAmount);
+        MessagingFee memory fee1 = _getMessagingFee(address(nusdAdapter), sendParam1);
 
-        usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
+        nusdAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at usdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to SPOKE chain at nusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         _switchToSpoke();
-        assertEq(usdeOFT.balanceOf(bob), usdeAmount, "Bob should have nUSD on spoke");
+        assertEq(nusdOFT.balanceOf(bob), nusdAmount, "Bob should have nUSD on spoke");
 
         // Now Bob sends nUSD back to hub to stake via composer
         vm.startPrank(bob);
 
         // Build send param for staking - send back to bob on spoke
-        SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, usdeAmount);
+        SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, nusdAmount);
         MessagingFee memory hopFee = _getMessagingFee(address(stakedNusdAdapter), hopParam);
 
         // Build compose message
@@ -96,22 +96,22 @@ contract StakedUSDeComposerTest is TestHelper {
         SendParam memory sendParam2 = _buildSendParam(
             HUB_EID,
             address(stakedNusdComposer),
-            usdeAmount,
-            (usdeAmount * 99) / 100, // 1% slippage
+            nusdAmount,
+            (nusdAmount * 99) / 100, // 1% slippage
             _buildComposeOptions(300000, 500000),
             composeMsg,
             ""
         );
 
         // Get fee for cross-chain send
-        MessagingFee memory fee2 = _getMessagingFee(address(usdeOFT), sendParam2);
+        MessagingFee memory fee2 = _getMessagingFee(address(nusdOFT), sendParam2);
         uint256 totalFee = fee2.nativeFee + hopFee.nativeFee;
 
-        usdeOFT.send{ value: totalFee }(sendParam2, MessagingFee(totalFee, 0), bob);
+        nusdOFT.send{ value: totalFee }(sendParam2, MessagingFee(totalFee, 0), bob);
         vm.stopPrank();
 
-        // Deliver packet FROM SPOKE TO HUB at usdeAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet FROM SPOKE TO HUB at nusdAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(nusdAdapter)));
 
         // Note: The compose message execution in mock LayerZero environment has limitations.
         // In production, the compose would automatically trigger stakedNusdComposer.lzCompose()
@@ -124,7 +124,7 @@ contract StakedUSDeComposerTest is TestHelper {
         _switchToHub();
         // The composer should have received the nUSD (waiting for compose execution)
         uint256 composerBalance = nusd.balanceOf(address(stakedNusdComposer));
-        assertEq(composerBalance, usdeAmount, "Composer should have received nUSD");
+        assertEq(composerBalance, nusdAmount, "Composer should have received nUSD");
 
         // TODO: Full compose flow testing requires more complex LayerZero mock setup
         // The actual staking and return send would happen in lzCompose()
@@ -149,7 +149,7 @@ contract StakedUSDeComposerTest is TestHelper {
 
         // Build hop param for sending nUSD back to bob on spoke
         SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, sNusdAmount);
-        MessagingFee memory hopFee = _getMessagingFee(address(usdeAdapter), hopParam);
+        MessagingFee memory hopFee = _getMessagingFee(address(nusdAdapter), hopParam);
 
         // Build compose message
         bytes memory composeMsg = abi.encode(hopParam, hopFee.nativeFee);
@@ -168,7 +168,7 @@ contract StakedUSDeComposerTest is TestHelper {
         MessagingFee memory fee = _getMessagingFee(address(stakedNusdOFT), sendParam);
         uint256 totalFee = fee.nativeFee + hopFee.nativeFee;
 
-        uint256 bobUsdeBeforeOnSpoke = usdeOFT.balanceOf(bob);
+        uint256 bobUsdeBeforeOnSpoke = nusdOFT.balanceOf(bob);
 
         stakedNusdOFT.send{ value: totalFee }(sendParam, MessagingFee(totalFee, 0), bob);
         vm.stopPrank();
@@ -229,15 +229,15 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test staking with rewards (exchange rate > 1)
      */
     function test_StakingWithRewards() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
         uint256 rewardsAmount = 10e18;
 
         _switchToHub();
 
         // First stake
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 initialShares = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 initialShares = stakedNusd.deposit(nusdAmount, alice);
         vm.stopPrank();
 
         // Add rewards (test contract has REWARDER_ROLE)
@@ -250,8 +250,8 @@ contract StakedUSDeComposerTest is TestHelper {
 
         // Alice stakes more
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 secondShares = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 secondShares = stakedNusd.deposit(nusdAmount, alice);
 
         // Second stake should give fewer shares due to rewards
         assertLt(secondShares, initialShares, "Should receive fewer shares after rewards");
@@ -287,26 +287,26 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test vault deposit and redeem
      */
     function test_VaultDepositAndRedeem() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
 
         _switchToHub();
 
         // Deposit
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
+        nusd.approve(address(stakedNusd), nusdAmount);
 
         uint256 aliceUsdeBefore = nusd.balanceOf(alice);
-        uint256 sNusdReceived = stakedNusd.deposit(usdeAmount, alice);
+        uint256 sNusdReceived = stakedNusd.deposit(nusdAmount, alice);
         uint256 aliceUsdeAfter = nusd.balanceOf(alice);
 
-        assertEq(aliceUsdeBefore - aliceUsdeAfter, usdeAmount, "nUSD should be transferred");
-        assertEq(sNusdReceived, usdeAmount, "Should receive 1:1 initially");
+        assertEq(aliceUsdeBefore - aliceUsdeAfter, nusdAmount, "nUSD should be transferred");
+        assertEq(sNusdReceived, nusdAmount, "Should receive 1:1 initially");
         assertEq(stakedNusd.balanceOf(alice), sNusdReceived, "Alice should have snUSD");
 
         // Redeem
-        uint256 usdeRedeemed = stakedNusd.redeem(sNusdReceived, alice, alice);
+        uint256 nusdRedeemed = stakedNusd.redeem(sNusdReceived, alice, alice);
 
-        assertEq(usdeRedeemed, usdeAmount, "Should redeem 1:1");
+        assertEq(nusdRedeemed, nusdAmount, "Should redeem 1:1");
         assertEq(stakedNusd.balanceOf(alice), 0, "snUSD should be burned");
         vm.stopPrank();
     }
@@ -315,7 +315,7 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test cooldown mechanism
      */
     function test_Cooldown() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
 
         _switchToHub();
 
@@ -324,8 +324,8 @@ contract StakedUSDeComposerTest is TestHelper {
 
         // Stake
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 shares = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 shares = stakedNusd.deposit(nusdAmount, alice);
 
         // Start cooldown
         uint256 assets = stakedNusd.cooldownShares(shares);
@@ -354,14 +354,14 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test cross-chain staking with slippage protection
      */
     function test_CrossChainStakingWithSlippage() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
         uint256 minShares = 99e18; // 1% slippage
 
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 shares = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 shares = stakedNusd.deposit(nusdAmount, alice);
 
         stakedNusd.approve(address(stakedNusdAdapter), shares);
 
@@ -390,13 +390,13 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test quote for cross-chain staking
      */
     function test_QuoteCrossChainStaking() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
 
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 shares = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 shares = stakedNusd.deposit(nusdAmount, alice);
         vm.stopPrank();
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
@@ -412,15 +412,15 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test failed stake reverts properly
      */
     function test_RevertIf_InsufficientBalance() public {
-        uint256 usdeAmount = INITIAL_BALANCE_18 + 1;
+        uint256 nusdAmount = INITIAL_BALANCE_18 + 1;
 
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
+        nusd.approve(address(stakedNusd), nusdAmount);
 
         vm.expectRevert();
-        stakedNusd.deposit(usdeAmount, alice);
+        stakedNusd.deposit(nusdAmount, alice);
         vm.stopPrank();
     }
 
@@ -428,13 +428,13 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test that adapter locks snUSD tokens
      */
     function test_AdapterLocksTokens() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
 
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 shares = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 shares = stakedNusd.deposit(nusdAmount, alice);
 
         uint256 adapterBalanceBefore = stakedNusd.balanceOf(address(stakedNusdAdapter));
 
@@ -456,13 +456,13 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test spoke OFT mints and burns correctly
      */
     function test_SpokeOFTMintAndBurn() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
 
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 shares = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 shares = stakedNusd.deposit(nusdAmount, alice);
 
         stakedNusd.approve(address(stakedNusdAdapter), shares);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
@@ -492,14 +492,14 @@ contract StakedUSDeComposerTest is TestHelper {
     /**
      * @notice Fuzz test for various stake amounts
      */
-    function testFuzz_CrossChainStaking(uint256 usdeAmount) public {
-        usdeAmount = bound(usdeAmount, 1e18, INITIAL_BALANCE_18 / 2);
+    function testFuzz_CrossChainStaking(uint256 nusdAmount) public {
+        nusdAmount = bound(nusdAmount, 1e18, INITIAL_BALANCE_18 / 2);
 
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 shares = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 shares = stakedNusd.deposit(nusdAmount, alice);
 
         stakedNusd.approve(address(stakedNusdAdapter), shares);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
@@ -537,12 +537,12 @@ contract StakedUSDeComposerTest is TestHelper {
         // Step 1: Alice mints nUSD with USDC
         vm.startPrank(alice);
         usdc.approve(address(nusd), usdcAmount);
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(usdeAmount, expectedUsde, "Should mint expected nUSD");
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        assertEq(nusdAmount, expectedUsde, "Should mint expected nUSD");
 
         // Step 2: Alice stakes nUSD to get snUSD
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 sNusdAmount = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 sNusdAmount = stakedNusd.deposit(nusdAmount, alice);
         assertGt(sNusdAmount, 0, "Should receive snUSD");
 
         // Step 3: Alice sends snUSD to Bob on spoke chain
@@ -576,9 +576,9 @@ contract StakedUSDeComposerTest is TestHelper {
 
         // Step 7: Alice redeems snUSD for nUSD
         vm.startPrank(alice);
-        uint256 aliceSUsde = stakedNusd.balanceOf(alice);
-        uint256 usdeRedeemed = stakedNusd.redeem(aliceSUsde, alice, alice);
-        assertGt(usdeRedeemed, 0, "Should redeem nUSD");
+        uint256 aliceSNusd = stakedNusd.balanceOf(alice);
+        uint256 nusdRedeemed = stakedNusd.redeem(aliceSNusd, alice, alice);
+        assertGt(nusdRedeemed, 0, "Should redeem nUSD");
         vm.stopPrank();
     }
 
@@ -586,15 +586,15 @@ contract StakedUSDeComposerTest is TestHelper {
      * @notice Test rewards distribution affects exchange rate
      */
     function test_RewardsAffectExchangeRate() public {
-        uint256 usdeAmount = 100e18;
+        uint256 nusdAmount = 100e18;
         uint256 rewardsAmount = 20e18;
 
         _switchToHub();
 
         // First stake
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 sharesBefore = stakedNusd.deposit(usdeAmount, alice);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 sharesBefore = stakedNusd.deposit(nusdAmount, alice);
         vm.stopPrank();
 
         // Distribute rewards (test contract has REWARDER_ROLE)
@@ -607,14 +607,14 @@ contract StakedUSDeComposerTest is TestHelper {
 
         // Second stake should give fewer shares
         vm.startPrank(bob);
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 sharesAfter = stakedNusd.deposit(usdeAmount, bob);
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 sharesAfter = stakedNusd.deposit(nusdAmount, bob);
         vm.stopPrank();
 
         assertLt(sharesAfter, sharesBefore, "Should receive fewer shares after rewards");
 
         // Verify exchange rate
         uint256 aliceAssets = stakedNusd.convertToAssets(sharesBefore);
-        assertGt(aliceAssets, usdeAmount, "Alice's shares should be worth more after rewards");
+        assertGt(aliceAssets, nusdAmount, "Alice's shares should be worth more after rewards");
     }
 }

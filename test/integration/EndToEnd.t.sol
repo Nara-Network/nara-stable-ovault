@@ -29,14 +29,14 @@ contract EndToEndTest is TestHelper {
         vm.startPrank(alice);
         uint256 aliceUsdeBefore = nusd.balanceOf(alice);
         usdc.approve(address(nusd), usdcAmount);
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(usdeAmount, expectedUsde, "Step 1: Should mint correct nUSD");
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        assertEq(nusdAmount, expectedUsde, "Step 1: Should mint correct nUSD");
         assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Step 1: Alice should have additional nUSD");
 
         // === STEP 2: User stakes nUSD to earn yield ===
-        nusd.approve(address(stakedNusd), usdeAmount);
-        uint256 sNusdAmount = stakedNusd.deposit(usdeAmount, alice);
-        assertEq(sNusdAmount, usdeAmount, "Step 2: Should receive 1:1 snUSD initially");
+        nusd.approve(address(stakedNusd), nusdAmount);
+        uint256 sNusdAmount = stakedNusd.deposit(nusdAmount, alice);
+        assertEq(sNusdAmount, nusdAmount, "Step 2: Should receive 1:1 snUSD initially");
         assertEq(stakedNusd.balanceOf(alice), sNusdAmount, "Step 2: Alice should have snUSD");
 
         // === STEP 3: Rewards are distributed (time passes) ===
@@ -52,10 +52,10 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 4: User transfers snUSD to another chain ===
         vm.startPrank(alice);
-        uint256 aliceSUsde = stakedNusd.balanceOf(alice);
-        stakedNusd.approve(address(stakedNusdAdapter), aliceSUsde);
+        uint256 aliceSNusd = stakedNusd.balanceOf(alice);
+        stakedNusd.approve(address(stakedNusdAdapter), aliceSNusd);
 
-        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSUsde);
+        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSNusd);
         MessagingFee memory fee = _getMessagingFee(address(stakedNusdAdapter), sendParam);
 
         stakedNusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -66,11 +66,11 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 5: Verify Bob received snUSD on spoke chain ===
         _switchToSpoke();
-        assertEq(stakedNusdOFT.balanceOf(bob), aliceSUsde, "Step 5: Bob should have snUSD on spoke");
+        assertEq(stakedNusdOFT.balanceOf(bob), aliceSNusd, "Step 5: Bob should have snUSD on spoke");
 
         // === STEP 6: Bob sends snUSD back to hub ===
         vm.startPrank(bob);
-        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSUsde);
+        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSNusd);
         MessagingFee memory fee2 = _getMessagingFee(address(stakedNusdOFT), sendParam2);
 
         stakedNusdOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
@@ -81,13 +81,13 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 7: Bob unstakes on hub to get nUSD back ===
         _switchToHub();
-        uint256 bobSUsde = stakedNusd.balanceOf(bob);
-        assertEq(bobSUsde, aliceSUsde, "Step 7: Bob should have snUSD on hub");
+        uint256 bobSNusd = stakedNusd.balanceOf(bob);
+        assertEq(bobSNusd, aliceSNusd, "Step 7: Bob should have snUSD on hub");
 
         vm.startPrank(bob);
-        uint256 usdeRedeemed = stakedNusd.redeem(bobSUsde, bob, bob);
-        assertGt(usdeRedeemed, usdeAmount, "Step 7: Should redeem more nUSD due to rewards");
-        assertEq(nusd.balanceOf(bob), usdeRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have nUSD");
+        uint256 nusdRedeemed = stakedNusd.redeem(bobSNusd, bob, bob);
+        assertGt(nusdRedeemed, nusdAmount, "Step 7: Should redeem more nUSD due to rewards");
+        assertEq(nusd.balanceOf(bob), nusdRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have nUSD");
         vm.stopPrank();
     }
 
@@ -101,38 +101,38 @@ contract EndToEndTest is TestHelper {
 
         // Alice sends nUSD to spoke
         vm.startPrank(alice);
-        nusd.approve(address(usdeAdapter), amount);
+        nusd.approve(address(nusdAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, alice, amount);
-        MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
-        usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
+        MessagingFee memory fee1 = _getMessagingFee(address(nusdAdapter), sendParam1);
+        nusdAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at usdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to SPOKE chain at nusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         // Bob sends nUSD to spoke
         vm.startPrank(bob);
-        nusd.approve(address(usdeAdapter), amount);
+        nusd.approve(address(nusdAdapter), amount);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, amount);
-        MessagingFee memory fee2 = _getMessagingFee(address(usdeAdapter), sendParam2);
-        usdeAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
+        MessagingFee memory fee2 = _getMessagingFee(address(nusdAdapter), sendParam2);
+        nusdAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at usdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to SPOKE chain at nusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         // Verify both have nUSD on spoke
         _switchToSpoke();
-        assertEq(usdeOFT.balanceOf(alice), amount, "Alice should have nUSD on spoke");
-        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have nUSD on spoke");
+        assertEq(nusdOFT.balanceOf(alice), amount, "Alice should have nUSD on spoke");
+        assertEq(nusdOFT.balanceOf(bob), amount, "Bob should have nUSD on spoke");
 
         // Alice sends to Bob on spoke (local transfer)
         vm.startPrank(alice);
-        usdeOFT.transfer(bob, amount / 2);
+        nusdOFT.transfer(bob, amount / 2);
         vm.stopPrank();
 
-        assertEq(usdeOFT.balanceOf(alice), amount / 2, "Alice sent half");
-        assertEq(usdeOFT.balanceOf(bob), amount + amount / 2, "Bob received half");
+        assertEq(nusdOFT.balanceOf(alice), amount / 2, "Alice sent half");
+        assertEq(nusdOFT.balanceOf(bob), amount + amount / 2, "Bob received half");
     }
 
     /**
@@ -147,35 +147,35 @@ contract EndToEndTest is TestHelper {
         vm.startPrank(alice);
         uint256 usdcAmount = 100e6; // 100 USDC
         usdc.approve(address(nusd), usdcAmount);
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
 
         // Send to spoke
-        nusd.approve(address(usdeAdapter), usdeAmount);
-        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, usdeAmount);
-        MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
-        usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        nusd.approve(address(nusdAdapter), nusdAmount);
+        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, nusdAmount);
+        MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
+        nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at usdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to SPOKE chain at nusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         // On spoke, send back to hub
         _switchToSpoke();
         vm.startPrank(alice);
-        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, usdeAmount);
-        MessagingFee memory fee2 = _getMessagingFee(address(usdeOFT), sendParam2);
-        usdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
+        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, nusdAmount);
+        MessagingFee memory fee2 = _getMessagingFee(address(nusdOFT), sendParam2);
+        nusdOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
-        // Deliver packet to HUB chain at usdeAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(usdeAdapter)));
+        // Deliver packet to HUB chain at nusdAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(nusdAdapter)));
 
         // Back on hub, use cooldown-based redemption
         _switchToHub();
         vm.startPrank(alice);
 
         // Start cooldown (nUSD uses cooldown, not direct redeem)
-        nusd.cooldownRedeem(address(usdc), usdeAmount);
+        nusd.cooldownRedeem(address(usdc), nusdAmount);
 
         // Get cooldown info
         (uint104 cooldownEnd, , ) = nusd.redemptionRequests(alice);
@@ -244,8 +244,8 @@ contract EndToEndTest is TestHelper {
         // Alice redeems and should have accumulated rewards
         _switchToHub();
         vm.startPrank(alice);
-        uint256 usdeRedeemed = stakedNusd.redeem(shares, alice, alice);
-        assertGt(usdeRedeemed, stakeAmount, "Should have earned rewards");
+        uint256 nusdRedeemed = stakedNusd.redeem(shares, alice, alice);
+        assertGt(nusdRedeemed, stakeAmount, "Should have earned rewards");
         vm.stopPrank();
     }
 
@@ -266,14 +266,14 @@ contract EndToEndTest is TestHelper {
 
         // Send nUSD to spoke for Bob
         vm.startPrank(alice);
-        nusd.approve(address(usdeAdapter), amount);
+        nusd.approve(address(nusdAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
-        MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
-        usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
+        MessagingFee memory fee1 = _getMessagingFee(address(nusdAdapter), sendParam1);
+        nusdAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at usdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to SPOKE chain at nusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         // Bob operations on hub (parallel)
         vm.startPrank(bob);
@@ -285,17 +285,17 @@ contract EndToEndTest is TestHelper {
         _switchToSpoke();
 
         // Bob receives and stakes
-        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have nUSD on spoke");
+        assertEq(nusdOFT.balanceOf(bob), amount, "Bob should have nUSD on spoke");
 
         // === Verify total supply consistency ===
         _switchToHub();
         uint256 hubUsdeSupply = nusd.totalSupply();
 
         _switchToSpoke();
-        uint256 spokeUsdeSupply = usdeOFT.totalSupply();
+        uint256 spokeUsdeSupply = nusdOFT.totalSupply();
 
         _switchToHub();
-        uint256 lockedInAdapter = nusd.balanceOf(address(usdeAdapter));
+        uint256 lockedInAdapter = nusd.balanceOf(address(nusdAdapter));
 
         assertEq(spokeUsdeSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
     }
@@ -309,21 +309,21 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(usdeAdapter), amount);
+        nusd.approve(address(nusdAdapter), amount);
 
         // Attempt with insufficient gas (simulated failure)
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amount);
-        MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
+        MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
 
         // Send successfully
-        usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at usdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to SPOKE chain at nusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         _switchToSpoke();
-        assertEq(usdeOFT.balanceOf(bob), amount, "Should receive tokens");
+        assertEq(nusdOFT.balanceOf(bob), amount, "Should receive tokens");
     }
 
     /**
@@ -348,19 +348,19 @@ contract EndToEndTest is TestHelper {
             }
 
             vm.startPrank(alice);
-            nusd.approve(address(usdeAdapter), amount);
+            nusd.approve(address(nusdAdapter), amount);
 
             SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amount);
-            MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
+            MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
 
             uint256 gasBefore = gasleft();
-            usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+            nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
             uint256 gasUsed = gasBefore - gasleft();
 
             vm.stopPrank();
 
-            // Deliver packet to SPOKE chain at usdeOFT
-            verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+            // Deliver packet to SPOKE chain at nusdOFT
+            verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
             // Gas should not scale linearly with amount (OFT is efficient)
             assertLt(gasUsed, 500000, "Gas usage should be reasonable");
@@ -411,14 +411,14 @@ contract EndToEndTest is TestHelper {
 
         // Send nUSD to spoke
         vm.startPrank(alice);
-        nusd.approve(address(usdeAdapter), amount);
+        nusd.approve(address(nusdAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
-        MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
-        usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
+        MessagingFee memory fee1 = _getMessagingFee(address(nusdAdapter), sendParam1);
+        nusdAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at usdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to SPOKE chain at nusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         // Send snUSD to spoke
         vm.startPrank(alice);
@@ -435,7 +435,7 @@ contract EndToEndTest is TestHelper {
 
         // Verify tokens on spoke (MCT stays on hub, not cross-chain)
         _switchToSpoke();
-        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have nUSD");
+        assertEq(nusdOFT.balanceOf(bob), amount, "Bob should have nUSD");
         assertEq(stakedNusdOFT.balanceOf(bob), shares, "Bob should have snUSD");
     }
 
@@ -449,7 +449,7 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(usdeAdapter), amount);
+        nusd.approve(address(nusdAdapter), amount);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,
@@ -460,15 +460,15 @@ contract EndToEndTest is TestHelper {
             "",
             ""
         );
-        MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
-        usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
+        nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at usdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
+        // Deliver packet to SPOKE chain at nusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         _switchToSpoke();
         // Use approximate equality for fuzz tests due to potential rounding in mock OFT (0.1% tolerance)
-        assertApproxEqAbs(usdeOFT.balanceOf(recipientAddr), amount, amount / 1000, "Recipient should have ~nUSD");
+        assertApproxEqAbs(nusdOFT.balanceOf(recipientAddr), amount, amount / 1000, "Recipient should have ~nUSD");
     }
 }

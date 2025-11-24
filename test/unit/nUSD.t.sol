@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { nUSD } from "../../contracts/nusd/nUSD.sol";
+import { nUSD } from "../../contracts/usde/nUSD.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /**
@@ -44,11 +44,11 @@ contract USDeTest is TestHelper {
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         uint256 usdeContractMctBefore = mct.balanceOf(address(nusd));
         
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
         
         // Verify nUSD minted
-        assertEq(usdeAmount, expectedUsde, "Should mint 1000 nUSD");
+        assertEq(nusdAmount, expectedUsde, "Should mint 1000 nUSD");
         assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Alice should have additional nUSD");
         
         // Verify USDC transferred
@@ -71,9 +71,9 @@ contract USDeTest is TestHelper {
         usdt.approve(address(nusd), usdtAmount);
         
         uint256 aliceUsdeBefore = nusd.balanceOf(alice);
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdt), usdtAmount);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdt), usdtAmount);
         
-        assertEq(usdeAmount, expectedUsde, "Should mint 500 nUSD");
+        assertEq(nusdAmount, expectedUsde, "Should mint 500 nUSD");
         assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Alice should have additional nUSD");
         
         vm.stopPrank();
@@ -84,26 +84,26 @@ contract USDeTest is TestHelper {
      */
     function test_CooldownRedemption_Complete() public {
         // Setup: Mint nUSD
-        uint256 usdeAmount = 1000e18;
+        uint256 nusdAmount = 1000e18;
         vm.startPrank(alice);
         uint256 aliceUsdeBefore = nusd.balanceOf(alice);
         usdc.approve(address(nusd), 1000e6);
         nusd.mintWithCollateral(address(usdc), 1000e6);
         
         // Step 1: Request redemption
-        nusd.cooldownRedeem(address(usdc), usdeAmount);
+        nusd.cooldownRedeem(address(usdc), nusdAmount);
         
         // Verify redemption request
         (uint104 cooldownEnd, uint152 lockedAmount, address collateral) = 
             nusd.redemptionRequests(alice);
         
-        assertEq(lockedAmount, usdeAmount, "Amount should be locked");
+        assertEq(lockedAmount, nusdAmount, "Amount should be locked");
         assertEq(collateral, address(usdc), "Collateral should be USDC");
         assertEq(cooldownEnd, block.timestamp + 7 days, "Cooldown should be 7 days");
         
         // Verify nUSD is in silo (alice balance should be same as before mint)
         assertEq(nusd.balanceOf(alice), aliceUsdeBefore, "Alice nUSD should be in silo");
-        assertEq(nusd.balanceOf(address(nusd.redeemSilo())), usdeAmount, "nUSD in silo");
+        assertEq(nusd.balanceOf(address(nusd.redeemSilo())), nusdAmount, "nUSD in silo");
         
         // Step 2: Try to complete too early (should fail)
         vm.expectRevert(nUSD.CooldownNotFinished.selector);
@@ -135,13 +135,13 @@ contract USDeTest is TestHelper {
      */
     function test_CancelRedemption() public {
         // Setup: Mint and request redemption
-        uint256 usdeAmount = 1000e18;
+        uint256 nusdAmount = 1000e18;
         vm.startPrank(alice);
         uint256 aliceBalanceBefore = nusd.balanceOf(alice);
         
         usdc.approve(address(nusd), 1000e6);
         nusd.mintWithCollateral(address(usdc), 1000e6);
-        nusd.cooldownRedeem(address(usdc), usdeAmount);
+        nusd.cooldownRedeem(address(usdc), nusdAmount);
         
         uint256 aliceBalanceAfterRedeem = nusd.balanceOf(alice);
         assertEq(aliceBalanceAfterRedeem, aliceBalanceBefore, "nUSD locked in silo");
@@ -150,7 +150,7 @@ contract USDeTest is TestHelper {
         nusd.cancelRedeem();
         
         // Verify nUSD returned
-        assertEq(nusd.balanceOf(alice), aliceBalanceBefore + usdeAmount, "nUSD returned");
+        assertEq(nusd.balanceOf(alice), aliceBalanceBefore + nusdAmount, "nUSD returned");
         assertEq(nusd.balanceOf(address(nusd.redeemSilo())), 0, "Silo empty");
         
         // Verify request cleared
@@ -319,8 +319,8 @@ contract USDeTest is TestHelper {
         
         // Minting should work again
         vm.startPrank(alice);
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), 1000e6);
-        assertGt(usdeAmount, 0, "Should mint after unpause");
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), 1000e6);
+        assertGt(nusdAmount, 0, "Should mint after unpause");
         vm.stopPrank();
     }
 
@@ -378,10 +378,10 @@ contract USDeTest is TestHelper {
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         
         vm.prank(bob);
-        uint256 usdeAmount = nusd.mintWithCollateralFor(address(usdc), 1000e6, alice);
+        uint256 nusdAmount = nusd.mintWithCollateralFor(address(usdc), 1000e6, alice);
         
         // Verify Alice received nUSD and her USDC was spent
-        assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, usdeAmount, "Alice should have additional nUSD");
+        assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, nusdAmount, "Alice should have additional nUSD");
         assertEq(aliceUsdcBefore - usdc.balanceOf(alice), 1000e6, "Alice's USDC was spent");
         
         vm.stopPrank();
@@ -520,9 +520,9 @@ contract USDeTest is TestHelper {
         usdc.approve(address(nusd), amount);
         
         uint256 expectedUsde = amount * 1e12; // 6 to 18 decimals
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), amount);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), amount);
         
-        assertEq(usdeAmount, expectedUsde, "Should mint correct amount");
+        assertEq(nusdAmount, expectedUsde, "Should mint correct amount");
         
         vm.stopPrank();
     }
@@ -538,10 +538,10 @@ contract USDeTest is TestHelper {
         // Mint
         usdc.mint(alice, amount);
         usdc.approve(address(nusd), amount);
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), amount);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), amount);
         
         // Redeem
-        nusd.cooldownRedeem(address(usdc), usdeAmount);
+        nusd.cooldownRedeem(address(usdc), nusdAmount);
         
         vm.warp(block.timestamp + 7 days);
         

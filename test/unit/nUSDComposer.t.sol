@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { USDeComposer } from "../../contracts/nusd/USDeComposer.sol";
+import { USDeComposer } from "../../contracts/usde/USDeComposer.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SendParam } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
@@ -19,7 +19,7 @@ contract USDeComposerTest is TestHelper {
     function test_Constructor() public view {
         assertEq(address(usdeComposer.VAULT()), address(nusd), "Vault should be nUSD");
         assertEq(address(usdeComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
-        assertEq(address(usdeComposer.SHARE_OFT()), address(usdeAdapter), "SHARE_OFT should be USDeOFTAdapter");
+        assertEq(address(usdeComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be USDeOFTAdapter");
         assertEq(usdeComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
         assertEq(usdeComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
         assertEq(address(usdeComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
@@ -58,7 +58,7 @@ contract USDeComposerTest is TestHelper {
 
         // Mint nUSD with collateral (simulating what _depositCollateralAndSend does)
         vm.prank(address(usdeComposer));
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), depositAmount);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), depositAmount);
 
         // Verify the flow
         assertEq(
@@ -66,10 +66,10 @@ contract USDeComposerTest is TestHelper {
             composerUsdcBefore - depositAmount,
             "Composer should transfer USDC"
         );
-        assertGt(usdeAmount, 0, "Should mint nUSD");
+        assertGt(nusdAmount, 0, "Should mint nUSD");
         assertEq(
             nusd.balanceOf(address(usdeComposer)),
-            composerUsdeBefore + usdeAmount,
+            composerUsdeBefore + nusdAmount,
             "Composer should receive nUSD"
         );
     }
@@ -121,7 +121,7 @@ contract USDeComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsShareOFT() public view {
         // SHARE_OFT should be in the valid senders list
-        assertEq(address(usdeComposer.SHARE_OFT()), address(usdeAdapter), "SHARE_OFT should be USDeOFTAdapter");
+        assertEq(address(usdeComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be USDeOFTAdapter");
     }
 
     /**
@@ -188,12 +188,12 @@ contract USDeComposerTest is TestHelper {
         // Simulate deposit flow
         vm.startPrank(address(usdeComposer));
         usdc.approve(address(nusd), amount);
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), amount);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), amount);
         vm.stopPrank();
 
         // Verify proportional minting
-        assertGt(usdeAmount, 0, "Should mint some nUSD");
-        assertApproxEqAbs(usdeAmount, amount * 1e12, 1e18, "Should mint ~1:1 (accounting for decimals)");
+        assertGt(nusdAmount, 0, "Should mint some nUSD");
+        assertApproxEqAbs(nusdAmount, amount * 1e12, 1e18, "Should mint ~1:1 (accounting for decimals)");
     }
 
     /**
@@ -213,10 +213,10 @@ contract USDeComposerTest is TestHelper {
         // Simulate deposit flow
         vm.startPrank(address(usdeComposer));
         usdt.approve(address(nusd), depositAmount);
-        uint256 usdeAmount = nusd.mintWithCollateral(address(usdt), depositAmount);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdt), depositAmount);
         vm.stopPrank();
 
-        assertGt(usdeAmount, 0, "Should mint nUSD with USDT");
+        assertGt(nusdAmount, 0, "Should mint nUSD with USDT");
     }
 
     /**
