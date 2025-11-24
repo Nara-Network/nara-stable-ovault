@@ -57,6 +57,8 @@ interface InUSD is IERC4626, IERC20Permit {
     event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
     event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event KeyringConfigUpdated(address indexed keyringAddress, uint256 policyId);
+    event KeyringWhitelistUpdated(address indexed account, bool status);
 
     /* --------------- STRUCTS --------------- */
 
@@ -84,6 +86,7 @@ interface InUSD is IERC4626, IERC20Permit {
     error OperationNotAllowed();
     error CantBlacklistOwner();
     error BelowMinimumAmount();
+    error KeyringCredentialInvalid(address account);
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -191,6 +194,20 @@ interface InUSD is IERC4626, IERC20Permit {
      * @param _minRedeemAmount New minimum redeem amount (18 decimals)
      */
     function setMinRedeemAmount(uint256 _minRedeemAmount) external;
+
+    /**
+     * @notice Set Keyring contract address and policy ID
+     * @param _keyringAddress Address of the Keyring contract (set to address(0) to disable)
+     * @param _policyId The policy ID to check credentials against
+     */
+    function setKeyringConfig(address _keyringAddress, uint256 _policyId) external;
+
+    /**
+     * @notice Add or remove an address from the Keyring whitelist
+     * @param account The address to update whitelist status for
+     * @param status True to whitelist, false to remove from whitelist
+     */
+    function setKeyringWhitelist(address account, bool status) external;
 
     /**
      * @notice Add an address to blacklist
@@ -334,4 +351,23 @@ interface InUSD is IERC4626, IERC20Permit {
      * @return uint256 The minimum redeem amount (18 decimals)
      */
     function minRedeemAmount() external view returns (uint256);
+
+    /**
+     * @notice Get Keyring contract address
+     * @return address The Keyring contract address
+     */
+    function keyringAddress() external view returns (address);
+
+    /**
+     * @notice Get Keyring policy ID
+     * @return uint256 The policy ID
+     */
+    function keyringPolicyId() external view returns (uint256);
+
+    /**
+     * @notice Check if an address is whitelisted in Keyring
+     * @param account The address to check
+     * @return bool True if whitelisted
+     */
+    function keyringWhitelist(address account) external view returns (bool);
 }
