@@ -8,8 +8,8 @@ import { IOFT } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
-import { USDe } from "../../contracts/usde/USDe.sol";
-import { StakedUSDe } from "../../contracts/staked-usde/StakedUSDe.sol";
+import { nUSD } from "../../contracts/usde/nUSD.sol";
+import { StakednUSD } from "../../contracts/staked-usde/StakednUSD.sol";
 
 import { MCTOFTAdapter } from "../../contracts/mct/MCTOFTAdapter.sol";
 import { USDeOFTAdapter } from "../../contracts/usde/USDeOFTAdapter.sol";

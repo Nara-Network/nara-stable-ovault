@@ -18,15 +18,15 @@ import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
  * @dev Architecture Explanation:
  *
  * User Flow:
- * - Users deposit collateral (USDC/USDT) via USDe.mintWithCollateral()
- * - MCT is created internally by USDe contract (users never see it)
- * - Users receive USDe shares
+ * - Users deposit collateral (USDC/USDT) via nUSD.mintWithCollateral()
+ * - MCT is created internally by nUSD contract (users never see it)
+ * - Users receive nUSD shares
  * - MCT NEVER leaves the hub chain
  *
  * Why This Contract Exists:
- * - USDeComposer inherits from LayerZero's VaultComposerSync
+ * - nUSDComposer inherits from LayerZero's VaultComposerSync
  * - VaultComposerSync validates: ASSET_OFT.token() == VAULT.asset()
- * - USDe vault's underlying asset is MCT
+ * - nUSD vault's underlying asset is MCT
  * - Therefore, we need an adapter that returns token() = MCT
  * - BUT MCT never actually goes cross-chain!
  *
@@ -38,17 +38,17 @@ import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
  * What This Contract Does NOT Do:
  * ❌ NOT wired to spoke chains (no peer configuration)
  * ❌ NOT used for cross-chain MCT transfers
- * ❌ NOT used in USDeComposer's actual deposit flow
+ * ❌ NOT used in nUSDComposer's actual deposit flow
  * ❌ NOT visible to end users
  * ❌ NOT part of the collateral deposit flow
  *
  * Actual Cross-Chain Flow (without using this adapter):
  * 1. User sends USDC via Stargate/collateral OFT
- * 2. USDeComposer receives USDC on hub
- * 3. Composer calls USDe.mintWithCollateral(USDC, amount)
- * 4. USDe internally manages MCT (user never sees it)
- * 5. Composer sends USDe shares cross-chain via USDeOFTAdapter
- * 6. User receives USDe on destination chain
+ * 2. nUSDComposer receives USDC on hub
+ * 3. Composer calls nUSD.mintWithCollateral(USDC, amount)
+ * 4. nUSD internally manages MCT (user never sees it)
+ * 5. Composer sends nUSD shares cross-chain via nUSDOFTAdapter
+ * 6. User receives nUSD on destination chain
  *
  * Notice: MCTOFTAdapter is never used in steps 1-6!
  *

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { StakedUSDe } from "../../contracts/staked-usde/StakedUSDe.sol";
+import { StakednUSD } from "../../contracts/staked-usde/StakednUSD.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /**

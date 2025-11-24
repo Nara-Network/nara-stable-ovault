@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "./StakedUSDe.sol";
-import "../interfaces/usde/IUSDe.sol";
+import "./StakednUSD.sol";
+import "../interfaces/usde/InUSD.sol";
 
 /**
  * @title StakingRewardsDistributor
@@ -29,10 +29,10 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     /* --------------- IMMUTABLES --------------- */
 
     /// @notice Staking vault contract
-    StakedUSDe public immutable STAKING_VAULT;
+    StakednUSD public immutable STAKING_VAULT;
 
-    /// @notice USDe token
-    IERC20 public immutable USDE_TOKEN;
+    /// @notice nUSD token
+    IERC20 public immutable NUSD_TOKEN;
 
     /* --------------- STATE VARIABLES --------------- */
 
@@ -58,26 +58,26 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     /**
      * @notice Constructor for StakingRewardsDistributor
      * @param _stakingVault The staking vault contract
-     * @param _usde The USDe token contract
+     * @param _nusd The nUSD token contract
      * @param _admin The admin address (multisig)
      * @param _operator The operator address (delegated signer)
      */
-    constructor(StakedUSDe _stakingVault, IERC20 _usde, address _admin, address _operator) Ownable(msg.sender) {
+    constructor(StakednUSD _stakingVault, IERC20 _nusd, address _admin, address _operator) Ownable(msg.sender) {
         if (address(_stakingVault) == address(0)) revert InvalidZeroAddress();
-        if (address(_usde) == address(0)) revert InvalidZeroAddress();
+        if (address(_nusd) == address(0)) revert InvalidZeroAddress();
         if (_admin == address(0)) revert InvalidZeroAddress();
         if (_operator == address(0)) revert InvalidZeroAddress();
 
         STAKING_VAULT = _stakingVault;
-        USDE_TOKEN = _usde;
+        NUSD_TOKEN = _nusd;
 
         _transferOwnership(msg.sender);
 
         // Set the operator
         setOperator(_operator);
 
-        // Approve USDe to the staking contract
-        USDE_TOKEN.safeIncreaseAllowance(address(STAKING_VAULT), type(uint256).max);
+        // Approve nUSD to the staking contract
+        NUSD_TOKEN.safeIncreaseAllowance(address(STAKING_VAULT), type(uint256).max);
 
         if (msg.sender != _admin) {
             _transferOwnership(_admin);
@@ -87,23 +87,23 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     /* --------------- EXTERNAL --------------- */
 
     /**
-     * @notice Transfer USDe rewards to the staking contract
-     * @param _rewardsAmount The amount of USDe to send
+     * @notice Transfer nUSD rewards to the staking contract
+     * @param _rewardsAmount The amount of nUSD to send
      * @dev Only the operator can call this function
      * @dev This contract must have REWARDER_ROLE in the staking contract
      */
     function transferInRewards(uint256 _rewardsAmount) external nonReentrant {
         if (msg.sender != operator) revert OnlyOperator();
 
-        // Check that this contract holds enough USDe balance
-        if (USDE_TOKEN.balanceOf(address(this)) < _rewardsAmount) revert InsufficientFunds();
+        // Check that this contract holds enough nUSD balance
+        if (NUSD_TOKEN.balanceOf(address(this)) < _rewardsAmount) revert InsufficientFunds();
 
         STAKING_VAULT.transferInRewards(_rewardsAmount);
     }
 
     /**
-     * @notice Burn USDe assets from the staking contract to decrease sUSDe exchange rate
-     * @param _amount The amount of USDe to burn from staking vault
+     * @notice Burn nUSD assets from the staking contract to decrease snUSD exchange rate
+     * @param _amount The amount of nUSD to burn from staking vault
      * @dev Only the operator can call this function
      * @dev This contract must have REWARDER_ROLE in the staking contract
      */
