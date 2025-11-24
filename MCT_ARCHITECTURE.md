@@ -8,10 +8,10 @@
 
 ## Overview
 
-MCT is an internal backing token that serves as the underlying asset for the USDe vault. It is:
+MCT is an internal backing token that serves as the underlying asset for the nUSD vault. It is:
 - ✅ **Hub-only** - Never deployed on spoke chains
 - ✅ **Invisible to users** - Users deposit collateral (USDC/USDT), not MCT
-- ✅ **Internal accounting** - Created and managed by USDe contract
+- ✅ **Internal accounting** - Created and managed by nUSD contract
 
 ---
 
@@ -21,11 +21,11 @@ MCT is an internal backing token that serves as the underlying asset for the USD
 ```
 User deposits USDC
     ↓
-USDe.mintWithCollateral(USDC, 1000)
+nUSD.mintWithCollateral(USDC, 1000)
     ↓
 Internal: MCT created (user never sees this)
     ↓
-User receives 1000 USDe
+User receives 1000 nUSD
 ```
 
 ### Cross-Chain (Via Composer)
@@ -34,13 +34,13 @@ Spoke: User sends USDC (via Stargate)
     ↓
 Hub: USDeComposer receives USDC
     ↓
-Hub: Calls USDe.mintWithCollateral(USDC, amount)
+Hub: Calls nUSD.mintWithCollateral(USDC, amount)
     ↓
 Hub: MCT created internally (invisible)
     ↓
-Hub: Sends USDe cross-chain (via USDeOFTAdapter)
+Hub: Sends nUSD cross-chain (via USDeOFTAdapter)
     ↓
-Spoke: User receives USDe
+Spoke: User receives nUSD
 ```
 
 **Key Point:** MCT never leaves hub chain in either flow!
@@ -52,8 +52,8 @@ Spoke: User receives USDe
 | Token | Cross-Chain? | Via |
 |-------|-------------|-----|
 | MCT | ❌ No - Hub only | N/A |
-| USDe | ✅ Yes | USDeOFTAdapter (hub) ↔ USDeOFT (spoke) |
-| StakedUSDe | ✅ Yes | StakedUSDeOFTAdapter (hub) ↔ StakedUSDeOFT (spoke) |
+| nUSD | ✅ Yes | USDeOFTAdapter (hub) ↔ USDeOFT (spoke) |
+| StakednUSD | ✅ Yes | StakedUSDeOFTAdapter (hub) ↔ StakedUSDeOFT (spoke) |
 | USDC/USDT | ✅ Yes | Stargate or other collateral OFTs |
 
 ---
@@ -77,7 +77,7 @@ if (ASSET_OFT.token() != address(VAULT.asset())) {
 
 See detailed explanation in:
 - `contracts/mct/MCTOFTAdapter.sol` (contract documentation)
-- `contracts/usde/USDeComposer.sol` (constructor documentation)
+- `contracts/nusd/USDeComposer.sol` (constructor documentation)
 - `WHY_MCTOFT_ADAPTER_EXISTS.md` (technical deep-dive)
 
 ---
@@ -89,15 +89,15 @@ Hub Chain (Arbitrum):
 ┌─────────────────────────────────────┐
 │ MultiCollateralToken (MCT)          │ ← Hub only, invisible to users
 │   ↓                                  │
-│ USDe (ERC4626 Vault)                │ ← Vault with MCT as underlying
+│ nUSD (ERC4626 Vault)                │ ← Vault with MCT as underlying
 │   ↓                                  │
-│ USDeOFTAdapter (lockbox)            │ ← Sends USDe cross-chain
+│ USDeOFTAdapter (lockbox)            │ ← Sends nUSD cross-chain
 └─────────────────────────────────────┘
             │ LayerZero
             ↓
 Spoke Chains (Base, OP, etc.):
 ┌─────────────────────────────────────┐
-│ USDeOFT (mint/burn)                 │ ← Mints USDe on spoke
+│ USDeOFT (mint/burn)                 │ ← Mints nUSD on spoke
 │                                      │
 │ (No MCT - it stays on hub!)         │
 └─────────────────────────────────────┘
@@ -109,7 +109,7 @@ Spoke Chains (Base, OP, etc.):
 
 ### Hub Chain ✅
 - [x] Deploy MultiCollateralToken
-- [x] Deploy USDe (with MCT as underlying)
+- [x] Deploy nUSD (with MCT as underlying)
 - [x] Deploy USDeOFTAdapter
 - [x] Deploy MCTOFTAdapter (validation only - document clearly!)
 - [x] Deploy USDeComposer (uses mctAdapter for validation)
@@ -131,7 +131,7 @@ Spoke Chains (Base, OP, etc.):
 
 ### 2. Better UX
 - Users deposit familiar tokens (USDC/USDT)
-- Users receive and hold USDe (what they care about)
+- Users receive and hold nUSD (what they care about)
 - MCT is abstracted away (internal implementation detail)
 
 ### 3. Enhanced Security
@@ -152,7 +152,7 @@ Spoke Chains (Base, OP, etc.):
 A: VaultComposerSync requires it for constructor validation. Alternative is to write a custom composer from scratch.
 
 **Q: Can users ever interact with MCT?**
-A: No. Users call `mintWithCollateral(USDC)` directly. MCT is created internally by the USDe contract.
+A: No. Users call `mintWithCollateral(USDC)` directly. MCT is created internally by the nUSD contract.
 
 **Q: What if I want to send MCT cross-chain in the future?**
 A: You would need to:
@@ -169,7 +169,7 @@ A: No. It's deployed but never configured for cross-chain use. It cannot send/re
 ## Summary
 
 - **MCT = Internal backing token** (hub-only)
-- **Users interact with USDe** (goes cross-chain)
+- **Users interact with nUSD** (goes cross-chain)
 - **MCTOFTAdapter = Validation only** (never used for operations)
 - **Simpler, safer, cheaper** than cross-chain MCT
 
@@ -177,4 +177,4 @@ For detailed technical documentation, see:
 - `WHY_MCTOFT_ADAPTER_EXISTS.md`
 - `FINAL_ARCHITECTURE_SUMMARY.md`
 - `contracts/mct/MCTOFTAdapter.sol`
-- `contracts/usde/USDeComposer.sol`
+- `contracts/nusd/USDeComposer.sol`

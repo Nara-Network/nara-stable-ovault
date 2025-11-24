@@ -28,8 +28,8 @@ That's it! ✅
 | Contract                  | Description           | Address (after deployment) |
 | ------------------------- | --------------------- | -------------------------- |
 | MultiCollateralToken      | Holds USDC collateral | Check console output       |
-| USDe                      | Stablecoin vault      | Check console output       |
-| StakedUSDe                | Staking vault         | Check console output       |
+| nUSD                      | Stablecoin vault      | Check console output       |
+| StakednUSD                | Staking vault         | Check console output       |
 | StakingRewardsDistributor | Automated rewards     | Check console output       |
 
 ---
@@ -50,8 +50,8 @@ That's it! ✅
 
 ### Limits
 
-- **Max Mint Per Block**: 1,000,000 USDe
-- **Max Redeem Per Block**: 1,000,000 USDe
+- **Max Mint Per Block**: 1,000,000 nUSD
+- **Max Redeem Per Block**: 1,000,000 nUSD
 
 ---
 
@@ -73,7 +73,7 @@ Bridge from Sepolia: https://bridge.arbitrum.io/
 Or use faucet: https://faucet.circle.com/ (then bridge)
 ```
 
-### 3. Mint USDe
+### 3. Mint nUSD
 
 ```bash
 npx hardhat console --network arbitrum-sepolia
@@ -85,50 +85,50 @@ const usdc = await ethers.getContractAt(
   "IERC20",
   "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773",
 );
-const usde = await ethers.getContractAt("usde/USDe", "YOUR_USDE_ADDRESS");
+const nusd = await ethers.getContractAt("nusd/nUSD", "YOUR_USDE_ADDRESS");
 
-// Mint 100 USDe with 100 USDC
+// Mint 100 nUSD with 100 USDC
 const amount = ethers.utils.parseUnits("100", 6); // 100 USDC (6 decimals)
-await usdc.approve(usde.address, amount);
-await usde.mintWithCollateral(usdc.address, amount);
+await usdc.approve(nusd.address, amount);
+await nusd.mintWithCollateral(usdc.address, amount);
 
 // Check balance
 const [signer] = await ethers.getSigners();
-const balance = await usde.balanceOf(signer.address);
-console.log("USDe balance:", ethers.utils.formatEther(balance));
+const balance = await nusd.balanceOf(signer.address);
+console.log("nUSD balance:", ethers.utils.formatEther(balance));
 ```
 
-### 4. Stake USDe
+### 4. Stake nUSD
 
 ```javascript
-const stakedUsde = await ethers.getContractAt(
-  "staked-usde/StakedUSDe",
+const stakedNusd = await ethers.getContractAt(
+  "staked-nusd/StakednUSD",
   "YOUR_STAKED_USDE_ADDRESS",
 );
 
-// Stake 50 USDe
+// Stake 50 nUSD
 const stakeAmount = ethers.utils.parseEther("50");
-await usde.approve(stakedUsde.address, stakeAmount);
-await stakedUsde.deposit(stakeAmount, (await ethers.getSigners())[0].address);
+await nusd.approve(stakedNusd.address, stakeAmount);
+await stakedNusd.deposit(stakeAmount, (await ethers.getSigners())[0].address);
 
-// Check sUSDe balance
-const sBalance = await stakedUsde.balanceOf(
+// Check snUSD balance
+const sBalance = await stakedNusd.balanceOf(
   (await ethers.getSigners())[0].address,
 );
-console.log("sUSDe balance:", ethers.utils.formatEther(sBalance));
+console.log("snUSD balance:", ethers.utils.formatEther(sBalance));
 ```
 
 ### 5. Distribute Rewards (as Operator)
 
 ```javascript
 const distributor = await ethers.getContractAt(
-  "staked-usde/StakingRewardsDistributor",
+  "staked-nusd/StakingRewardsDistributor",
   "YOUR_DISTRIBUTOR_ADDRESS",
 );
 
-// Transfer USDe to distributor
+// Transfer nUSD to distributor
 const rewardsAmount = ethers.utils.parseEther("10");
-await usde.transfer(distributor.address, rewardsAmount);
+await nusd.transfer(distributor.address, rewardsAmount);
 
 // Distribute rewards (must be called by OPERATOR_ADDRESS)
 await distributor.transferInRewards(rewardsAmount);
@@ -149,8 +149,8 @@ DEPLOYMENT COMPLETE ✅
 
 📦 Deployed Contracts:
    MultiCollateralToken: 0x1234...
-   USDe: 0x5678...
-   StakedUSDe: 0x9abc...
+   nUSD: 0x5678...
+   StakednUSD: 0x9abc...
    StakingRewardsDistributor: 0xdef0...
 
 ⚙️  Configuration:
@@ -161,9 +161,9 @@ DEPLOYMENT COMPLETE ✅
    Max Redeem/Block: 1000000000000000000000000
 
 🔑 Granted Roles:
-   MCT.MINTER_ROLE → USDe
-   StakedUSDe.REWARDER_ROLE → StakingRewardsDistributor
-   StakedUSDe.BLACKLIST_MANAGER_ROLE → Admin
+   MCT.MINTER_ROLE → nUSD
+   StakednUSD.REWARDER_ROLE → StakingRewardsDistributor
+   StakednUSD.BLACKLIST_MANAGER_ROLE → Admin
 ```
 
 ---
@@ -184,7 +184,7 @@ Run these commands to verify each contract on Arbiscan.
 
 ## 🌐 Add Cross-Chain Support (Optional)
 
-To enable cross-chain USDe and sUSDe:
+To enable cross-chain nUSD and snUSD:
 
 ### 1. Update LayerZero Config
 
@@ -203,22 +203,22 @@ const _spokeEids = [
 
 ```bash
 # On Arbitrum Sepolia (hub)
-# 1) Deploy USDe OFT infra (deploys USDeOFTAdapter and USDeComposer on hub)
+# 1) Deploy nUSD OFT infra (deploys USDeOFTAdapter and USDeComposer on hub)
 npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
-# 2) Deploy StakedUSDe OFT adapter on hub (required for StakedUSDeComposer)
-npx hardhat deploy --network arbitrum-sepolia --tags staked-usde-oft
+# 2) Deploy StakednUSD OFT adapter on hub (required for StakedUSDeComposer)
+npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
 
 # 3) Re-run ovault on hub to deploy StakedUSDeComposer once the adapter exists
 npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Base Sepolia (spoke)
 npx hardhat deploy --network base-sepolia --tags ovault
-npx hardhat deploy --network base-sepolia --tags staked-usde-oft
+npx hardhat deploy --network base-sepolia --tags staked-nusd-oft
 
 # On Sepolia (spoke)
 npx hardhat deploy --network sepolia --tags ovault
-npx hardhat deploy --network sepolia --tags staked-usde-oft
+npx hardhat deploy --network sepolia --tags staked-nusd-oft
 ```
 
 ### 3. Wire LayerZero Peers
@@ -226,11 +226,11 @@ npx hardhat deploy --network sepolia --tags staked-usde-oft
 Update the contract addresses in respective config files. Then, run these commands:
 
 ```bash
-# USDe peers (hub adapter ↔ spoke OFT)
-npx hardhat lz:oapp:wire --oapp-config layerzero.usde.config.ts
+# nUSD peers (hub adapter ↔ spoke OFT)
+npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
 
-# sUSDe peers (hub adapter ↔ spoke OFT)
-npx hardhat lz:oapp:wire --oapp-config layerzero.susde.config.ts
+# snUSD peers (hub adapter ↔ spoke OFT)
+npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
 ```
 
 ---
@@ -250,9 +250,9 @@ await mct.addSupportedAsset("0xNewAssetAddress...");
 ### Update Rate Limits
 
 ```javascript
-const usde = await ethers.getContractAt("usde/USDe", "USDE_ADDRESS");
-await usde.setMaxMintPerBlock(ethers.utils.parseEther("2000000"));
-await usde.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
+const nusd = await ethers.getContractAt("nusd/nUSD", "USDE_ADDRESS");
+await nusd.setMaxMintPerBlock(ethers.utils.parseEther("2000000"));
+await nusd.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
 ```
 
 ### Emergency Disable Mint/Redeem
@@ -261,17 +261,17 @@ await usde.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
 const GATEKEEPER_ROLE = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes("GATEKEEPER_ROLE"),
 );
-await usde.grantRole(GATEKEEPER_ROLE, "GATEKEEPER_ADDRESS");
+await nusd.grantRole(GATEKEEPER_ROLE, "GATEKEEPER_ADDRESS");
 
 // As gatekeeper
-await usde.disableMintRedeem();
+await nusd.disableMintRedeem();
 ```
 
 ### Change Rewards Operator
 
 ```javascript
 const distributor = await ethers.getContractAt(
-  "staked-usde/StakingRewardsDistributor",
+  "staked-nusd/StakingRewardsDistributor",
   "DISTRIBUTOR_ADDRESS",
 );
 await distributor.setOperator("NEW_OPERATOR_ADDRESS");
@@ -334,7 +334,7 @@ npx hardhat deploy --network arbitrum-sepolia --reset
 **Understanding the System?**
 
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - Overview
-- [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - USDe details
+- [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - nUSD details
 - [STAKED_USDE_INTEGRATION.md](./STAKED_USDE_INTEGRATION.md) - Staking details
 
 ---

@@ -1,7 +1,7 @@
 /**
- * Example usage of USDe and MultiCollateralToken
+ * Example usage of nUSD and MultiCollateralToken
  *
- * This file demonstrates how to interact with the USDe OVault contracts
+ * This file demonstrates how to interact with the nUSD OVault contracts
  * for common operations like minting, redeeming, and managing collateral.
  */
 
@@ -10,59 +10,59 @@ import { ethers } from 'ethers'
 // Contract ABIs would be imported from artifacts
 // import { MultiCollateralToken__factory, USDe__factory } from '../typechain-types'
 // Note: Contracts are now organized in folders:
-// - contracts/usde/USDe.sol
-// - contracts/usde/USDeOFTAdapter.sol
-// - contracts/usde/USDeOFT.sol
-// - contracts/usde/USDeComposer.sol
+// - contracts/nusd/nUSD.sol
+// - contracts/nusd/nUSDOFTAdapter.sol
+// - contracts/nusd/nUSDOFT.sol
+// - contracts/nusd/nUSDComposer.sol
 // - contracts/mct/MultiCollateralToken.sol
 // - contracts/mct/MCTOFTAdapter.sol
 // - contracts/mct/MCTOFT.sol
 
 /**
- * Example 1: User mints USDe with USDC
+ * Example 1: User mints nUSD with USDC
  */
 async function exampleMintUSDe(
-    usde: ethers.Contract,
+    nusd: ethers.Contract,
     usdcToken: ethers.Contract,
     userSigner: ethers.Signer,
     usdcAmount: string // e.g., "1000000000" for 1000 USDC (6 decimals)
 ) {
-    console.log('Example: Minting USDe with USDC')
+    console.log('Example: Minting nUSD with USDC')
 
-    // 1. Approve USDe to spend USDC
-    console.log('1. Approving USDe to spend USDC...')
-    const approveTx = await usdcToken.connect(userSigner).approve(usde.address, usdcAmount)
+    // 1. Approve nUSD to spend USDC
+    console.log('1. Approving nUSD to spend USDC...')
+    const approveTx = await usdcToken.connect(userSigner).approve(nusd.address, usdcAmount)
     await approveTx.wait()
     console.log('   ✓ Approved')
 
-    // 2. Mint USDe
-    console.log('2. Minting USDe...')
-    const mintTx = await usde.connect(userSigner).mintWithCollateral(usdcToken.address, usdcAmount)
+    // 2. Mint nUSD
+    console.log('2. Minting nUSD...')
+    const mintTx = await nusd.connect(userSigner).mintWithCollateral(usdcToken.address, usdcAmount)
     const receipt = await mintTx.wait()
     console.log('   ✓ Minted')
 
     // 3. Get minted amount from event
     const mintEvent = receipt.events?.find((e: any) => e.event === 'Mint')
     const usdeAmount = mintEvent?.args?.usdeAmount
-    console.log('   USDe minted:', ethers.utils.formatEther(usdeAmount))
+    console.log('   nUSD minted:', ethers.utils.formatEther(usdeAmount))
 
     return usdeAmount
 }
 
 /**
- * Example 2: User redeems USDe for USDC
+ * Example 2: User redeems nUSD for USDC
  */
 async function exampleRedeemUSDe(
-    usde: ethers.Contract,
+    nusd: ethers.Contract,
     usdcToken: ethers.Contract,
     userSigner: ethers.Signer,
-    usdeAmount: string // e.g., "1000000000000000000000" for 1000 USDe (18 decimals)
+    usdeAmount: string // e.g., "1000000000000000000000" for 1000 nUSD (18 decimals)
 ) {
-    console.log('Example: Redeeming USDe for USDC')
+    console.log('Example: Redeeming nUSD for USDC')
 
-    // 1. Redeem USDe for USDC
-    console.log('1. Redeeming USDe...')
-    const redeemTx = await usde.connect(userSigner).redeemForCollateral(usdcToken.address, usdeAmount)
+    // 1. Redeem nUSD for USDC
+    console.log('1. Redeeming nUSD...')
+    const redeemTx = await nusd.connect(userSigner).redeemForCollateral(usdcToken.address, usdeAmount)
     const receipt = await redeemTx.wait()
     console.log('   ✓ Redeemed')
 
@@ -78,7 +78,7 @@ async function exampleRedeemUSDe(
  * Example 3: Using delegated signer (for smart contracts)
  */
 async function exampleDelegatedMint(
-    usde: ethers.Contract,
+    nusd: ethers.Contract,
     usdcToken: ethers.Contract,
     smartContract: ethers.Signer,
     eoaSigner: ethers.Signer,
@@ -91,25 +91,25 @@ async function exampleDelegatedMint(
     const smartContractAddress = await smartContract.getAddress()
     const eoaAddress = await eoaSigner.getAddress()
 
-    const initiateTx = await usde.connect(smartContract).setDelegatedSigner(eoaAddress)
+    const initiateTx = await nusd.connect(smartContract).setDelegatedSigner(eoaAddress)
     await initiateTx.wait()
     console.log('   ✓ Delegation initiated')
 
     // 2. EOA confirms delegation
     console.log('2. EOA confirms delegation...')
-    const confirmTx = await usde.connect(eoaSigner).confirmDelegatedSigner(smartContractAddress)
+    const confirmTx = await nusd.connect(eoaSigner).confirmDelegatedSigner(smartContractAddress)
     await confirmTx.wait()
     console.log('   ✓ Delegation confirmed')
 
     // 3. Smart contract approves USDC
     console.log('3. Smart contract approves USDC...')
-    const approveTx = await usdcToken.connect(smartContract).approve(usde.address, usdcAmount)
+    const approveTx = await usdcToken.connect(smartContract).approve(nusd.address, usdcAmount)
     await approveTx.wait()
     console.log('   ✓ Approved')
 
     // 4. EOA mints on behalf of smart contract
     console.log('4. EOA mints for smart contract...')
-    const mintTx = await usde
+    const mintTx = await nusd
         .connect(eoaSigner)
         .mintWithCollateralFor(usdcToken.address, usdcAmount, smartContractAddress)
     await mintTx.wait()
@@ -200,17 +200,17 @@ async function exampleAddSupportedAsset(mct: ethers.Contract, admin: ethers.Sign
 /**
  * Example 7: Emergency - disable mint/redeem
  */
-async function exampleEmergencyDisable(usde: ethers.Contract, gatekeeper: ethers.Signer) {
+async function exampleEmergencyDisable(nusd: ethers.Contract, gatekeeper: ethers.Signer) {
     console.log('Example: Emergency disable mint/redeem')
 
     console.log('1. Disabling mint and redeem...')
-    const disableTx = await usde.connect(gatekeeper).disableMintRedeem()
+    const disableTx = await nusd.connect(gatekeeper).disableMintRedeem()
     await disableTx.wait()
     console.log('   ✓ Mint and redeem disabled')
 
     // Verify
-    const maxMint = await usde.maxMintPerBlock()
-    const maxRedeem = await usde.maxRedeemPerBlock()
+    const maxMint = await nusd.maxMintPerBlock()
+    const maxRedeem = await nusd.maxRedeemPerBlock()
     console.log('2. Max mint per block:', maxMint.toString())
     console.log('   Max redeem per block:', maxRedeem.toString())
 }
@@ -219,7 +219,7 @@ async function exampleEmergencyDisable(usde: ethers.Contract, gatekeeper: ethers
  * Example 8: Using standard ERC4626 functions
  */
 async function exampleERC4626Operations(
-    usde: ethers.Contract,
+    nusd: ethers.Contract,
     mct: ethers.Contract,
     user: ethers.Signer,
     mctAmount: string // MCT amount with 18 decimals
@@ -231,23 +231,23 @@ async function exampleERC4626Operations(
 
     // 1. Approve MCT spending
     console.log('1. Approving MCT spending...')
-    const approveTx = await mct.connect(user).approve(usde.address, mctAmount)
+    const approveTx = await mct.connect(user).approve(nusd.address, mctAmount)
     await approveTx.wait()
 
-    // 2. Deposit MCT to get USDe
+    // 2. Deposit MCT to get nUSD
     console.log('2. Depositing MCT...')
     const userAddress = await user.getAddress()
-    const depositTx = await usde.connect(user).deposit(mctAmount, userAddress)
+    const depositTx = await nusd.connect(user).deposit(mctAmount, userAddress)
     await depositTx.wait()
     console.log('   ✓ Deposited')
 
     // 3. Check shares received
-    const shares = await usde.balanceOf(userAddress)
-    console.log('3. USDe shares:', ethers.utils.formatEther(shares))
+    const shares = await nusd.balanceOf(userAddress)
+    console.log('3. nUSD shares:', ethers.utils.formatEther(shares))
 
-    // 4. Later, withdraw MCT by burning USDe
+    // 4. Later, withdraw MCT by burning nUSD
     console.log('4. Withdrawing MCT...')
-    const withdrawTx = await usde.connect(user).withdraw(mctAmount, userAddress, userAddress)
+    const withdrawTx = await nusd.connect(user).withdraw(mctAmount, userAddress, userAddress)
     await withdrawTx.wait()
     console.log('   ✓ Withdrawn')
 }
@@ -255,21 +255,21 @@ async function exampleERC4626Operations(
 /**
  * Example 9: Query contract state
  */
-async function exampleQueryState(usde: ethers.Contract, mct: ethers.Contract) {
+async function exampleQueryState(nusd: ethers.Contract, mct: ethers.Contract) {
     console.log('Example: Querying contract state')
 
-    // USDe state
+    // nUSD state
     console.log('\nUSDe:')
-    const maxMintPerBlock = await usde.maxMintPerBlock()
-    const maxRedeemPerBlock = await usde.maxRedeemPerBlock()
-    const mctAddress = await usde.mct()
-    const totalSupply = await usde.totalSupply()
-    const totalAssets = await usde.totalAssets()
+    const maxMintPerBlock = await nusd.maxMintPerBlock()
+    const maxRedeemPerBlock = await nusd.maxRedeemPerBlock()
+    const mctAddress = await nusd.mct()
+    const totalSupply = await nusd.totalSupply()
+    const totalAssets = await nusd.totalAssets()
 
     console.log('  Max Mint/Block:', ethers.utils.formatEther(maxMintPerBlock))
     console.log('  Max Redeem/Block:', ethers.utils.formatEther(maxRedeemPerBlock))
     console.log('  MCT Address:', mctAddress)
-    console.log('  Total USDe Supply:', ethers.utils.formatEther(totalSupply))
+    console.log('  Total nUSD Supply:', ethers.utils.formatEther(totalSupply))
     console.log('  Total MCT Assets:', ethers.utils.formatEther(totalAssets))
 
     // MCT state

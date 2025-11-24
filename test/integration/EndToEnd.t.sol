@@ -17,7 +17,7 @@ contract EndToEndTest is TestHelper {
     }
 
     /**
-     * @notice Test complete flow: collateral -> USDe -> stake -> cross-chain
+     * @notice Test complete flow: collateral -> nUSD -> stake -> cross-chain
      */
     function test_CompleteUserJourney() public {
         uint256 usdcAmount = 1000e6;
@@ -25,69 +25,69 @@ contract EndToEndTest is TestHelper {
 
         _switchToHub();
 
-        // === STEP 1: User deposits collateral to mint USDe ===
+        // === STEP 1: User deposits collateral to mint nUSD ===
         vm.startPrank(alice);
-        uint256 aliceUsdeBefore = usde.balanceOf(alice);
-        usdc.approve(address(usde), usdcAmount);
-        uint256 usdeAmount = usde.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(usdeAmount, expectedUsde, "Step 1: Should mint correct USDe");
-        assertEq(usde.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Step 1: Alice should have additional USDe");
+        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        usdc.approve(address(nusd), usdcAmount);
+        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        assertEq(usdeAmount, expectedUsde, "Step 1: Should mint correct nUSD");
+        assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Step 1: Alice should have additional nUSD");
 
-        // === STEP 2: User stakes USDe to earn yield ===
-        usde.approve(address(stakedUsde), usdeAmount);
-        uint256 sUsdeAmount = stakedUsde.deposit(usdeAmount, alice);
-        assertEq(sUsdeAmount, usdeAmount, "Step 2: Should receive 1:1 sUSDe initially");
-        assertEq(stakedUsde.balanceOf(alice), sUsdeAmount, "Step 2: Alice should have sUSDe");
+        // === STEP 2: User stakes nUSD to earn yield ===
+        nusd.approve(address(stakedNusd), usdeAmount);
+        uint256 sNusdAmount = stakedNusd.deposit(usdeAmount, alice);
+        assertEq(sNusdAmount, usdeAmount, "Step 2: Should receive 1:1 snUSD initially");
+        assertEq(stakedNusd.balanceOf(alice), sNusdAmount, "Step 2: Alice should have snUSD");
 
         // === STEP 3: Rewards are distributed (time passes) ===
         vm.stopPrank();
         // Test contract has REWARDER_ROLE
         uint256 rewardsAmount = 100e18; // 10% yield
-        usde.mint(address(this), rewardsAmount);
-        usde.approve(address(stakedUsde), rewardsAmount);
-        stakedUsde.transferInRewards(rewardsAmount);
+        nusd.mint(address(this), rewardsAmount);
+        nusd.approve(address(stakedNusd), rewardsAmount);
+        stakedNusd.transferInRewards(rewardsAmount);
 
         // Wait for rewards to vest (8 hour vesting period)
         vm.warp(block.timestamp + 8 hours);
 
-        // === STEP 4: User transfers sUSDe to another chain ===
+        // === STEP 4: User transfers snUSD to another chain ===
         vm.startPrank(alice);
-        uint256 aliceSUsde = stakedUsde.balanceOf(alice);
-        stakedUsde.approve(address(stakedUsdeAdapter), aliceSUsde);
+        uint256 aliceSUsde = stakedNusd.balanceOf(alice);
+        stakedNusd.approve(address(stakedNusdAdapter), aliceSUsde);
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSUsde);
-        MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
+        MessagingFee memory fee = _getMessagingFee(address(stakedNusdAdapter), sendParam);
 
-        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        stakedNusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at stakedUsdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
+        // Deliver packet to SPOKE chain at stakedNusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedNusdOFT)));
 
-        // === STEP 5: Verify Bob received sUSDe on spoke chain ===
+        // === STEP 5: Verify Bob received snUSD on spoke chain ===
         _switchToSpoke();
-        assertEq(stakedUsdeOFT.balanceOf(bob), aliceSUsde, "Step 5: Bob should have sUSDe on spoke");
+        assertEq(stakedNusdOFT.balanceOf(bob), aliceSUsde, "Step 5: Bob should have snUSD on spoke");
 
-        // === STEP 6: Bob sends sUSDe back to hub ===
+        // === STEP 6: Bob sends snUSD back to hub ===
         vm.startPrank(bob);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSUsde);
-        MessagingFee memory fee2 = _getMessagingFee(address(stakedUsdeOFT), sendParam2);
+        MessagingFee memory fee2 = _getMessagingFee(address(stakedNusdOFT), sendParam2);
 
-        stakedUsdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
+        stakedNusdOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
-        // Deliver packet to HUB chain at stakedUsdeAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet to HUB chain at stakedNusdAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(stakedNusdAdapter)));
 
-        // === STEP 7: Bob unstakes on hub to get USDe back ===
+        // === STEP 7: Bob unstakes on hub to get nUSD back ===
         _switchToHub();
-        uint256 bobSUsde = stakedUsde.balanceOf(bob);
-        assertEq(bobSUsde, aliceSUsde, "Step 7: Bob should have sUSDe on hub");
+        uint256 bobSUsde = stakedNusd.balanceOf(bob);
+        assertEq(bobSUsde, aliceSUsde, "Step 7: Bob should have snUSD on hub");
 
         vm.startPrank(bob);
-        uint256 usdeRedeemed = stakedUsde.redeem(bobSUsde, bob, bob);
-        assertGt(usdeRedeemed, usdeAmount, "Step 7: Should redeem more USDe due to rewards");
-        assertEq(usde.balanceOf(bob), usdeRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have USDe");
+        uint256 usdeRedeemed = stakedNusd.redeem(bobSUsde, bob, bob);
+        assertGt(usdeRedeemed, usdeAmount, "Step 7: Should redeem more nUSD due to rewards");
+        assertEq(nusd.balanceOf(bob), usdeRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have nUSD");
         vm.stopPrank();
     }
 
@@ -99,9 +99,9 @@ contract EndToEndTest is TestHelper {
 
         _switchToHub();
 
-        // Alice sends USDe to spoke
+        // Alice sends nUSD to spoke
         vm.startPrank(alice);
-        usde.approve(address(usdeAdapter), amount);
+        nusd.approve(address(usdeAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, alice, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
         usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
@@ -110,9 +110,9 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at usdeOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
-        // Bob sends USDe to spoke
+        // Bob sends nUSD to spoke
         vm.startPrank(bob);
-        usde.approve(address(usdeAdapter), amount);
+        nusd.approve(address(usdeAdapter), amount);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee2 = _getMessagingFee(address(usdeAdapter), sendParam2);
         usdeAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
@@ -121,10 +121,10 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at usdeOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
-        // Verify both have USDe on spoke
+        // Verify both have nUSD on spoke
         _switchToSpoke();
-        assertEq(usdeOFT.balanceOf(alice), amount, "Alice should have USDe on spoke");
-        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have USDe on spoke");
+        assertEq(usdeOFT.balanceOf(alice), amount, "Alice should have nUSD on spoke");
+        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have nUSD on spoke");
 
         // Alice sends to Bob on spoke (local transfer)
         vm.startPrank(alice);
@@ -143,14 +143,14 @@ contract EndToEndTest is TestHelper {
 
         _switchToHub();
 
-        // User mints USDe with USDC collateral on hub
+        // User mints nUSD with USDC collateral on hub
         vm.startPrank(alice);
         uint256 usdcAmount = 100e6; // 100 USDC
-        usdc.approve(address(usde), usdcAmount);
-        uint256 usdeAmount = usde.mintWithCollateral(address(usdc), usdcAmount);
+        usdc.approve(address(nusd), usdcAmount);
+        uint256 usdeAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
 
         // Send to spoke
-        usde.approve(address(usdeAdapter), usdeAmount);
+        nusd.approve(address(usdeAdapter), usdeAmount);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, usdeAmount);
         MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
         usdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -174,17 +174,17 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
         vm.startPrank(alice);
 
-        // Start cooldown (USDe uses cooldown, not direct redeem)
-        usde.cooldownRedeem(address(usdc), usdeAmount);
+        // Start cooldown (nUSD uses cooldown, not direct redeem)
+        nusd.cooldownRedeem(address(usdc), usdeAmount);
 
         // Get cooldown info
-        (uint104 cooldownEnd, , ) = usde.redemptionRequests(alice);
+        (uint104 cooldownEnd, , ) = nusd.redemptionRequests(alice);
 
         // Warp past cooldown
         vm.warp(cooldownEnd);
 
         // Complete redemption
-        uint256 collateralReceived = usde.completeRedeem();
+        uint256 collateralReceived = nusd.completeRedeem();
         assertGt(collateralReceived, 0, "Should receive collateral");
         vm.stopPrank();
     }
@@ -200,25 +200,25 @@ contract EndToEndTest is TestHelper {
 
         // Alice stakes on hub
         vm.startPrank(alice);
-        usde.approve(address(stakedUsde), stakeAmount);
-        uint256 shares = stakedUsde.deposit(stakeAmount, alice);
+        nusd.approve(address(stakedNusd), stakeAmount);
+        uint256 shares = stakedNusd.deposit(stakeAmount, alice);
         vm.stopPrank();
 
         // Rewards distributed (test contract has REWARDER_ROLE)
-        usde.mint(address(this), rewardAmount);
-        usde.approve(address(stakedUsde), rewardAmount);
-        stakedUsde.transferInRewards(rewardAmount);
+        nusd.mint(address(this), rewardAmount);
+        nusd.approve(address(stakedNusd), rewardAmount);
+        stakedNusd.transferInRewards(rewardAmount);
 
         // Alice sends shares to spoke
         vm.startPrank(alice);
-        stakedUsde.approve(address(stakedUsdeAdapter), shares);
+        stakedNusd.approve(address(stakedNusdAdapter), shares);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, shares);
-        MessagingFee memory fee = _getMessagingFee(address(stakedUsdeAdapter), sendParam);
-        stakedUsdeAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        MessagingFee memory fee = _getMessagingFee(address(stakedNusdAdapter), sendParam);
+        stakedNusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at stakedUsdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
+        // Deliver packet to SPOKE chain at stakedNusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedNusdOFT)));
 
         // More rewards distributed while Alice is on spoke
         _switchToHub();
@@ -226,25 +226,25 @@ contract EndToEndTest is TestHelper {
         vm.warp(block.timestamp + 8 hours);
 
         // Test contract has REWARDER_ROLE
-        usde.mint(address(this), rewardAmount);
-        usde.approve(address(stakedUsde), rewardAmount);
-        stakedUsde.transferInRewards(rewardAmount);
+        nusd.mint(address(this), rewardAmount);
+        nusd.approve(address(stakedNusd), rewardAmount);
+        stakedNusd.transferInRewards(rewardAmount);
 
         // Alice sends back to hub
         _switchToSpoke();
         vm.startPrank(alice);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, shares);
-        MessagingFee memory fee2 = _getMessagingFee(address(stakedUsdeOFT), sendParam2);
-        stakedUsdeOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
+        MessagingFee memory fee2 = _getMessagingFee(address(stakedNusdOFT), sendParam2);
+        stakedNusdOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
-        // Deliver packet FROM SPOKE TO HUB at stakedUsdeAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedUsdeAdapter)));
+        // Deliver packet FROM SPOKE TO HUB at stakedNusdAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(stakedNusdAdapter)));
 
         // Alice redeems and should have accumulated rewards
         _switchToHub();
         vm.startPrank(alice);
-        uint256 usdeRedeemed = stakedUsde.redeem(shares, alice, alice);
+        uint256 usdeRedeemed = stakedNusd.redeem(shares, alice, alice);
         assertGt(usdeRedeemed, stakeAmount, "Should have earned rewards");
         vm.stopPrank();
     }
@@ -260,13 +260,13 @@ contract EndToEndTest is TestHelper {
 
         // Alice operations on hub
         vm.startPrank(alice);
-        mct.approve(address(usde), amount);
-        usde.deposit(amount, alice);
+        mct.approve(address(nusd), amount);
+        nusd.deposit(amount, alice);
         vm.stopPrank();
 
-        // Send USDe to spoke for Bob
+        // Send nUSD to spoke for Bob
         vm.startPrank(alice);
-        usde.approve(address(usdeAdapter), amount);
+        nusd.approve(address(usdeAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
         usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
@@ -277,25 +277,25 @@ contract EndToEndTest is TestHelper {
 
         // Bob operations on hub (parallel)
         vm.startPrank(bob);
-        mct.approve(address(usde), amount);
-        usde.deposit(amount, bob);
+        mct.approve(address(nusd), amount);
+        nusd.deposit(amount, bob);
         vm.stopPrank();
 
         // === Spoke operations ===
         _switchToSpoke();
 
         // Bob receives and stakes
-        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have USDe on spoke");
+        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have nUSD on spoke");
 
         // === Verify total supply consistency ===
         _switchToHub();
-        uint256 hubUsdeSupply = usde.totalSupply();
+        uint256 hubUsdeSupply = nusd.totalSupply();
 
         _switchToSpoke();
         uint256 spokeUsdeSupply = usdeOFT.totalSupply();
 
         _switchToHub();
-        uint256 lockedInAdapter = usde.balanceOf(address(usdeAdapter));
+        uint256 lockedInAdapter = nusd.balanceOf(address(usdeAdapter));
 
         assertEq(spokeUsdeSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
     }
@@ -309,7 +309,7 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        usde.approve(address(usdeAdapter), amount);
+        nusd.approve(address(usdeAdapter), amount);
 
         // Attempt with insufficient gas (simulated failure)
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amount);
@@ -343,12 +343,12 @@ contract EndToEndTest is TestHelper {
             uint256 amount = amounts[i];
 
             // Ensure alice has enough balance
-            if (amount > usde.balanceOf(alice)) {
-                usde.mint(alice, amount);
+            if (amount > nusd.balanceOf(alice)) {
+                nusd.mint(alice, amount);
             }
 
             vm.startPrank(alice);
-            usde.approve(address(usdeAdapter), amount);
+            nusd.approve(address(usdeAdapter), amount);
 
             SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amount);
             MessagingFee memory fee = _getMessagingFee(address(usdeAdapter), sendParam);
@@ -377,41 +377,41 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
 
         // Initial TVL
-        uint256 initialVaultAssets = usde.totalAssets();
+        uint256 initialVaultAssets = nusd.totalAssets();
 
         // Alice deposits collateral
         vm.startPrank(alice);
-        usdc.approve(address(usde), usdcAmount);
-        usde.mintWithCollateral(address(usdc), usdcAmount);
+        usdc.approve(address(nusd), usdcAmount);
+        nusd.mintWithCollateral(address(usdc), usdcAmount);
         vm.stopPrank();
 
         // TVL should increase
-        uint256 afterDepositAssets = usde.totalAssets();
+        uint256 afterDepositAssets = nusd.totalAssets();
         assertEq(afterDepositAssets, initialVaultAssets + expectedUsde, "TVL should increase");
 
         // Alice stakes
         vm.startPrank(alice);
-        usde.approve(address(stakedUsde), expectedUsde);
-        stakedUsde.deposit(expectedUsde, alice);
+        nusd.approve(address(stakedNusd), expectedUsde);
+        stakedNusd.deposit(expectedUsde, alice);
         vm.stopPrank();
 
-        // StakedUSDe TVL should increase
-        uint256 stakedTVL = stakedUsde.totalAssets();
+        // StakednUSD TVL should increase
+        uint256 stakedTVL = stakedNusd.totalAssets();
         assertEq(stakedTVL, expectedUsde, "Staked TVL should match deposit");
     }
 
     /**
      * @notice Test cross-chain consistency with multiple token types
-     * @dev Note: MCT stays on hub only, so we only test USDe and sUSDe cross-chain
+     * @dev Note: MCT stays on hub only, so we only test nUSD and snUSD cross-chain
      */
     function test_MultiTokenConsistency() public {
         uint256 amount = 100e18;
 
         _switchToHub();
 
-        // Send USDe to spoke
+        // Send nUSD to spoke
         vm.startPrank(alice);
-        usde.approve(address(usdeAdapter), amount);
+        nusd.approve(address(usdeAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(usdeAdapter), sendParam1);
         usdeAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
@@ -420,23 +420,23 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at usdeOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(usdeOFT)));
 
-        // Send sUSDe to spoke
+        // Send snUSD to spoke
         vm.startPrank(alice);
-        usde.approve(address(stakedUsde), amount);
-        uint256 shares = stakedUsde.deposit(amount, alice);
-        stakedUsde.approve(address(stakedUsdeAdapter), shares);
+        nusd.approve(address(stakedNusd), amount);
+        uint256 shares = stakedNusd.deposit(amount, alice);
+        stakedNusd.approve(address(stakedNusdAdapter), shares);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, shares);
-        MessagingFee memory fee2 = _getMessagingFee(address(stakedUsdeAdapter), sendParam2);
-        stakedUsdeAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
+        MessagingFee memory fee2 = _getMessagingFee(address(stakedNusdAdapter), sendParam2);
+        stakedNusdAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at stakedUsdeOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedUsdeOFT)));
+        // Deliver packet to SPOKE chain at stakedNusdOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedNusdOFT)));
 
         // Verify tokens on spoke (MCT stays on hub, not cross-chain)
         _switchToSpoke();
-        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have USDe");
-        assertEq(stakedUsdeOFT.balanceOf(bob), shares, "Bob should have sUSDe");
+        assertEq(usdeOFT.balanceOf(bob), amount, "Bob should have nUSD");
+        assertEq(stakedNusdOFT.balanceOf(bob), shares, "Bob should have snUSD");
     }
 
     /**
@@ -449,7 +449,7 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        usde.approve(address(usdeAdapter), amount);
+        nusd.approve(address(usdeAdapter), amount);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,
@@ -469,6 +469,6 @@ contract EndToEndTest is TestHelper {
 
         _switchToSpoke();
         // Use approximate equality for fuzz tests due to potential rounding in mock OFT (0.1% tolerance)
-        assertApproxEqAbs(usdeOFT.balanceOf(recipientAddr), amount, amount / 1000, "Recipient should have ~USDe");
+        assertApproxEqAbs(usdeOFT.balanceOf(recipientAddr), amount, amount / 1000, "Recipient should have ~nUSD");
     }
 }

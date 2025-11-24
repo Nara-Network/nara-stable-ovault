@@ -2,29 +2,29 @@ import { type HardhatRuntimeEnvironment } from 'hardhat/types'
 import { type DeployFunction } from 'hardhat-deploy/types'
 
 /**
- * Example deployment script for StakedUSDe and StakingRewardsDistributor
+ * Example deployment script for StakednUSD and StakingRewardsDistributor
  *
- * This script demonstrates how to deploy the StakedUSDe system:
- * 1. Deploy StakedUSDe vault (requires existing USDe)
+ * This script demonstrates how to deploy the StakednUSD system:
+ * 1. Deploy StakednUSD vault (requires existing nUSD)
  * 2. Deploy StakingRewardsDistributor
  * 3. Grant REWARDER_ROLE to StakingRewardsDistributor
  * 4. Grant BLACKLIST_MANAGER_ROLE to admin
  *
  * Prerequisites:
- * - USDe contract must be deployed first
- * - Run USDe.example.ts deployment first
+ * - nUSD contract must be deployed first
+ * - Run nUSD.example.ts deployment first
  *
  * To use this script:
- * 1. Rename to StakedUSDe.ts
+ * 1. Rename to StakednUSD.ts
  * 2. Update the configuration variables below
- * 3. Run: npx hardhat deploy --network <your-network> --tags StakedUSDe
+ * 3. Run: npx hardhat deploy --network <your-network> --tags StakednUSD
  */
 
 // CONFIGURATION - UPDATE THESE VALUES
 const ADMIN_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Set admin address (multisig)
 const INITIAL_REWARDER = '0x0000000000000000000000000000000000000000' // TODO: Set initial rewarder (can be distributor or other)
 const OPERATOR_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Set operator address (bot/EOA for rewards)
-const USDE_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Set USDe address (from previous deployment)
+const USDE_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Set nUSD address (from previous deployment)
 
 // Optional: Deploy with predefined addresses
 const USE_EXISTING_CONTRACTS = false
@@ -36,7 +36,7 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const { deployer } = await getNamedAccounts()
 
     console.log('\n========================================')
-    console.log('Deploying StakedUSDe System')
+    console.log('Deploying StakednUSD System')
     console.log('========================================\n')
 
     // Validate configuration
@@ -44,7 +44,7 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         throw new Error('Please set ADMIN_ADDRESS in the deployment script')
     }
     if (USDE_ADDRESS === '0x0000000000000000000000000000000000000000') {
-        throw new Error('Please set USDE_ADDRESS in the deployment script (deploy USDe first)')
+        throw new Error('Please set USDE_ADDRESS in the deployment script (deploy nUSD first)')
     }
     if (OPERATOR_ADDRESS === '0x0000000000000000000000000000000000000000') {
         throw new Error('Please set OPERATOR_ADDRESS in the deployment script')
@@ -54,21 +54,21 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('Admin address:', ADMIN_ADDRESS)
     console.log('Initial rewarder:', INITIAL_REWARDER)
     console.log('Operator address:', OPERATOR_ADDRESS)
-    console.log('USDe address:', USDE_ADDRESS)
+    console.log('nUSD address:', USDE_ADDRESS)
     console.log('')
 
     let stakedUsdeAddress: string
 
     if (USE_EXISTING_CONTRACTS && EXISTING_STAKED_USDE !== '0x0000000000000000000000000000000000000000') {
-        console.log('Using existing StakedUSDe at:', EXISTING_STAKED_USDE)
+        console.log('Using existing StakednUSD at:', EXISTING_STAKED_USDE)
         stakedUsdeAddress = EXISTING_STAKED_USDE
     } else {
-        // Step 1: Deploy StakedUSDe
-        console.log('1. Deploying StakedUSDe...')
-        const stakedUsdeDeployment = await deploy('staked-usde/StakedUSDe', {
+        // Step 1: Deploy StakednUSD
+        console.log('1. Deploying StakednUSD...')
+        const stakedUsdeDeployment = await deploy('staked-nusd/StakednUSD', {
             from: deployer,
             args: [
-                USDE_ADDRESS, // USDe token
+                USDE_ADDRESS, // nUSD token
                 INITIAL_REWARDER === '0x0000000000000000000000000000000000000000' ? deployer : INITIAL_REWARDER, // Initial rewarder (use deployer if not set)
                 ADMIN_ADDRESS, // Admin
             ],
@@ -76,17 +76,17 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
             waitConfirmations: 1,
         })
         stakedUsdeAddress = stakedUsdeDeployment.address
-        console.log('   ✓ StakedUSDe deployed at:', stakedUsdeAddress)
+        console.log('   ✓ StakednUSD deployed at:', stakedUsdeAddress)
         console.log('')
     }
 
     // Step 2: Deploy StakingRewardsDistributor
     console.log('2. Deploying StakingRewardsDistributor...')
-    const distributorDeployment = await deploy('staked-usde/StakingRewardsDistributor', {
+    const distributorDeployment = await deploy('staked-nusd/StakingRewardsDistributor', {
         from: deployer,
         args: [
-            stakedUsdeAddress, // StakedUSDe vault
-            USDE_ADDRESS, // USDe token
+            stakedUsdeAddress, // StakednUSD vault
+            USDE_ADDRESS, // nUSD token
             ADMIN_ADDRESS, // Admin (multisig)
             OPERATOR_ADDRESS, // Operator (bot)
         ],
@@ -98,36 +98,36 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 3: Grant REWARDER_ROLE to StakingRewardsDistributor
     console.log('3. Granting REWARDER_ROLE to StakingRewardsDistributor...')
-    const stakedUsde = await hre.ethers.getContractAt('staked-usde/StakedUSDe', stakedUsdeAddress)
+    const stakedNusd = await hre.ethers.getContractAt('staked-nusd/StakednUSD', stakedUsdeAddress)
     const REWARDER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('REWARDER_ROLE'))
     const BLACKLIST_MANAGER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('BLACKLIST_MANAGER_ROLE'))
 
     try {
         // Grant REWARDER_ROLE to distributor
-        const tx1 = await stakedUsde.grantRole(REWARDER_ROLE, distributorDeployment.address)
+        const tx1 = await stakedNusd.grantRole(REWARDER_ROLE, distributorDeployment.address)
         await tx1.wait()
         console.log('   ✓ REWARDER_ROLE granted to StakingRewardsDistributor')
 
         // Grant BLACKLIST_MANAGER_ROLE to admin
-        const tx2 = await stakedUsde.grantRole(BLACKLIST_MANAGER_ROLE, ADMIN_ADDRESS)
+        const tx2 = await stakedNusd.grantRole(BLACKLIST_MANAGER_ROLE, ADMIN_ADDRESS)
         await tx2.wait()
         console.log('   ✓ BLACKLIST_MANAGER_ROLE granted to admin')
     } catch (error) {
         console.log('   ⚠ Could not grant roles automatically')
         console.log('   Please manually grant roles as admin:')
-        console.log('   - stakedUsde.grantRole(REWARDER_ROLE, distributorAddress)')
-        console.log('   - stakedUsde.grantRole(BLACKLIST_MANAGER_ROLE, adminAddress)')
+        console.log('   - stakedNusd.grantRole(REWARDER_ROLE, distributorAddress)')
+        console.log('   - stakedNusd.grantRole(BLACKLIST_MANAGER_ROLE, adminAddress)')
     }
     console.log('')
 
-    // Step 4: Approve USDe from distributor to StakedUSDe (already done in constructor)
-    console.log('4. Verifying USDe approval...')
-    const usde = await hre.ethers.getContractAt('usde/USDe', USDE_ADDRESS)
-    const allowance = await usde.allowance(distributorDeployment.address, stakedUsdeAddress)
+    // Step 4: Approve nUSD from distributor to StakednUSD (already done in constructor)
+    console.log('4. Verifying nUSD approval...')
+    const nusd = await hre.ethers.getContractAt('nusd/nUSD', USDE_ADDRESS)
+    const allowance = await nusd.allowance(distributorDeployment.address, stakedUsdeAddress)
     if (allowance.gt(0)) {
-        console.log('   ✓ StakingRewardsDistributor has USDe approval')
+        console.log('   ✓ StakingRewardsDistributor has nUSD approval')
     } else {
-        console.log('   ⚠ StakingRewardsDistributor needs to approve USDe manually')
+        console.log('   ⚠ StakingRewardsDistributor needs to approve nUSD manually')
     }
     console.log('')
 
@@ -135,9 +135,9 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('========================================')
     console.log('Deployment Summary')
     console.log('========================================')
-    console.log('StakedUSDe:', stakedUsdeAddress)
+    console.log('StakednUSD:', stakedUsdeAddress)
     console.log('StakingRewardsDistributor:', distributorDeployment.address)
-    console.log('USDe:', USDE_ADDRESS)
+    console.log('nUSD:', USDE_ADDRESS)
     console.log('Admin:', ADMIN_ADDRESS)
     console.log('Operator:', OPERATOR_ADDRESS)
     console.log('========================================\n')
@@ -150,9 +150,9 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const initialRewarder =
         INITIAL_REWARDER === '0x0000000000000000000000000000000000000000' ? deployer : INITIAL_REWARDER
 
-    console.log('# StakedUSDe')
+    console.log('# StakednUSD')
     console.log(
-        `npx hardhat verify --contract contracts/staked-usde/StakedUSDe.sol:StakedUSDe --network ${hre.network.name} ${stakedUsdeAddress} "${USDE_ADDRESS}" "${initialRewarder}" "${ADMIN_ADDRESS}"\n`
+        `npx hardhat verify --contract contracts/staked-usde/StakednUSD.sol:StakednUSD --network ${hre.network.name} ${stakedUsdeAddress} "${USDE_ADDRESS}" "${initialRewarder}" "${ADMIN_ADDRESS}"\n`
     )
 
     console.log('# StakingRewardsDistributor')
@@ -167,14 +167,14 @@ const deployStakedUSDe: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('1. Verify contracts on block explorer using commands above')
     console.log('2. Verify REWARDER_ROLE was granted to StakingRewardsDistributor')
     console.log('3. Verify BLACKLIST_MANAGER_ROLE was granted to admin')
-    console.log('4. Fund StakingRewardsDistributor with USDe for rewards')
-    console.log('5. Test staking: usde.approve() → stakedUsde.deposit()')
+    console.log('4. Fund StakingRewardsDistributor with nUSD for rewards')
+    console.log('5. Test staking: nusd.approve() → stakedNusd.deposit()')
     console.log('6. Test rewards: distributor.transferInRewards() (as operator)')
-    console.log('7. (Optional) Deploy StakedUSDeOFTAdapter for omnichain sUSDe')
-    console.log('8. (Optional) Deploy StakedUSDeOFT on spoke chains\n')
+    console.log('7. (Optional) Deploy StakednUSDOFTAdapter for omnichain snUSD')
+    console.log('8. (Optional) Deploy StakednUSDOFT on spoke chains\n')
 }
 
 export default deployStakedUSDe
 
-deployStakedUSDe.tags = ['StakedUSDe', 'Staking']
+deployStakedUSDe.tags = ['StakednUSD', 'Staking']
 deployStakedUSDe.dependencies = [] // Remove dependency check to allow manual deployment

@@ -35,28 +35,28 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'usde/USDe',
-            shareAdapter: 'usde/USDeOFTAdapter',
-            composer: 'usde/USDeComposer',
+            vault: 'nusd/nUSD',
+            shareAdapter: 'nusd/nUSDOFTAdapter',
+            composer: 'nusd/nUSDComposer',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         // This will skip deployment and use your existing hubEid contract deployments instead
-        // This must be the address of the USDe (ERC4626 vault)
+        // This must be the address of the nUSD (ERC4626 vault)
         vaultAddress: undefined, // Set to '0xabc...' to use existing vault
         // This must be the address of the MCT OFT adapter (not MCT itself - use the OFT adapter address)
         assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
-        // This must be the address of the USDeOFTAdapter
+        // This must be the address of the nUSDOFTAdapter
         shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
         collateralAssetAddress: '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773', // e.g., USDC on hub chain
         collateralAssetOFTAddress: '0x543BdA7c6cA4384FE90B1F5929bb851F52888983', // Set to '0x...' to use existing USDC OFT (e.g., Stargate USDC OFT)
     },
 
-    // Share OFT configuration (USDe shares on spoke chains)
+    // Share OFT configuration (nUSD shares on spoke chains)
     shareOFT: {
-        contract: 'usde/USDeOFT',
+        contract: 'nusd/nUSDOFT',
         metadata: {
-            name: 'USDe',
-            symbol: 'USDe',
+            name: 'nUSD',
+            symbol: 'nUSD',
         },
         deploymentEids: _spokeEids,
     },
@@ -84,30 +84,30 @@ export const shouldDeployShareAdapter = (eid: number): boolean =>
     isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress
 
 // ============================================
-// StakedUSDe Deployment Configuration
-// npx hardhat lz:deploy --tags staked-usde
+// StakednUSD Deployment Configuration
+// npx hardhat lz:deploy --tags staked-nusd
 // ============================================
 export const STAKED_USDE_CONFIG = {
-    // StakedUSDe vault configuration (where the staking vault lives)
+    // StakednUSD vault configuration (where the staking vault lives)
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'staked-usde/StakedUSDe',
-            shareAdapter: 'staked-usde/StakedUSDeOFTAdapter',
-            distributor: 'staked-usde/StakingRewardsDistributor',
+            vault: 'staked-nusd/StakednUSD',
+            shareAdapter: 'staked-nusd/StakednUSDOFTAdapter',
+            distributor: 'staked-nusd/StakingRewardsDistributor',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
-        vaultAddress: undefined, // Set to '0xabc...' to use existing StakedUSDe vault
-        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing StakedUSDeOFTAdapter
+        vaultAddress: undefined, // Set to '0xabc...' to use existing StakednUSD vault
+        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing StakednUSDOFTAdapter
         distributorAddress: undefined, // Set to '0xghi...' to use existing StakingRewardsDistributor
     },
 
-    // Share OFT configuration (sUSDe shares on spoke chains)
+    // Share OFT configuration (snUSD shares on spoke chains)
     shareOFT: {
-        contract: 'staked-usde/StakedUSDeOFT',
+        contract: 'staked-nusd/StakednUSDOFT',
         metadata: {
-            name: 'Staked USDe',
-            symbol: 'sUSDe',
+            name: 'Staked nUSD',
+            symbol: 'snUSD',
         },
         deploymentEids: _spokeEids,
     },

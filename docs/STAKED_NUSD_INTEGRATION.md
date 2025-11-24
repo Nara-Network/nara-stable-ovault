@@ -1,23 +1,23 @@
-## # StakedUSDe - OVault Integration
+## # StakednUSD - OVault Integration
 
-Complete OVault (Omnichain Vault) implementation for staking USDe tokens with cross-chain functionality.
+Complete OVault (Omnichain Vault) implementation for staking nUSD tokens with cross-chain functionality.
 
 ## Overview
 
-The StakedUSDe system allows users to stake USDe tokens and earn rewards. The implementation includes:
+The StakednUSD system allows users to stake nUSD tokens and earn rewards. The implementation includes:
 
-1. **StakedUSDe**: ERC4626 vault that accepts USDe and issues sUSDe shares
+1. **StakednUSD**: ERC4626 vault that accepts nUSD and issues snUSD shares
 2. **StakingRewardsDistributor**: Automated rewards distribution without multisig transactions
 3. **StakedUSDeComposer**: Cross-chain staking operations (mirrors Ethena's implementation)
-4. **Cross-chain functionality**: OFT adapters for omnichain sUSDe transfers
+4. **Cross-chain functionality**: OFT adapters for omnichain snUSD transfers
 
 ## Architecture
 
 ### Hub Chain Contracts
 
-- **StakedUSDe.sol**: Main staking vault (ERC4626)
-  - Accepts USDe deposits
-  - Issues sUSDe shares
+- **StakednUSD.sol**: Main staking vault (ERC4626)
+  - Accepts nUSD deposits
+  - Issues snUSD shares
   - Vesting rewards over 8 hours
   - Blacklist functionality
   - Minimum shares protection
@@ -25,10 +25,10 @@ The StakedUSDe system allows users to stake USDe tokens and earn rewards. The im
 - **StakingRewardsDistributor.sol**: Automated rewards helper
   - Operator role for automated distributions
   - Owner (multisig) for configuration
-  - Transfers USDe rewards to staking vault
+  - Transfers nUSD rewards to staking vault
 
 - **StakedUSDeOFTAdapter.sol**: OFT adapter for hub chain
-  - Lockbox model for sUSDe
+  - Lockbox model for snUSD
   - Enables cross-chain transfers
 
 - **StakedUSDeComposer.sol**: Cross-chain staking composer
@@ -41,12 +41,12 @@ The StakedUSDe system allows users to stake USDe tokens and earn rewards. The im
 ### Spoke Chain Contracts
 
 - **StakedUSDeOFT.sol**: OFT for spoke chains
-  - Mint/burn model for sUSDe
-  - Represents sUSDe shares cross-chain
+  - Mint/burn model for snUSD
+  - Represents snUSD shares cross-chain
 
 ## Key Features
 
-### Staking Vault (StakedUSDe)
+### Staking Vault (StakednUSD)
 
 1. **ERC4626 Standard**
    - Standard deposit/withdraw/mint/redeem functions
@@ -81,25 +81,25 @@ The StakedUSDe system allows users to stake USDe tokens and earn rewards. The im
 
 ## User Flows
 
-### Flow 1: Stake USDe (Hub Chain)
+### Flow 1: Stake nUSD (Hub Chain)
 
 ```solidity
-// User approves USDe
-usde.approve(stakedUSDe, amount);
+// User approves nUSD
+nusd.approve(stakednUSD, amount);
 
-// User deposits USDe to receive sUSDe
-stakedUSDe.deposit(amount, userAddress);
+// User deposits nUSD to receive snUSD
+stakednUSD.deposit(amount, userAddress);
 // OR
-stakedUSDe.mint(shares, userAddress);
+stakednUSD.mint(shares, userAddress);
 ```
 
-### Flow 2: Unstake sUSDe (Hub Chain)
+### Flow 2: Unstake snUSD (Hub Chain)
 
 ```solidity
-// User redeems sUSDe for USDe
-stakedUSDe.redeem(shares, userAddress, userAddress);
+// User redeems snUSD for nUSD
+stakednUSD.redeem(shares, userAddress, userAddress);
 // OR
-stakedUSDe.withdraw(assets, userAddress, userAddress);
+stakednUSD.withdraw(assets, userAddress, userAddress);
 ```
 
 ### Flow 3A: Cross-Chain Staking via Compose Message (Recommended) ⭐
@@ -112,9 +112,9 @@ import { Options } from "@layerzerolabs/lz-v2-utilities";
 
 // Build compose message for return trip
 const returnSendParam = {
-  dstEid: BASE_EID, // Receive sUSDe back on Base
+  dstEid: BASE_EID, // Receive snUSD back on Base
   to: addressToBytes32(userAddress),
-  amountLD: 0, // Composer will fill with sUSDe amount
+  amountLD: 0, // Composer will fill with snUSD amount
   minAmountLD: minShares, // Slippage protection
   extraOptions: "0x",
   composeMsg: "0x",
@@ -144,7 +144,7 @@ const sendParam = {
   oftCmd: "0x",
 };
 
-// Approve USDe OFT on Base
+// Approve nUSD OFT on Base
 await usdeOFT.approve(USDE_OFT_BASE, amount);
 
 // Quote the fee
@@ -159,17 +159,17 @@ await usdeOFT.send(
 );
 
 // Wait for LayerZero settlement (~1-5 mins)
-// User receives sUSDe on Base Sepolia! ✅
+// User receives snUSD on Base Sepolia! ✅
 ```
 
 **Behind the scenes:**
 
-1. USDeOFT burns USDe on Base
-2. Bridges USDe to Arbitrum (hub) with compose message
+1. USDeOFT burns nUSD on Base
+2. Bridges nUSD to Arbitrum (hub) with compose message
 3. Compose message triggers StakedUSDeComposer.lzCompose() on Arbitrum
-4. Composer stakes USDe → receives sUSDe
-5. Composer bridges sUSDe back to Base
-6. User receives sUSDe on Base
+4. Composer stakes nUSD → receives snUSD
+5. Composer bridges snUSD back to Base
+6. User receives snUSD on Base
 
 **Benefits:**
 
@@ -189,22 +189,22 @@ const stakedComposer = await ethers.getContractAt(
     STAKED_COMPOSER_ARBITRUM
 );
 
-// Approve USDe on Arbitrum
-await usde.approve(stakedComposer.address, amount);
+// Approve nUSD on Arbitrum
+await nusd.approve(stakedComposer.address, amount);
 
-// Stake and send sUSDe back to Base
+// Stake and send snUSD back to Base
 await stakedComposer.depositRemote(
     amount,
     userAddress,
-    BASE_EID, // Send sUSDe to Base
+    BASE_EID, // Send snUSD to Base
     { value: fee.nativeFee }
 );
 ```
 
-### Flow 4: Transfer sUSDe Cross-Chain
+### Flow 4: Transfer snUSD Cross-Chain
 
 ```solidity
-// User on Spoke Chain A transfers sUSDe to Spoke Chain B
+// User on Spoke Chain A transfers snUSD to Spoke Chain B
 const sendParam = {
     dstEid: SPOKE_B_EID,
     to: addressToBytes32(receiverAddress),
@@ -223,16 +223,16 @@ await sUsdeOFT.send(sendParam, { value: nativeFee });
 ```solidity
 // Operator (bot) calls distributor
 distributor.transferInRewards(rewardsAmount);
-// This transfers USDe rewards to StakedUSDe vault
+// This transfers nUSD rewards to StakednUSD vault
 ```
 
 ## Deployment Guide
 
-### Step 1: Deploy StakedUSDe on Hub Chain
+### Step 1: Deploy StakednUSD on Hub Chain
 
 ```solidity
-StakedUSDe stakedUSDe = new StakedUSDe(
-    IERC20(usdeAddress),      // USDe token
+StakednUSD stakednUSD = new StakednUSD(
+    IERC20(usdeAddress),      // nUSD token
     rewarderAddress,           // Initial rewarder
     adminAddress               // Admin (multisig)
 );
@@ -242,22 +242,22 @@ StakedUSDe stakedUSDe = new StakedUSDe(
 
 ```solidity
 StakingRewardsDistributor distributor = new StakingRewardsDistributor(
-    stakedUSDe,                // Staking vault
-    IERC20(usdeAddress),       // USDe token
+    stakednUSD,                // Staking vault
+    IERC20(usdeAddress),       // nUSD token
     adminAddress,              // Admin (multisig)
     operatorAddress            // Operator (bot)
 );
 
 // Grant REWARDER_ROLE to distributor
 const REWARDER_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('REWARDER_ROLE'));
-await stakedUSDe.grantRole(REWARDER_ROLE, distributor.address);
+await stakednUSD.grantRole(REWARDER_ROLE, distributor.address);
 ```
 
 ### Step 3: Deploy StakedUSDeOFTAdapter (Hub)
 
 ```solidity
 StakedUSDeOFTAdapter sUsdeAdapter = new StakedUSDeOFTAdapter(
-    stakedUSDe.address,        // sUSDe token
+    stakednUSD.address,        // snUSD token
     LZ_ENDPOINT_HUB,           // LayerZero endpoint
     adminAddress               // Delegate
 );
@@ -286,7 +286,7 @@ await sUsdeOFT_spoke.setPeer(HUB_EID, addressToBytes32(sUsdeAdapter.address));
 
 ## Roles and Permissions
 
-### StakedUSDe Roles
+### StakednUSD Roles
 
 | Role                          | Description         | Functions                                                    |
 | ----------------------------- | ------------------- | ------------------------------------------------------------ |
@@ -329,53 +329,53 @@ await sUsdeOFT_spoke.setPeer(HUB_EID, addressToBytes32(sUsdeAdapter.address));
 - Cannot renounce admin role
 - Role-based permissions for security
 
-## Integration with USDe OVault
+## Integration with nUSD OVault
 
-The StakedUSDe vault integrates seamlessly with the USDe OVault system:
+The StakednUSD vault integrates seamlessly with the nUSD OVault system:
 
 1. **Deposit Flow**:
 
    ```
-   User → Mint USDe (with collateral) → Stake USDe → Receive sUSDe → Transfer cross-chain
+   User → Mint nUSD (with collateral) → Stake nUSD → Receive snUSD → Transfer cross-chain
    ```
 
 2. **Withdraw Flow**:
 
    ```
-   User → Bridge sUSDe to hub → Unstake for USDe → Redeem for collateral
+   User → Bridge snUSD to hub → Unstake for nUSD → Redeem for collateral
    ```
 
 3. **Full Omnichain Flow**:
    ```
    User deposits USDC on Chain A
-   → Mints USDe
-   → Stakes for sUSDe
-   → Bridges sUSDe to Chain B
-   → User holds sUSDe on Chain B earning rewards
+   → Mints nUSD
+   → Stakes for snUSD
+   → Bridges snUSD to Chain B
+   → User holds snUSD on Chain B earning rewards
    ```
 
 ## Folder Structure
 
 ```
 contracts/staked-usde/
-├── StakedUSDe.sol                    # Main staking vault (ERC4626)
+├── StakednUSD.sol                    # Main staking vault (ERC4626)
 ├── StakingRewardsDistributor.sol     # Automated rewards distribution
 ├── StakedUSDeOFTAdapter.sol          # Hub chain OFT adapter (lockbox)
 └── StakedUSDeOFT.sol                 # Spoke chain OFT (mint/burn)
 
-contracts/interfaces/staked-usde/
-├── IStakedUSDe.sol                   # StakedUSDe interface
+contracts/interfaces/staked-nusd/
+├── IStakedUSDe.sol                   # StakednUSD interface
 └── IStakingRewardsDistributor.sol    # Distributor interface
 ```
 
 ## Testing Checklist
 
-- [ ] Deposit USDe and receive sUSDe
-- [ ] Withdraw sUSDe for USDe
+- [ ] Deposit nUSD and receive snUSD
+- [ ] Withdraw snUSD for nUSD
 - [ ] Transfer rewards via distributor
 - [ ] Verify 8-hour vesting
 - [ ] Test blacklist functionality
-- [ ] Test cross-chain sUSDe transfers
+- [ ] Test cross-chain snUSD transfers
 - [ ] Test emergency token rescue
 - [ ] Test minimum shares protection
 - [ ] Verify all role permissions
@@ -384,10 +384,10 @@ contracts/interfaces/staked-usde/
 
 | Operation            | Gas (Hub) | Gas (Spoke) | Notes                |
 | -------------------- | --------- | ----------- | -------------------- |
-| Stake USDe           | ~120k     | N/A         | Deposit on hub       |
-| Unstake sUSDe        | ~100k     | N/A         | Withdraw on hub      |
+| Stake nUSD           | ~120k     | N/A         | Deposit on hub       |
+| Unstake snUSD        | ~100k     | N/A         | Withdraw on hub      |
 | Transfer Rewards     | ~90k      | N/A         | Via distributor      |
-| Cross-Chain Transfer | ~150k     | ~80k        | sUSDe between chains |
+| Cross-Chain Transfer | ~150k     | ~80k        | snUSD between chains |
 | Add to Blacklist     | ~50k      | N/A         | Admin operation      |
 
 ## Monitoring
@@ -395,19 +395,19 @@ contracts/interfaces/staked-usde/
 Key metrics to monitor:
 
 1. **Staking Vault**:
-   - Total USDe staked
-   - Total sUSDe supply
-   - Exchange rate (sUSDe/USDe)
+   - Total nUSD staked
+   - Total snUSD supply
+   - Exchange rate (snUSD/nUSD)
    - Vesting amount and progress
    - Blacklisted addresses
 
 2. **Rewards Distribution**:
    - Rewards distributed per period
    - Operator activity
-   - USDe balance in distributor
+   - nUSD balance in distributor
 
 3. **Cross-Chain**:
-   - sUSDe supply per chain
+   - snUSD supply per chain
    - Cross-chain message success rate
    - Gas costs for bridging
 
@@ -423,10 +423,10 @@ await distributor.setOperator(ZERO_ADDRESS);
 await distributor.rescueTokens(token, recipient, amount);
 
 // 3. Redistribute locked amounts if needed
-await stakedUSDe.redistributeLockedAmount(restrictedUser, newOwner);
+await stakednUSD.redistributeLockedAmount(restrictedUser, newOwner);
 ```
 
-## Differences from Original StakedUSDe
+## Differences from Original StakednUSD
 
 | Original                 | OVault Version        | Improvement                    |
 | ------------------------ | --------------------- | ------------------------------ |
@@ -434,7 +434,7 @@ await stakedUSDe.redistributeLockedAmount(restrictedUser, newOwner);
 | `_beforeTokenTransfer`   | `_update`             | OpenZeppelin 5.x compatibility |
 | SingleAdminAccessControl | AccessControl         | Standard OZ implementation     |
 | security/ReentrancyGuard | utils/ReentrancyGuard | OpenZeppelin 5.x path          |
-| No cross-chain           | Full OVault support   | Omnichain sUSDe                |
+| No cross-chain           | Full OVault support   | Omnichain snUSD                |
 
 ## License
 
