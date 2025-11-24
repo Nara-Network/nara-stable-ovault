@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../mct/MultiCollateralToken.sol";
 import "./nUSDRedeemSilo.sol";
 
@@ -835,6 +836,100 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @dev Override decimals to ensure 18 decimals
     function decimals() public pure override(ERC4626, ERC20) returns (uint8) {
         return 18;
+    }
+
+    /**
+     * @notice Override previewDeposit to account for mint fees
+     * @param assets The amount of assets (MCT) to deposit
+     * @return shares The amount of shares (nUSD) that would be minted to the receiver after fees
+     * @dev MUST be inclusive of deposit fees per ERC4626 standard
+     * @dev Fee is calculated on MCT amount, then shares are minted 1:1 with remaining MCT
+     */
+    function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
+        // First get base conversion using ERC4626 formula
+        uint256 baseShares = _convertToShares(assets, Math.Rounding.Floor);
+
+        // Apply mint fee if configured
+        if (mintFeeBps > 0 && feeTreasury != address(0)) {
+            // Fee is calculated on the MCT amount (assets)
+            // The beneficiary receives shares = assets * (1 - mintFeeBps / BPS_DENOMINATOR)
+            // But we need to apply this to the baseShares result
+            // Since baseShares ≈ assets (1:1 ratio), we apply fee to baseShares
+            shares = (baseShares * (BPS_DENOMINATOR - mintFeeBps)) / BPS_DENOMINATOR;
+        } else {
+            shares = baseShares;
+        }
+
+        return shares;
+    }
+
+    /**
+     * @notice Override previewMint to account for mint fees
+     * @param shares The amount of shares (nUSD) to mint
+     * @return assets The amount of assets (MCT) needed to mint shares (inclusive of fees)
+     * @dev MUST be inclusive of deposit fees per ERC4626 standard
+     * @dev To get 'shares' after fee, we need more MCT assets
+     */
+    function previewMint(uint256 shares) public view override returns (uint256 assets) {
+        // Calculate how many shares we need before fee to get 'shares' after fee
+        uint256 sharesBeforeFee = shares;
+        if (mintFeeBps > 0 && feeTreasury != address(0)) {
+            // sharesAfterFee = sharesBeforeFee * (1 - fee)
+            // So: sharesBeforeFee = shares / (1 - fee)
+            uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
+            sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
+        }
+
+        // Convert sharesBeforeFee to assets using base conversion
+        assets = _convertToAssets(sharesBeforeFee, Math.Rounding.Ceil);
+
+        return assets;
+    }
+
+    /**
+     * @notice Override previewRedeem to account for redeem fees
+     * @param shares The amount of shares (nUSD) to redeem
+     * @return assets The amount of assets (MCT) that would be received after fees
+     * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
+     * @dev Note: Actual redeem fee is on collateral, but for ERC4626 we apply it to MCT (1:1 equivalent)
+     */
+    function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
+        // First get base conversion using ERC4626 formula
+        uint256 baseAssets = _convertToAssets(shares, Math.Rounding.Floor);
+
+        // Apply redeem fee if configured
+        if (redeemFeeBps > 0 && feeTreasury != address(0)) {
+            // Fee is calculated on the MCT/collateral amount received
+            // The user receives assets = baseAssets * (1 - redeemFeeBps / BPS_DENOMINATOR)
+            assets = (baseAssets * (BPS_DENOMINATOR - redeemFeeBps)) / BPS_DENOMINATOR;
+        } else {
+            assets = baseAssets;
+        }
+
+        return assets;
+    }
+
+    /**
+     * @notice Override previewWithdraw to account for redeem fees
+     * @param assets The amount of assets (MCT) to withdraw
+     * @return shares The amount of shares (nUSD) needed to withdraw assets (inclusive of fees)
+     * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
+     * @dev To get 'assets' after fee, we need to redeem more shares
+     */
+    function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
+        // Calculate how many assets we need before fee to get 'assets' after fee
+        uint256 assetsBeforeFee = assets;
+        if (redeemFeeBps > 0 && feeTreasury != address(0)) {
+            // assetsAfterFee = assetsBeforeFee * (1 - fee)
+            // So: assetsBeforeFee = assets / (1 - fee)
+            uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
+            assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
+        }
+
+        // Convert assetsBeforeFee to shares using base conversion
+        shares = _convertToShares(assetsBeforeFee, Math.Rounding.Ceil);
+
+        return shares;
     }
 
     /**

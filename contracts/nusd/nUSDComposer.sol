@@ -97,6 +97,7 @@ contract nUSDComposer is VaultComposerSync {
         bytes oftCmd
     );
     event DebugRefund(address oft, uint32 dstEid, bytes32 to, uint256 amount, address refundAddress);
+    event DebugSlippage(uint256 amountLD, uint256 minAmountLD);
 
     /**
      * @notice Creates a new nUSDComposer for cross-chain nUSD minting
@@ -168,6 +169,7 @@ contract nUSDComposer is VaultComposerSync {
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);
         // Mint nUSD to this contract
         uint256 shareAmount = InUSD(address(VAULT)).mintWithCollateral(collateralAsset, _assetAmount);
+        emit DebugSlippage(shareAmount, _sendParam.minAmountLD);
         _assertSlippage(shareAmount, _sendParam.minAmountLD);
 
         _sendParam.amountLD = shareAmount;
