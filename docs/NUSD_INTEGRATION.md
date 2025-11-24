@@ -206,6 +206,141 @@ The composer uses the returned value from `mintWithCollateral()`, which is alrea
 
 ---
 
+## Keyring Network Integration
+
+nUSD integrates with [Keyring Network](https://docs.keyring.network/) to provide credential-based permissioning for mint, redeem, and transfer operations.
+
+### Overview
+
+Keyring Network is a permissioning infrastructure that allows checking if addresses have valid credentials according to configurable policies. This enables compliance with KYC/AML requirements while maintaining on-chain verification.
+
+### How It Works
+
+1. **Credential Checking**: The nUSD contract checks if addresses have valid credentials via the Keyring contract before allowing operations
+2. **Policy-Based**: Each check is against a specific policy ID configured by the admin
+3. **Optional**: Keyring can be disabled by setting the address to `address(0)`
+4. **Whitelisting**: Specific addresses (e.g., AMM pools, smart contracts) can be whitelisted to bypass credential checks
+
+### Operations Protected
+
+- **Minting**: The sender (person initiating the mint) must have valid credentials. The beneficiary can receive nUSD without credentials.
+- **Redeeming**: User must have valid credentials to initiate and complete redemption
+- **Transfers**: **FREELY TRANSFERRABLE** - No Keyring checks on transfers. nUSD can be transferred to anyone by anyone.
+
+### Configuration
+
+```solidity
+// Set Keyring contract and policy ID (enables KYC checks on mint/redeem)
+await nusd.setKeyringConfig(keyringAddress, policyId);
+
+// Disable Keyring checks (no KYC required for any operations)
+await nusd.setKeyringConfig(ethers.constants.AddressZero, 0);
+
+// Whitelist an address (e.g., AMM pool)
+await nusd.setKeyringWhitelist(ammPoolAddress, true);
+
+// Remove from whitelist
+await nusd.setKeyringWhitelist(ammPoolAddress, false);
+```
+
+### Integration Points
+
+**Mint Operations** (`_mintWithCollateral`):
+- Checks `msg.sender` credentials only (the person initiating the mint)
+- Beneficiary does not need credentials (allows minting to any address)
+- Whitelisted addresses bypass checks
+- Enforced after blacklist checks
+- If `keyringAddress` is `address(0)`, no checks are performed
+
+**Redeem Operations** (`cooldownRedeem`, `completeRedeem`):
+- Checks `msg.sender` credentials
+- Enforced after blacklist checks
+- If `keyringAddress` is `address(0)`, no checks are performed
+
+**Transfer Operations** (`transfer`, `transferFrom`):
+- **NO Keyring checks** - nUSD is freely transferrable by design
+- Only blacklist restrictions apply (FULL_RESTRICTED_ROLE)
+- Anyone can transfer to anyone, regardless of credentials
+
+### Whitelist Use Cases
+
+The whitelist is essential for smart contracts that need to interact with nUSD but cannot obtain credentials:
+
+- **AMM Pools**: DEX liquidity pools (Uniswap, Curve, etc.)
+- **Lending Protocols**: Aave, Compound pool contracts
+- **Bridge Contracts**: Cross-chain bridge escrows
+- **Protocol-Owned Contracts**: Treasury contracts, vaults
+
+### Example: Setting Up Keyring
+
+```solidity
+// 1. Deploy or get existing Keyring contract
+const keyringAddress = "0x...";
+const policyId = 1;
+
+// 2. Configure nUSD to use Keyring
+await nusd.setKeyringConfig(keyringAddress, policyId);
+
+// 3. Whitelist necessary smart contracts (e.g., nUSDComposer for cross-chain mints)
+await nusd.setKeyringWhitelist(uniswapPoolAddress, true);
+await nusd.setKeyringWhitelist(treasuryAddress, true);
+await nusd.setKeyringWhitelist(nUSDComposerAddress, true); // For cross-chain minting
+
+// 4. Users need credentials from Keyring before they can:
+//    - Mint nUSD (sender only, can mint to anyone)
+//    - Redeem nUSD
+//    - Transfers are COMPLETELY FREE - no credentials needed
+```
+
+### Cross-Chain Minting with Keyring
+
+The `nUSDComposer` handles cross-chain minting and integrates with Keyring to gate access:
+
+```solidity
+// Check if a user has valid credentials (public view function)
+bool isValid = await nusd.hasValidCredentials(userAddress);
+
+// The composer calls this before minting:
+// 1. User sends collateral from source chain (e.g., Arbitrum)
+// 2. nUSDComposer receives collateral on hub chain
+// 3. Composer checks: nusd.hasValidCredentials(originalSender)
+// 4. If valid: Proceeds with mint and sends nUSD to destination
+// 5. If invalid: Automatically refunds collateral back to source chain
+```
+
+**Key Points:**
+- The **composer itself** must be whitelisted (it's a smart contract)
+- The **original user** (from source chain) has their credentials checked
+- Failed credential checks trigger automatic refunds via LayerZero
+- This maintains compliance even for cross-chain flows
+
+### Security Features
+
+- **Free Transferability**: nUSD transfers are never gated by Keyring - maintains token liquidity
+- **Admin-Only Config**: Only `DEFAULT_ADMIN_ROLE` can configure Keyring settings
+- **Graceful Degradation**: If Keyring address is zero (`address(0)`), all checks are skipped
+- **No Breaking Changes**: Existing functionality works without Keyring enabled
+- **Flexible Whitelisting**: Can adapt to new protocols and use cases
+- **Mint/Redeem Gating Only**: Only entry and exit points are gated, not circulation
+
+### Interaction with Blacklist
+
+Keyring checks are performed **after** blacklist checks:
+1. First, blacklist restrictions are checked
+2. Then, Keyring credentials are verified
+3. This ensures blacklisted addresses are blocked even if they have valid credentials
+
+### Error Handling
+
+When a credential check fails, the transaction reverts with:
+```solidity
+KeyringCredentialInvalid(address account)
+```
+
+This makes it clear which address failed the credential check.
+
+---
+
 ## Redemption & Cooldown Flow
 
 nUSD prioritizes safety during redemptions by locking requests in a silo until the cooldown expires.
@@ -266,7 +401,8 @@ await nusd.burn(amount);
 | **Pause Mint/Redeem** | `pause()` / `unpause()` (GATEKEEPER_ROLE) |
 | **Cooldown Duration** | `setCooldownDuration(uint24 duration)` |
 | **Mint/Redeem Fees** | `setMintFee(bps)`, `setRedeemFee(bps)`, `setFeeTreasury(address)` |
-| **Blacklist** | *(Handled by StakednUSD; see other doc)* |
+| **Blacklist** | `addToBlacklist(address, bool)`, `removeFromBlacklist(address, bool)` |
+| **Keyring Permissioning** | `setKeyringConfig(address, uint256)`, `setKeyringWhitelist(address, bool)` |
 | **Deflationary Burn** | `mint` + `burn` combo described above |
 | **Collateral Ops** | `withdrawCollateral` / `depositCollateral` |
 
@@ -303,6 +439,8 @@ uint256 minRedeem = await nusd.minRedeemAmount();
 - Rate limiter utilization (`mintedPerBlock`, `redeemedPerBlock`)
 - Fee configuration (`mintFeeBps`, `redeemFeeBps`, `feeTreasury`)
 - Minimum amounts (`minMintAmount`, `minRedeemAmount`)
+- Keyring configuration (`keyringAddress`, `keyringPolicyId`)
+- Blacklist status (addresses with `SOFT_RESTRICTED_ROLE` or `FULL_RESTRICTED_ROLE`)
 - Treasury balance accumulation
 
 ---

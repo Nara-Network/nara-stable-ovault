@@ -4,6 +4,7 @@ pragma solidity ^0.8.22;
 import { TestHelper } from "../helpers/TestHelper.sol";
 import { nUSD } from "../../contracts/nusd/nUSD.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
+import { MockKeyring } from "../mocks/MockKeyring.sol";
 
 /**
  * @title nUSDTest
@@ -1202,6 +1203,324 @@ contract nUSDTest is TestHelper {
             nusd.mintWithCollateral(address(usdc), mintAmount);
         }
         
+        vm.stopPrank();
+    }
+
+    /* ========== KEYRING INTEGRATION TESTS ========== */
+
+    /**
+     * @notice Test setting Keyring config
+     */
+    function test_SetKeyringConfig() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+
+        vm.expectEmit(true, true, false, true);
+        emit nUSD.KeyringConfigUpdated(address(keyring), policyId);
+
+        nusd.setKeyringConfig(address(keyring), policyId);
+
+        assertEq(nusd.keyringAddress(), address(keyring), "Keyring address not set");
+        assertEq(nusd.keyringPolicyId(), policyId, "Policy ID not set");
+    }
+
+    /**
+     * @notice Test setting Keyring whitelist
+     */
+    function test_SetKeyringWhitelist() public {
+        address testAddr = makeAddr("testAddr");
+
+        vm.expectEmit(true, false, false, true);
+        emit nUSD.KeyringWhitelistUpdated(testAddr, true);
+
+        nusd.setKeyringWhitelist(testAddr, true);
+        assertTrue(nusd.keyringWhitelist(testAddr), "Address not whitelisted");
+
+        vm.expectEmit(true, false, false, true);
+        emit nUSD.KeyringWhitelistUpdated(testAddr, false);
+
+        nusd.setKeyringWhitelist(testAddr, false);
+        assertFalse(nusd.keyringWhitelist(testAddr), "Address still whitelisted");
+    }
+
+    /**
+     * @notice Test minting requires sender to have Keyring credentials
+     */
+    function test_RevertIf_MintWithoutKeyringCredential() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+
+        // Alice (sender) doesn't have credentials
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        
+        vm.expectRevert(abi.encodeWithSelector(nUSD.KeyringCredentialInvalid.selector, alice));
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test minting succeeds with Keyring credentials
+     */
+    function test_MintWithKeyringCredential() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        keyring.setCredential(policyId, alice, true);
+
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), 1000e6);
+        assertEq(nusdAmount, 1000e18, "Should mint successfully with credentials");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test whitelisted addresses bypass Keyring checks
+     */
+    function test_WhitelistedAddressBypassesKeyring() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        nusd.setKeyringWhitelist(alice, true);
+
+        // Alice doesn't have credentials but is whitelisted
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), 1000e6);
+        assertEq(nusdAmount, 1000e18, "Whitelisted address should bypass Keyring");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test redeem requires Keyring credentials
+     */
+    function test_RevertIf_RedeemWithoutKeyringCredential() public {
+        // First mint with credentials
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        keyring.setCredential(policyId, alice, true);
+        
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Now enable Keyring and revoke credentials
+        nusd.setKeyringConfig(address(keyring), policyId);
+        keyring.setCredential(policyId, alice, false);
+
+        // Try to redeem without credentials
+        vm.startPrank(alice);
+        vm.expectRevert(abi.encodeWithSelector(nUSD.KeyringCredentialInvalid.selector, alice));
+        nusd.cooldownRedeem(address(usdc), 500e18);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test transfers are completely free - no Keyring checks
+     */
+    function test_TransfersFreelyWithoutKeyringCheck() public {
+        // Mint with credentials
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        keyring.setCredential(policyId, alice, true);
+        
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Enable Keyring and revoke Alice's credentials
+        nusd.setKeyringConfig(address(keyring), policyId);
+        keyring.setCredential(policyId, alice, false);
+
+        // Transfer should still work even without credentials
+        vm.startPrank(alice);
+        uint256 bobBalanceBefore = nusd.balanceOf(bob);
+        nusd.transfer(bob, 100e18);
+        assertEq(nusd.balanceOf(bob) - bobBalanceBefore, 100e18, "Transfers are free regardless of credentials");
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test anyone can transfer to anyone - completely free transferability
+     */
+    function test_FreeTransferability() public {
+        // Mint with credentials
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        keyring.setCredential(policyId, alice, true);
+        
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Enable Keyring - neither alice nor bob have credentials after minting
+        nusd.setKeyringConfig(address(keyring), policyId);
+        keyring.setCredential(policyId, alice, false);
+
+        // Alice can transfer to bob
+        vm.startPrank(alice);
+        nusd.transfer(bob, 100e18);
+        vm.stopPrank();
+
+        // Bob can transfer to charlie (neither have credentials)
+        address charlie = makeAddr("charlie");
+        vm.startPrank(bob);
+        nusd.transfer(charlie, 50e18);
+        vm.stopPrank();
+
+        assertEq(nusd.balanceOf(charlie), 50e18, "Free transferability works");
+    }
+
+    /**
+     * @notice Test disabling Keyring by setting address to zero
+     */
+    function test_DisableKeyring() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        
+        // Disable Keyring
+        nusd.setKeyringConfig(address(0), 0);
+        assertEq(nusd.keyringAddress(), address(0), "Keyring should be disabled");
+
+        // Minting should work without credentials
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), 1000e6);
+        assertEq(nusdAmount, 1000e18, "Should mint without Keyring");
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test mintFor only checks sender credentials, not beneficiary
+     */
+    function test_MintForChecksOnlySender() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        keyring.setCredential(policyId, alice, true);
+        // Bob doesn't have credentials
+        
+        // Set up delegated signer - bob delegates to alice
+        vm.startPrank(bob);
+        nusd.setDelegatedSigner(alice);
+        vm.stopPrank();
+        
+        vm.startPrank(alice);
+        nusd.confirmDelegatedSigner(bob);
+        vm.stopPrank();
+        
+        // Alice has credentials but bob doesn't - should still work
+        vm.startPrank(bob);
+        usdc.approve(address(nusd), 1000e6);
+        vm.stopPrank();
+        
+        vm.startPrank(alice);
+        uint256 bobBalanceBefore = nusd.balanceOf(bob);
+        uint256 nusdAmount = nusd.mintWithCollateralFor(address(usdc), 1000e6, bob);
+        assertEq(nusdAmount, 1000e18, "Should mint with sender credentials only");
+        assertEq(nusd.balanceOf(bob) - bobBalanceBefore, 1000e18, "Bob should receive nUSD even without credentials");
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test only admin can set Keyring config
+     */
+    function test_RevertIf_NonAdminSetsKeyringConfig() public {
+        MockKeyring keyring = new MockKeyring();
+        
+        vm.startPrank(alice);
+        vm.expectRevert();
+        nusd.setKeyringConfig(address(keyring), 1);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test only admin can set Keyring whitelist
+     */
+    function test_RevertIf_NonAdminSetsKeyringWhitelist() public {
+        vm.startPrank(alice);
+        vm.expectRevert();
+        nusd.setKeyringWhitelist(bob, true);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test hasValidCredentials returns true when Keyring is disabled
+     */
+    function test_HasValidCredentials_NoKeyring() public {
+        // Keyring not configured - everyone should be valid
+        assertTrue(nusd.hasValidCredentials(alice), "Should be valid when Keyring disabled");
+        assertTrue(nusd.hasValidCredentials(bob), "Should be valid when Keyring disabled");
+        assertTrue(nusd.hasValidCredentials(address(0x123)), "Should be valid when Keyring disabled");
+    }
+
+    /**
+     * @notice Test hasValidCredentials with Keyring enabled
+     */
+    function test_HasValidCredentials_WithKeyring() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        
+        // Alice doesn't have credentials
+        assertFalse(nusd.hasValidCredentials(alice), "Should be invalid without credentials");
+        
+        // Give Alice credentials
+        keyring.setCredential(policyId, alice, true);
+        assertTrue(nusd.hasValidCredentials(alice), "Should be valid with credentials");
+        
+        // Bob still doesn't have credentials
+        assertFalse(nusd.hasValidCredentials(bob), "Should be invalid without credentials");
+    }
+
+    /**
+     * @notice Test hasValidCredentials respects whitelist
+     */
+    function test_HasValidCredentials_Whitelist() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        
+        // Alice doesn't have credentials but is whitelisted
+        nusd.setKeyringWhitelist(alice, true);
+        assertTrue(nusd.hasValidCredentials(alice), "Should be valid when whitelisted");
+        
+        // Bob is not whitelisted and has no credentials
+        assertFalse(nusd.hasValidCredentials(bob), "Should be invalid");
+    }
+
+    /**
+     * @notice Test hasValidCredentials can be called by anyone
+     */
+    function test_HasValidCredentials_PublicAccess() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        keyring.setCredential(policyId, alice, true);
+        
+        // Anyone can call hasValidCredentials
+        vm.startPrank(bob);
+        assertTrue(nusd.hasValidCredentials(alice), "Bob can check Alice's credentials");
+        assertFalse(nusd.hasValidCredentials(bob), "Bob can check his own credentials");
         vm.stopPrank();
     }
 }

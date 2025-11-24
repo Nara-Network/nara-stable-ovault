@@ -13,7 +13,12 @@ interface InUSD {
         address collateralAsset,
         uint256 collateralAmount
     ) external returns (uint256 nUSDAmount);
+
+    function hasValidCredentials(address account) external view returns (bool);
 }
+
+/// @notice Error thrown when sender does not have valid Keyring credentials
+error UnauthorizedSender(address sender);
 
 /**
  * @title nUSDComposer
@@ -151,6 +156,12 @@ contract nUSDComposer is VaultComposerSync {
         address _refundAddress
     ) internal {
         emit DebugDepositCollateralAndSendStart(_assetAmount);
+
+        // Check if original sender has valid Keyring credentials
+        address originalSender = address(uint160(uint256(_depositor)));
+        if (!InUSD(address(VAULT)).hasValidCredentials(originalSender)) {
+            revert UnauthorizedSender(originalSender);
+        }
 
         // Approve nUSD to pull collateral from this composer
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);

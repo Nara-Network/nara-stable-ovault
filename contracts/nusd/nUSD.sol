@@ -13,6 +13,20 @@ import "../mct/MultiCollateralToken.sol";
 import "./nUSDRedeemSilo.sol";
 
 /**
+ * @title IKeyring
+ * @notice Interface for Keyring credential checking
+ */
+interface IKeyring {
+    /**
+     * @notice Checks the credential of an entity against a specific policy
+     * @param policyId The ID of the policy to check against
+     * @param entity The address of the entity to check
+     * @return bool indicating whether the entity's credentials pass the policy check
+     */
+    function checkCredential(uint256 policyId, address entity) external view returns (bool);
+}
+
+/**
  * @title nUSD
  * @notice Omnichain vault version of nUSD with integrated minting functionality and redemption cooldown
  * @dev This contract combines ERC4626 vault with direct collateral minting
@@ -108,6 +122,15 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @notice Treasury address to receive fees
     address public feeTreasury;
 
+    /// @notice Address of the Keyring contract for credential checking
+    address public keyringAddress;
+
+    /// @notice ID of the Keyring policy to check against
+    uint256 public keyringPolicyId;
+
+    /// @notice Mapping to track whitelist status of addresses (for contracts like AMM pools)
+    mapping(address => bool) public keyringWhitelist;
+
     /* --------------- ENUMS --------------- */
 
     enum DelegatedSignerStatus {
@@ -156,6 +179,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
     event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event KeyringConfigUpdated(address indexed keyringAddress, uint256 policyId);
+    event KeyringWhitelistUpdated(address indexed account, bool status);
 
     /* --------------- ERRORS --------------- */
 
@@ -175,6 +200,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     error OperationNotAllowed();
     error CantBlacklistOwner();
     error BelowMinimumAmount();
+    error KeyringCredentialInvalid(address account);
 
     /* --------------- MODIFIERS --------------- */
 
@@ -198,6 +224,51 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     modifier notAdmin(address target) {
         if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
         _;
+    }
+
+    /* --------------- INTERNAL HELPERS --------------- */
+
+    /**
+     * @notice Check if an address has valid Keyring credentials (public view)
+     * @param account The address to check
+     * @return bool True if account has credentials or Keyring is disabled
+     * @dev Returns true if:
+     *      - Keyring is not configured (keyringAddress == address(0))
+     *      - Account is whitelisted
+     *      - Account has valid credentials in Keyring
+     */
+    function hasValidCredentials(address account) public view returns (bool) {
+        // If Keyring not configured, everyone is valid
+        if (keyringAddress == address(0)) {
+            return true;
+        }
+
+        // If whitelisted, skip check
+        if (keyringWhitelist[account]) {
+            return true;
+        }
+
+        // Check Keyring credentials
+        IKeyring keyring = IKeyring(keyringAddress);
+        return keyring.checkCredential(keyringPolicyId, account);
+    }
+
+    /**
+     * @notice Check if an address has valid Keyring credentials (internal with revert)
+     * @param account The address to check
+     * @dev Reverts if account does not have valid credentials
+     *      Uses hasValidCredentials() for the actual check
+     */
+    function _checkKeyringCredential(address account) internal view {
+        // Skip check for zero address (shouldn't happen but defensive)
+        if (account == address(0)) {
+            return;
+        }
+
+        // Use the public function for consistency
+        if (!hasValidCredentials(account)) {
+            revert KeyringCredentialInvalid(account);
+        }
     }
 
     /* --------------- CONSTRUCTOR --------------- */
@@ -299,6 +370,9 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
             revert OperationNotAllowed();
         }
 
+        // Check Keyring credentials
+        _checkKeyringCredential(msg.sender);
+
         // Transfer nUSD from user to silo (locks it)
         _transfer(msg.sender, address(redeemSilo), nUSDAmount);
 
@@ -325,6 +399,9 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
             revert OperationNotAllowed();
         }
+
+        // Check Keyring credentials
+        _checkKeyringCredential(msg.sender);
 
         uint256 nUSDAmount = request.nUSDAmount;
         address collateralAsset = request.collateralAsset;
@@ -493,6 +570,28 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     }
 
     /**
+     * @notice Set Keyring contract address and policy ID
+     * @param _keyringAddress Address of the Keyring contract (set to address(0) to disable)
+     * @param _policyId The policy ID to check credentials against
+     */
+    function setKeyringConfig(address _keyringAddress, uint256 _policyId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        keyringAddress = _keyringAddress;
+        keyringPolicyId = _policyId;
+        emit KeyringConfigUpdated(_keyringAddress, _policyId);
+    }
+
+    /**
+     * @notice Add or remove an address from the Keyring whitelist
+     * @param account The address to update whitelist status for
+     * @param status True to whitelist, false to remove from whitelist
+     * @dev Whitelisted addresses bypass Keyring checks (useful for AMM pools, smart contracts)
+     */
+    function setKeyringWhitelist(address account, bool status) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        keyringWhitelist[account] = status;
+        emit KeyringWhitelistUpdated(account, status);
+    }
+
+    /**
      * @notice Add an address to blacklist
      * @param target The address to blacklist
      * @param isFullBlacklisting Soft or full blacklisting level
@@ -609,6 +708,9 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (hasRole(SOFT_RESTRICTED_ROLE, msg.sender) || hasRole(SOFT_RESTRICTED_ROLE, beneficiary)) {
             revert OperationNotAllowed();
         }
+
+        // Check Keyring credentials for sender only
+        _checkKeyringCredential(msg.sender);
 
         // Convert collateral to nUSD amount (normalize decimals)
         nUSDAmount = _convertToNUSDAmount(collateralAsset, collateralAmount);
@@ -738,14 +840,17 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /**
      * @dev Hook that is called before any transfer of tokens
      * @dev Disables transfers from or to addresses with FULL_RESTRICTED_ROLE
+     * @dev Note: Keyring checks are NOT applied to transfers - nUSD is freely transferrable
      */
     function _update(address from, address to, uint256 value) internal virtual override {
+        // Check blacklist restrictions only
         if (hasRole(FULL_RESTRICTED_ROLE, from) && to != address(0)) {
             revert OperationNotAllowed();
         }
         if (hasRole(FULL_RESTRICTED_ROLE, to)) {
             revert OperationNotAllowed();
         }
+
         super._update(from, to, value);
     }
 
