@@ -96,6 +96,7 @@ contract nUSDComposer is VaultComposerSync {
         bytes composeMsg,
         bytes oftCmd
     );
+    event DebugRefund(address oft, uint32 dstEid, bytes32 to, uint256 amount, address refundAddress);
 
     /**
      * @notice Creates a new nUSDComposer for cross-chain nUSD minting
@@ -286,12 +287,13 @@ contract nUSDComposer is VaultComposerSync {
      * @notice Override _refund to handle collateral asset via its OFT
      */
     function _refund(address _oft, bytes calldata _message, uint256 _amount, address _refundAddress) internal override {
-        if (_oft == collateralAsset) {
+        if (_oft == collateralAssetOFT) {
             SendParam memory refundSendParam;
             refundSendParam.dstEid = OFTComposeMsgCodec.srcEid(_message);
             refundSendParam.to = OFTComposeMsgCodec.composeFrom(_message);
             refundSendParam.amountLD = _amount;
 
+            emit DebugRefund(_oft, refundSendParam.dstEid, refundSendParam.to, _amount, _refundAddress);
             IOFT(collateralAssetOFT).send{ value: msg.value }(
                 refundSendParam,
                 MessagingFee(msg.value, 0),
