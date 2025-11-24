@@ -40,6 +40,12 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @notice Maximum cooldown duration (90 days)
     uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
 
+    /// @notice Maximum fee in basis points (10% = 1000 bps)
+    uint16 public constant MAX_FEE_BPS = 1000;
+
+    /// @notice Basis points denominator (100% = 10000 bps)
+    uint16 public constant BPS_DENOMINATOR = 10000;
+
     /* --------------- STRUCTS --------------- */
 
     /// @notice Redemption request structure
@@ -77,6 +83,15 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
 
     /// @notice Silo contract for holding locked nUSD during cooldown
     nUSDRedeemSilo public immutable redeemSilo;
+
+    /// @notice Mint fee in basis points (e.g., 10 = 0.1%)
+    uint16 public mintFeeBps;
+
+    /// @notice Redeem fee in basis points (e.g., 10 = 0.1%)
+    uint16 public redeemFeeBps;
+
+    /// @notice Treasury address to receive fees
+    address public feeTreasury;
 
     /* --------------- ENUMS --------------- */
 
@@ -119,6 +134,10 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         uint256 collateralAmount
     );
     event RedemptionCancelled(address indexed user, uint256 nUSDAmount);
+    event MintFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+    event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
 
     /* --------------- ERRORS --------------- */
 
@@ -134,6 +153,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     error NoRedemptionRequest();
     error CooldownNotFinished();
     error ExistingRedemptionRequest();
+    error InvalidFee();
 
     /* --------------- MODIFIERS --------------- */
 
@@ -278,10 +298,29 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Burn nUSD (now it's in this contract)
         _burn(address(this), nUSDAmount);
 
-        // Redeem MCT for collateral and send to user
-        uint256 receivedCollateral = mct.redeem(collateralAsset, nUSDAmount, msg.sender);
+        // Redeem MCT for collateral - first to this contract
+        uint256 receivedCollateral = mct.redeem(collateralAsset, nUSDAmount, address(this));
 
-        emit RedemptionCompleted(msg.sender, nUSDAmount, collateralAsset, receivedCollateral);
+        // Calculate redeem fee
+        uint256 feeAmount = 0;
+        uint256 collateralAfterFee = receivedCollateral;
+
+        if (redeemFeeBps > 0 && feeTreasury != address(0)) {
+            feeAmount = (receivedCollateral * redeemFeeBps) / BPS_DENOMINATOR;
+            collateralAfterFee = receivedCollateral - feeAmount;
+
+            // Transfer fee to treasury
+            IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmount);
+            emit FeeCollected(feeTreasury, feeAmount, false);
+        }
+
+        // Transfer collateral to user (after fee deduction)
+        IERC20(collateralAsset).safeTransfer(msg.sender, collateralAfterFee);
+
+        emit RedemptionCompleted(msg.sender, nUSDAmount, collateralAsset, collateralAfterFee);
+
+        // Return the actual collateral amount received by user (after fees)
+        return collateralAfterFee;
     }
 
     /**
@@ -355,6 +394,39 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
      */
     function unpause() external onlyRole(GATEKEEPER_ROLE) {
         _unpause();
+    }
+
+    /**
+     * @notice Set mint fee
+     * @param _mintFeeBps New mint fee in basis points (max 10%)
+     */
+    function setMintFee(uint16 _mintFeeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_mintFeeBps > MAX_FEE_BPS) revert InvalidFee();
+        uint16 oldFee = mintFeeBps;
+        mintFeeBps = _mintFeeBps;
+        emit MintFeeUpdated(oldFee, _mintFeeBps);
+    }
+
+    /**
+     * @notice Set redeem fee
+     * @param _redeemFeeBps New redeem fee in basis points (max 10%)
+     */
+    function setRedeemFee(uint16 _redeemFeeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_redeemFeeBps > MAX_FEE_BPS) revert InvalidFee();
+        uint16 oldFee = redeemFeeBps;
+        redeemFeeBps = _redeemFeeBps;
+        emit RedeemFeeUpdated(oldFee, _redeemFeeBps);
+    }
+
+    /**
+     * @notice Set fee treasury address
+     * @param _feeTreasury New treasury address
+     */
+    function setFeeTreasury(address _feeTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_feeTreasury == address(0)) revert ZeroAddressException();
+        address oldTreasury = feeTreasury;
+        feeTreasury = _feeTreasury;
+        emit FeeTreasuryUpdated(oldTreasury, _feeTreasury);
     }
 
     /**
@@ -440,11 +512,26 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Mint MCT by depositing collateral
         uint256 mctAmount = mct.mint(collateralAsset, collateralAmount, address(this));
 
-        // Mint nUSD shares (1:1 with MCT due to ERC4626)
-        // Since we control the exchange rate to be 1:1, we mint directly
-        _mint(beneficiary, mctAmount);
+        // Calculate mint fee
+        uint256 feeAmount = 0;
+        uint256 amountAfterFee = mctAmount;
 
-        emit Mint(beneficiary, collateralAsset, collateralAmount, nUSDAmount);
+        if (mintFeeBps > 0 && feeTreasury != address(0)) {
+            feeAmount = (mctAmount * mintFeeBps) / BPS_DENOMINATOR;
+            amountAfterFee = mctAmount - feeAmount;
+
+            // Mint fee to treasury
+            _mint(feeTreasury, feeAmount);
+            emit FeeCollected(feeTreasury, feeAmount, true);
+        }
+
+        // Mint nUSD shares to beneficiary (after fee deduction)
+        _mint(beneficiary, amountAfterFee);
+
+        emit Mint(beneficiary, collateralAsset, collateralAmount, amountAfterFee);
+
+        // Return the actual amount minted to beneficiary (after fees)
+        return amountAfterFee;
     }
 
     /**

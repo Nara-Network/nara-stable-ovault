@@ -90,6 +90,63 @@ Keep the on-chain collateral balance ≥ total MCT supply for full backing (unle
 
 ---
 
+## Fee System
+
+nUSD supports configurable mint and redeem fees collected to a designated treasury.
+
+### Fee Configuration
+
+Fees are denominated in **basis points (bps)**:
+- 1 bps = 0.01%
+- Maximum fee = 1000 bps (10%)
+- Example: 50 bps = 0.5%
+
+```solidity
+// Set fees (admin only)
+await nusd.setMintFee(50);        // 0.5% mint fee
+await nusd.setRedeemFee(30);      // 0.3% redeem fee
+await nusd.setFeeTreasury(treasury);
+
+// Query current fees
+uint16 mintFee = await nusd.mintFeeBps();
+uint16 redeemFee = await nusd.redeemFeeBps();
+address treasury = await nusd.feeTreasury();
+```
+
+### How Fees Work
+
+**Mint Fee** (collected in nUSD):
+- User deposits 1000 USDC with 0.5% fee (50 bps)
+- Total MCT minted: 1000e18
+- Fee: 5e18 nUSD → treasury
+- User receives: 995e18 nUSD
+
+**Redeem Fee** (collected in collateral):
+- User redeems 1000 nUSD with 0.3% fee (30 bps)
+- Total collateral: 1000 USDC
+- Fee: 3 USDC → treasury
+- User receives: 997 USDC
+
+### Cross-Chain Compatibility
+
+Fees work seamlessly with cross-chain minting via the `nUSDComposer`:
+1. User sends collateral from spoke chain (e.g., Optimism)
+2. Collateral arrives on hub chain via LayerZero
+3. Composer calls `mintWithCollateral()` → **fee automatically deducted**
+4. Post-fee amount sent to destination chain
+5. User receives correct amount
+
+The composer uses the returned value from `mintWithCollateral()`, which is already the post-fee amount, ensuring fees work transparently across chains.
+
+### Fee Safety Features
+
+- **Maximum Protection**: 10% cap enforced at contract level
+- **Treasury Validation**: Reverts on zero address
+- **Safe Defaults**: If treasury not set, fees are not collected
+- **Access Control**: Only `DEFAULT_ADMIN_ROLE` can modify fees
+
+---
+
 ## Redemption & Cooldown Flow
 
 nUSD prioritizes safety during redemptions by locking requests in a silo until the cooldown expires.
@@ -109,7 +166,9 @@ nUSD prioritizes safety during redemptions by locking requests in a silo until t
    ```
    - Ensures `block.timestamp >= cooldownEnd`
    - Pulls nUSD from silo → burns nUSD shares
-   - Redeems MCT → sends requested collateral to the user
+   - Redeems MCT for collateral
+   - Deducts redeem fee (if configured)
+   - Sends remaining collateral to the user
 
 4. **Cancel Redemption** (optional)
    ```solidity
@@ -146,6 +205,7 @@ await nusd.burn(amount);
 | **Rate Limits** | `setMaxMintPerBlock`, `setMaxRedeemPerBlock` |
 | **Pause Mint/Redeem** | `pause()` / `unpause()` (GATEKEEPER_ROLE) |
 | **Cooldown Duration** | `setCooldownDuration(uint24 duration)` |
+| **Mint/Redeem Fees** | `setMintFee(bps)`, `setRedeemFee(bps)`, `setFeeTreasury(address)` |
 | **Blacklist** | *(Handled by StakednUSD; see other doc)* |
 | **Deflationary Burn** | `mint` + `burn` combo described above |
 | **Collateral Ops** | `withdrawCollateral` / `depositCollateral` |
@@ -155,6 +215,8 @@ await nusd.burn(amount);
 - Total MCT vs total nUSD supply
 - Outstanding redemption requests (`nusd.redemptionRequests(user)`) 
 - Rate limiter utilization (`mintedPerBlock`, `redeemedPerBlock`)
+- Fee configuration (`mintFeeBps`, `redeemFeeBps`, `feeTreasury`)
+- Treasury balance accumulation
 
 ---
 
@@ -175,6 +237,11 @@ await nusd.mintWithCollateral(USDC, amount);
 
 // Protocol mint (requires MINTER_ROLE)
 await nusd.mint(incentivesVault, amount);
+
+// Fee configuration (admin only)
+await nusd.setMintFee(50);        // 0.5% fee
+await nusd.setRedeemFee(30);      // 0.3% fee
+await nusd.setFeeTreasury(treasury);
 
 // Redemption lifecycle
 await nusd.cooldownRedeem(USDC, amount);
