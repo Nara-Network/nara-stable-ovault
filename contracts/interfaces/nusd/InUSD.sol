@@ -50,6 +50,10 @@ interface InUSD is IERC4626, IERC20Permit {
         uint256 collateralAmount
     );
     event RedemptionCancelled(address indexed user, uint256 nUSDAmount);
+    event MintFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+    event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
 
     /* --------------- STRUCTS --------------- */
 
@@ -73,6 +77,7 @@ interface InUSD is IERC4626, IERC20Permit {
     error NoRedemptionRequest();
     error CooldownNotFinished();
     error ExistingRedemptionRequest();
+    error InvalidFee();
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -150,6 +155,24 @@ interface InUSD is IERC4626, IERC20Permit {
      * @notice Unpause all mint and redeem operations
      */
     function unpause() external;
+
+    /**
+     * @notice Set mint fee
+     * @param _mintFeeBps New mint fee in basis points (max 10%)
+     */
+    function setMintFee(uint16 _mintFeeBps) external;
+
+    /**
+     * @notice Set redeem fee
+     * @param _redeemFeeBps New redeem fee in basis points (max 10%)
+     */
+    function setRedeemFee(uint16 _redeemFeeBps) external;
+
+    /**
+     * @notice Set fee treasury address
+     * @param _feeTreasury New treasury address
+     */
+    function setFeeTreasury(address _feeTreasury) external;
 
     /**
      * @notice Mint nUSD without collateral backing (protocol controlled)
@@ -242,4 +265,22 @@ interface InUSD is IERC4626, IERC20Permit {
      * @return address The silo contract address
      */
     function redeemSilo() external view returns (address);
+
+    /**
+     * @notice Get mint fee in basis points
+     * @return uint16 The mint fee
+     */
+    function mintFeeBps() external view returns (uint16);
+
+    /**
+     * @notice Get redeem fee in basis points
+     * @return uint16 The redeem fee
+     */
+    function redeemFeeBps() external view returns (uint16);
+
+    /**
+     * @notice Get fee treasury address
+     * @return address The treasury address
+     */
+    function feeTreasury() external view returns (address);
 }

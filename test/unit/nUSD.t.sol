@@ -551,6 +551,243 @@ contract nUSDTest is TestHelper {
         
         vm.stopPrank();
     }
+
+    /* --------------- FEE TESTS --------------- */
+
+    /**
+     * @notice Test setting mint fee
+     */
+    function test_SetMintFee() public {
+        // Note: address(this) is the admin in TestHelper setup
+        
+        // Set 0.5% mint fee (50 bps)
+        vm.expectEmit(true, true, true, true);
+        emit nUSD.MintFeeUpdated(0, 50);
+        nusd.setMintFee(50);
+        
+        assertEq(nusd.mintFeeBps(), 50, "Mint fee should be 50 bps");
+    }
+
+    /**
+     * @notice Test setting redeem fee
+     */
+    function test_SetRedeemFee() public {
+        // Note: address(this) is the admin in TestHelper setup
+        
+        // Set 0.3% redeem fee (30 bps)
+        vm.expectEmit(true, true, true, true);
+        emit nUSD.RedeemFeeUpdated(0, 30);
+        nusd.setRedeemFee(30);
+        
+        assertEq(nusd.redeemFeeBps(), 30, "Redeem fee should be 30 bps");
+    }
+
+    /**
+     * @notice Test setting fee treasury
+     */
+    function test_SetFeeTreasury() public {
+        address treasury = makeAddr("treasury");
+        
+        // Note: address(this) is the admin in TestHelper setup
+        
+        vm.expectEmit(true, true, true, true);
+        emit nUSD.FeeTreasuryUpdated(address(0), treasury);
+        nusd.setFeeTreasury(treasury);
+        
+        assertEq(nusd.feeTreasury(), treasury, "Treasury should be set");
+    }
+
+    /**
+     * @notice Test minting with fee
+     */
+    function test_MintWithFee() public {
+        address treasury = makeAddr("treasury");
+        
+        // Setup fees (address(this) is admin)
+        nusd.setMintFee(50); // 0.5%
+        nusd.setFeeTreasury(treasury);
+        
+        uint256 usdcAmount = 1000e6;
+        uint256 expectedTotal = 1000e18;
+        uint256 expectedFee = (expectedTotal * 50) / 10000; // 0.5%
+        uint256 expectedUserAmount = expectedTotal - expectedFee;
+        
+        vm.startPrank(alice);
+        uint256 aliceBalanceBefore = nusd.balanceOf(alice);
+        usdc.approve(address(nusd), usdcAmount);
+        
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        
+        // Verify user receives amount after fee
+        assertEq(nusdAmount, expectedUserAmount, "User should receive amount after fee");
+        assertEq(nusd.balanceOf(alice) - aliceBalanceBefore, expectedUserAmount, "Alice balance should be after fee");
+        
+        // Verify treasury receives fee
+        assertEq(nusd.balanceOf(treasury), expectedFee, "Treasury should receive fee");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test redeeming with fee
+     */
+    function test_RedeemWithFee() public {
+        address treasury = makeAddr("treasury");
+        
+        // Setup: Mint nUSD first (no fee)
+        vm.startPrank(alice);
+        uint256 usdcAmount = 1000e6;
+        usdc.approve(address(nusd), usdcAmount);
+        nusd.mintWithCollateral(address(usdc), usdcAmount);
+        uint256 nusdAmount = 1000e18;
+        vm.stopPrank();
+        
+        // Set redeem fee (address(this) is admin)
+        nusd.setRedeemFee(30); // 0.3%
+        nusd.setFeeTreasury(treasury);
+        
+        // Redeem with fee
+        vm.startPrank(alice);
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        
+        nusd.cooldownRedeem(address(usdc), nusdAmount);
+        vm.warp(block.timestamp + 7 days);
+        
+        uint256 collateralReceived = nusd.completeRedeem();
+        
+        // Calculate expected amounts
+        uint256 expectedCollateralTotal = 1000e6;
+        uint256 expectedFee = (expectedCollateralTotal * 30) / 10000; // 0.3%
+        uint256 expectedUserCollateral = expectedCollateralTotal - expectedFee;
+        
+        // Verify user receives collateral after fee
+        assertEq(collateralReceived, expectedUserCollateral, "User should receive collateral after fee");
+        assertEq(usdc.balanceOf(alice) - aliceUsdcBefore, expectedUserCollateral, "Alice USDC increased by after-fee amount");
+        
+        // Verify treasury receives fee
+        assertEq(usdc.balanceOf(treasury), expectedFee, "Treasury should receive fee in collateral");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test minting with fee disabled (zero fee)
+     */
+    function test_MintWithZeroFee() public {
+        address treasury = makeAddr("treasury");
+        
+        // Setup (address(this) is admin)
+        nusd.setMintFee(0); // No fee
+        nusd.setFeeTreasury(treasury);
+        
+        uint256 usdcAmount = 1000e6;
+        uint256 expectedNusd = 1000e18;
+        
+        vm.startPrank(alice);
+        uint256 aliceBalanceBefore = nusd.balanceOf(alice);
+        usdc.approve(address(nusd), usdcAmount);
+        
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        
+        // Verify user receives full amount
+        assertEq(nusdAmount, expectedNusd, "User should receive full amount");
+        assertEq(nusd.balanceOf(alice) - aliceBalanceBefore, expectedNusd, "Alice balance increase should be full amount");
+        
+        // Verify treasury receives nothing
+        assertEq(nusd.balanceOf(treasury), 0, "Treasury should receive no fee");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test setting fee above maximum reverts
+     */
+    function test_RevertIf_SetFeeAboveMax() public {
+        // Note: address(this) is the admin in TestHelper setup
+        
+        // Try to set 11% fee (1100 bps, max is 1000)
+        vm.expectRevert(nUSD.InvalidFee.selector);
+        nusd.setMintFee(1100);
+        
+        vm.expectRevert(nUSD.InvalidFee.selector);
+        nusd.setRedeemFee(1100);
+    }
+
+    /**
+     * @notice Test non-admin cannot set fees
+     */
+    function test_RevertIf_NonAdminSetsFee() public {
+        vm.startPrank(alice);
+        
+        vm.expectRevert();
+        nusd.setMintFee(50);
+        
+        vm.expectRevert();
+        nusd.setRedeemFee(50);
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test setting zero address as treasury reverts
+     */
+    function test_RevertIf_SetZeroAddressTreasury() public {
+        // Note: address(this) is the admin in TestHelper setup
+        
+        vm.expectRevert(nUSD.ZeroAddressException.selector);
+        nusd.setFeeTreasury(address(0));
+    }
+
+    /**
+     * @notice Test minting with fee but no treasury set (fee not collected)
+     */
+    function test_MintWithFeeNoTreasury() public {
+        // Setup (address(this) is admin)
+        nusd.setMintFee(50); // 0.5% fee
+        // Don't set treasury
+        
+        uint256 usdcAmount = 1000e6;
+        uint256 expectedNusd = 1000e18; // Full amount since treasury not set
+        
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), usdcAmount);
+        
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        
+        // Verify user receives full amount when treasury not set
+        assertEq(nusdAmount, expectedNusd, "User should receive full amount without treasury");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Fuzz test minting with various fee amounts
+     */
+    function testFuzz_MintWithFee(uint256 amount, uint16 feeBps) public {
+        amount = bound(amount, 1e6, 100_000e6);
+        feeBps = uint16(bound(feeBps, 1, 1000)); // 0.01% to 10%
+        
+        address treasury = makeAddr("treasury");
+        
+        // Setup (address(this) is admin)
+        nusd.setMintFee(feeBps);
+        nusd.setFeeTreasury(treasury);
+        
+        vm.startPrank(alice);
+        usdc.mint(alice, amount);
+        usdc.approve(address(nusd), amount);
+        
+        uint256 expectedTotal = amount * 1e12; // Convert to 18 decimals
+        uint256 expectedFee = (expectedTotal * feeBps) / 10000;
+        uint256 expectedUserAmount = expectedTotal - expectedFee;
+        
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), amount);
+        
+        assertEq(nusdAmount, expectedUserAmount, "User amount incorrect");
+        assertEq(nusd.balanceOf(treasury), expectedFee, "Treasury fee incorrect");
+        
+        vm.stopPrank();
+    }
 }
 
 
