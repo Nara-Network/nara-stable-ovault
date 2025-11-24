@@ -262,6 +262,7 @@ await nusd.burn(amount);
 | Feature | How to Use |
 |---------|------------|
 | **Rate Limits** | `setMaxMintPerBlock`, `setMaxRedeemPerBlock` |
+| **Minimum Amounts** | `setMinMintAmount(uint256)`, `setMinRedeemAmount(uint256)` |
 | **Pause Mint/Redeem** | `pause()` / `unpause()` (GATEKEEPER_ROLE) |
 | **Cooldown Duration** | `setCooldownDuration(uint24 duration)` |
 | **Mint/Redeem Fees** | `setMintFee(bps)`, `setRedeemFee(bps)`, `setFeeTreasury(address)` |
@@ -269,12 +270,39 @@ await nusd.burn(amount);
 | **Deflationary Burn** | `mint` + `burn` combo described above |
 | **Collateral Ops** | `withdrawCollateral` / `depositCollateral` |
 
+### Minimum Amounts
+
+nUSD supports configurable minimum amounts for minting and redemption operations:
+
+```solidity
+// Set minimum mint amount (admin only)
+await nusd.setMinMintAmount(100e18);  // 100 nUSD minimum
+
+// Set minimum redeem amount (admin only)
+await nusd.setMinRedeemAmount(100e18);  // 100 nUSD minimum
+
+// Query current minimums
+uint256 minMint = await nusd.minMintAmount();
+uint256 minRedeem = await nusd.minRedeemAmount();
+```
+
+**Key Features:**
+- Prevents dust/spam transactions
+- Default value: 0 (no minimum enforced)
+- Checked before rate limiting and blacklist checks
+- Applied to the nUSD amount (18 decimals), not collateral amount
+
+**Example:**
+- If `minMintAmount = 100e18`, users must mint at least 100 nUSD
+- Attempting to mint 50 nUSD will revert with `BelowMinimumAmount()`
+
 ### Suggested Monitoring
 - Collateral balances per asset (`mct.collateralBalance(asset)`)
 - Total MCT vs total nUSD supply
 - Outstanding redemption requests (`nusd.redemptionRequests(user)`) 
 - Rate limiter utilization (`mintedPerBlock`, `redeemedPerBlock`)
 - Fee configuration (`mintFeeBps`, `redeemFeeBps`, `feeTreasury`)
+- Minimum amounts (`minMintAmount`, `minRedeemAmount`)
 - Treasury balance accumulation
 
 ---
@@ -301,6 +329,10 @@ await nusd.mint(incentivesVault, amount);
 await nusd.setMintFee(50);        // 0.5% fee
 await nusd.setRedeemFee(30);      // 0.3% fee
 await nusd.setFeeTreasury(treasury);
+
+// Minimum amounts (admin only)
+await nusd.setMinMintAmount(100e18);   // 100 nUSD minimum to mint
+await nusd.setMinRedeemAmount(100e18); // 100 nUSD minimum to redeem
 
 // Blacklist management (admin only)
 await nusd.addToBlacklist(address, false);       // Soft restriction

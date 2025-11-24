@@ -81,6 +81,12 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @notice Max redeemed nUSD allowed per block
     uint256 public maxRedeemPerBlock;
 
+    /// @notice Minimum nUSD amount required for minting (18 decimals)
+    uint256 public minMintAmount;
+
+    /// @notice Minimum nUSD amount required for redemption (18 decimals)
+    uint256 public minRedeemAmount;
+
     /// @notice Delegated signer status for smart contracts
     mapping(address => mapping(address => DelegatedSignerStatus)) public delegatedSigner;
 
@@ -148,6 +154,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
     event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
+    event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
 
     /* --------------- ERRORS --------------- */
 
@@ -166,6 +174,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     error InvalidFee();
     error OperationNotAllowed();
     error CantBlacklistOwner();
+    error BelowMinimumAmount();
 
     /* --------------- MODIFIERS --------------- */
 
@@ -279,6 +288,11 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (nUSDAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (redemptionRequests[msg.sender].nUSDAmount > 0) revert ExistingRedemptionRequest();
+
+        // Check minimum redeem amount
+        if (minRedeemAmount > 0 && nUSDAmount < minRedeemAmount) {
+            revert BelowMinimumAmount();
+        }
 
         // Check blacklist restrictions (full restriction prevents redeeming)
         if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
@@ -459,6 +473,26 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     }
 
     /**
+     * @notice Set minimum mint amount
+     * @param _minMintAmount New minimum mint amount (18 decimals)
+     */
+    function setMinMintAmount(uint256 _minMintAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 oldAmount = minMintAmount;
+        minMintAmount = _minMintAmount;
+        emit MinMintAmountUpdated(oldAmount, _minMintAmount);
+    }
+
+    /**
+     * @notice Set minimum redeem amount
+     * @param _minRedeemAmount New minimum redeem amount (18 decimals)
+     */
+    function setMinRedeemAmount(uint256 _minRedeemAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 oldAmount = minRedeemAmount;
+        minRedeemAmount = _minRedeemAmount;
+        emit MinRedeemAmountUpdated(oldAmount, _minRedeemAmount);
+    }
+
+    /**
      * @notice Add an address to blacklist
      * @param target The address to blacklist
      * @param isFullBlacklisting Soft or full blacklisting level
@@ -578,6 +612,11 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
 
         // Convert collateral to nUSD amount (normalize decimals)
         nUSDAmount = _convertToNUSDAmount(collateralAsset, collateralAmount);
+
+        // Check minimum mint amount
+        if (minMintAmount > 0 && nUSDAmount < minMintAmount) {
+            revert BelowMinimumAmount();
+        }
 
         // Track minted amount
         mintedPerBlock[block.number] += nUSDAmount;

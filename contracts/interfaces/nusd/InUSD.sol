@@ -55,6 +55,8 @@ interface InUSD is IERC4626, IERC20Permit {
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
     event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
+    event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
 
     /* --------------- STRUCTS --------------- */
 
@@ -81,6 +83,7 @@ interface InUSD is IERC4626, IERC20Permit {
     error InvalidFee();
     error OperationNotAllowed();
     error CantBlacklistOwner();
+    error BelowMinimumAmount();
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -176,6 +179,18 @@ interface InUSD is IERC4626, IERC20Permit {
      * @param _feeTreasury New treasury address
      */
     function setFeeTreasury(address _feeTreasury) external;
+
+    /**
+     * @notice Set minimum mint amount
+     * @param _minMintAmount New minimum mint amount (18 decimals)
+     */
+    function setMinMintAmount(uint256 _minMintAmount) external;
+
+    /**
+     * @notice Set minimum redeem amount
+     * @param _minRedeemAmount New minimum redeem amount (18 decimals)
+     */
+    function setMinRedeemAmount(uint256 _minRedeemAmount) external;
 
     /**
      * @notice Add an address to blacklist
@@ -307,4 +322,16 @@ interface InUSD is IERC4626, IERC20Permit {
      * @return address The treasury address
      */
     function feeTreasury() external view returns (address);
+
+    /**
+     * @notice Get minimum mint amount
+     * @return uint256 The minimum mint amount (18 decimals)
+     */
+    function minMintAmount() external view returns (uint256);
+
+    /**
+     * @notice Get minimum redeem amount
+     * @return uint256 The minimum redeem amount (18 decimals)
+     */
+    function minRedeemAmount() external view returns (uint256);
 }

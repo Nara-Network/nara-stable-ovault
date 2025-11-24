@@ -1007,6 +1007,203 @@ contract nUSDTest is TestHelper {
         vm.expectRevert(nUSD.OperationNotAllowed.selector);
         nusd.redistributeLockedAmount(alice, bob);
     }
+
+    /* --------------- MINIMUM AMOUNT TESTS --------------- */
+
+    /**
+     * @notice Test setting minimum mint amount
+     */
+    function test_SetMinMintAmount() public {
+        uint256 minAmount = 100e18; // 100 nUSD
+        
+        vm.expectEmit(true, true, true, true);
+        emit nUSD.MinMintAmountUpdated(0, minAmount);
+        nusd.setMinMintAmount(minAmount);
+        
+        assertEq(nusd.minMintAmount(), minAmount, "Min mint amount should be set");
+    }
+
+    /**
+     * @notice Test setting minimum redeem amount
+     */
+    function test_SetMinRedeemAmount() public {
+        uint256 minAmount = 100e18; // 100 nUSD
+        
+        vm.expectEmit(true, true, true, true);
+        emit nUSD.MinRedeemAmountUpdated(0, minAmount);
+        nusd.setMinRedeemAmount(minAmount);
+        
+        assertEq(nusd.minRedeemAmount(), minAmount, "Min redeem amount should be set");
+    }
+
+    /**
+     * @notice Test mint below minimum reverts
+     */
+    function test_RevertIf_MintBelowMinimum() public {
+        uint256 minAmount = 100e18; // 100 nUSD
+        nusd.setMinMintAmount(minAmount);
+        
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 50e6); // 50 USDC = 50 nUSD, below minimum
+        
+        vm.expectRevert(nUSD.BelowMinimumAmount.selector);
+        nusd.mintWithCollateral(address(usdc), 50e6);
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test mint at exactly minimum succeeds
+     */
+    function test_MintAtMinimum() public {
+        uint256 minAmount = 100e18; // 100 nUSD
+        nusd.setMinMintAmount(minAmount);
+        
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 100e6); // Exactly 100 USDC = 100 nUSD
+        
+        uint256 minted = nusd.mintWithCollateral(address(usdc), 100e6);
+        assertEq(minted, minAmount, "Should mint exactly minimum amount");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test mint above minimum succeeds
+     */
+    function test_MintAboveMinimum() public {
+        uint256 minAmount = 100e18; // 100 nUSD
+        nusd.setMinMintAmount(minAmount);
+        
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 200e6); // 200 USDC = 200 nUSD, above minimum
+        
+        uint256 minted = nusd.mintWithCollateral(address(usdc), 200e6);
+        assertEq(minted, 200e18, "Should mint above minimum");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test redeem below minimum reverts
+     */
+    function test_RevertIf_RedeemBelowMinimum() public {
+        // First mint some nUSD
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+        
+        // Set minimum redeem amount
+        uint256 minAmount = 100e18; // 100 nUSD
+        nusd.setMinRedeemAmount(minAmount);
+        
+        // Try to redeem below minimum
+        vm.startPrank(alice);
+        vm.expectRevert(nUSD.BelowMinimumAmount.selector);
+        nusd.cooldownRedeem(address(usdc), 50e18); // 50 nUSD, below minimum
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test redeem at exactly minimum succeeds
+     */
+    function test_RedeemAtMinimum() public {
+        // First mint some nUSD
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+        
+        // Set minimum redeem amount
+        uint256 minAmount = 100e18; // 100 nUSD
+        nusd.setMinRedeemAmount(minAmount);
+        
+        // Redeem exactly minimum
+        vm.startPrank(alice);
+        nusd.cooldownRedeem(address(usdc), minAmount);
+        
+        (uint104 cooldownEnd, uint152 lockedAmount, ) = nusd.redemptionRequests(alice);
+        assertEq(lockedAmount, minAmount, "Should lock exactly minimum amount");
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test redeem above minimum succeeds
+     */
+    function test_RedeemAboveMinimum() public {
+        // First mint some nUSD
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1000e6);
+        nusd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+        
+        // Set minimum redeem amount
+        uint256 minAmount = 100e18; // 100 nUSD
+        nusd.setMinRedeemAmount(minAmount);
+        
+        // Redeem above minimum
+        vm.startPrank(alice);
+        nusd.cooldownRedeem(address(usdc), 200e18); // 200 nUSD
+        
+        (uint104 cooldownEnd, uint152 lockedAmount, ) = nusd.redemptionRequests(alice);
+        assertEq(lockedAmount, 200e18, "Should lock amount above minimum");
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test minimum of 0 allows any amount
+     */
+    function test_MinimumZeroAllowsAnyAmount() public {
+        // Minimum defaults to 0, should allow any amount
+        vm.startPrank(alice);
+        usdc.approve(address(nusd), 1e6); // 1 USDC = 1 nUSD
+        
+        uint256 minted = nusd.mintWithCollateral(address(usdc), 1e6);
+        assertEq(minted, 1e18, "Should mint even tiny amounts when minimum is 0");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test non-admin cannot set minimums
+     */
+    function test_RevertIf_NonAdminSetsMinimums() public {
+        vm.startPrank(alice);
+        
+        vm.expectRevert();
+        nusd.setMinMintAmount(100e18);
+        
+        vm.expectRevert();
+        nusd.setMinRedeemAmount(100e18);
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Fuzz test minimum mint amount
+     */
+    function testFuzz_MinMintAmount(uint256 minAmount, uint256 mintAmount) public {
+        minAmount = bound(minAmount, 1e18, 1000e18); // 1-1000 nUSD minimum
+        mintAmount = bound(mintAmount, 1e6, 2000e6); // 1-2000 USDC (non-zero)
+        
+        nusd.setMinMintAmount(minAmount);
+        
+        uint256 expectedNUSD = mintAmount * 1e12; // Convert USDC to nUSD
+        
+        vm.startPrank(alice);
+        usdc.mint(alice, mintAmount);
+        usdc.approve(address(nusd), mintAmount);
+        
+        if (expectedNUSD < minAmount) {
+            vm.expectRevert(nUSD.BelowMinimumAmount.selector);
+            nusd.mintWithCollateral(address(usdc), mintAmount);
+        } else {
+            nusd.mintWithCollateral(address(usdc), mintAmount);
+        }
+        
+        vm.stopPrank();
+    }
 }
 
 
