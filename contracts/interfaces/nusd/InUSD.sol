@@ -54,6 +54,7 @@ interface InUSD is IERC4626, IERC20Permit {
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
+    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
 
     /* --------------- STRUCTS --------------- */
 
@@ -78,6 +79,8 @@ interface InUSD is IERC4626, IERC20Permit {
     error CooldownNotFinished();
     error ExistingRedemptionRequest();
     error InvalidFee();
+    error OperationNotAllowed();
+    error CantBlacklistOwner();
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -173,6 +176,27 @@ interface InUSD is IERC4626, IERC20Permit {
      * @param _feeTreasury New treasury address
      */
     function setFeeTreasury(address _feeTreasury) external;
+
+    /**
+     * @notice Add an address to blacklist
+     * @param target The address to blacklist
+     * @param isFullBlacklisting Soft or full blacklisting level
+     */
+    function addToBlacklist(address target, bool isFullBlacklisting) external;
+
+    /**
+     * @notice Remove an address from blacklist
+     * @param target The address to un-blacklist
+     * @param isFullBlacklisting Soft or full blacklisting level
+     */
+    function removeFromBlacklist(address target, bool isFullBlacklisting) external;
+
+    /**
+     * @notice Redistribute locked amount from full restricted user
+     * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_ROLE)
+     * @param to The address to mint the entire balance to (or address(0) to burn)
+     */
+    function redistributeLockedAmount(address from, address to) external;
 
     /**
      * @notice Mint nUSD without collateral backing (protocol controlled)

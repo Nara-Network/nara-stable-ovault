@@ -37,6 +37,15 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @notice Role allowed to mint nUSD without collateral backing
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
+    /// @notice Role that can blacklist and un-blacklist addresses
+    bytes32 public constant BLACKLIST_MANAGER_ROLE = keccak256("BLACKLIST_MANAGER_ROLE");
+
+    /// @notice Role that prevents an address from minting
+    bytes32 public constant SOFT_RESTRICTED_ROLE = keccak256("SOFT_RESTRICTED_ROLE");
+
+    /// @notice Role that prevents an address from transferring, minting, or redeeming
+    bytes32 public constant FULL_RESTRICTED_ROLE = keccak256("FULL_RESTRICTED_ROLE");
+
     /// @notice Maximum cooldown duration (90 days)
     uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
 
@@ -138,6 +147,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
+    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
 
     /* --------------- ERRORS --------------- */
 
@@ -154,6 +164,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     error CooldownNotFinished();
     error ExistingRedemptionRequest();
     error InvalidFee();
+    error OperationNotAllowed();
+    error CantBlacklistOwner();
 
     /* --------------- MODIFIERS --------------- */
 
@@ -170,6 +182,12 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (redeemedPerBlock[block.number] + redeemAmount > maxRedeemPerBlock) {
             revert MaxRedeemPerBlockExceeded();
         }
+        _;
+    }
+
+    /// @notice Ensure blacklist target is not admin
+    modifier notAdmin(address target) {
+        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
         _;
     }
 
@@ -190,6 +208,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         _grantRole(GATEKEEPER_ROLE, admin);
         _grantRole(COLLATERAL_MANAGER_ROLE, admin);
         _grantRole(MINTER_ROLE, admin);
+        _grantRole(BLACKLIST_MANAGER_ROLE, admin);
 
         _setMaxMintPerBlock(_maxMintPerBlock);
         _setMaxRedeemPerBlock(_maxRedeemPerBlock);
@@ -261,6 +280,11 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (redemptionRequests[msg.sender].nUSDAmount > 0) revert ExistingRedemptionRequest();
 
+        // Check blacklist restrictions (full restriction prevents redeeming)
+        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
+            revert OperationNotAllowed();
+        }
+
         // Transfer nUSD from user to silo (locks it)
         _transfer(msg.sender, address(redeemSilo), nUSDAmount);
 
@@ -282,6 +306,11 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
 
         if (request.nUSDAmount == 0) revert NoRedemptionRequest();
         if (block.timestamp < request.cooldownEnd) revert CooldownNotFinished();
+
+        // Check blacklist restrictions (full restriction prevents redeeming)
+        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
+            revert OperationNotAllowed();
+        }
 
         uint256 nUSDAmount = request.nUSDAmount;
         address collateralAsset = request.collateralAsset;
@@ -430,6 +459,51 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     }
 
     /**
+     * @notice Add an address to blacklist
+     * @param target The address to blacklist
+     * @param isFullBlacklisting Soft or full blacklisting level
+     */
+    function addToBlacklist(
+        address target,
+        bool isFullBlacklisting
+    ) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
+        bytes32 role = isFullBlacklisting ? FULL_RESTRICTED_ROLE : SOFT_RESTRICTED_ROLE;
+        _grantRole(role, target);
+    }
+
+    /**
+     * @notice Remove an address from blacklist
+     * @param target The address to un-blacklist
+     * @param isFullBlacklisting Soft or full blacklisting level
+     */
+    function removeFromBlacklist(address target, bool isFullBlacklisting) external onlyRole(BLACKLIST_MANAGER_ROLE) {
+        bytes32 role = isFullBlacklisting ? FULL_RESTRICTED_ROLE : SOFT_RESTRICTED_ROLE;
+        _revokeRole(role, target);
+    }
+
+    /**
+     * @notice Redistribute locked amount from full restricted user
+     * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_ROLE)
+     * @param to The address to mint the entire balance to (or address(0) to burn)
+     */
+    function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (hasRole(FULL_RESTRICTED_ROLE, from) && !hasRole(FULL_RESTRICTED_ROLE, to)) {
+            uint256 amountToDistribute = balanceOf(from);
+
+            _burn(from, amountToDistribute);
+
+            // to address of address(0) enables burning
+            if (to != address(0)) {
+                _mint(to, amountToDistribute);
+            }
+
+            emit LockedAmountRedistributed(from, to, amountToDistribute);
+        } else {
+            revert OperationNotAllowed();
+        }
+    }
+
+    /**
      * @notice Burn nUSD tokens and underlying MCT without withdrawing collateral
      * @dev This creates a deflationary effect: burns both nUSD and MCT while keeping collateral in MCT
      * @dev Burns tokens from msg.sender only (caller must own the tokens)
@@ -496,6 +570,11 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (collateralAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (beneficiary == address(0)) revert ZeroAddressException();
+
+        // Check blacklist restrictions (soft restriction prevents minting)
+        if (hasRole(SOFT_RESTRICTED_ROLE, msg.sender) || hasRole(SOFT_RESTRICTED_ROLE, beneficiary)) {
+            revert OperationNotAllowed();
+        }
 
         // Convert collateral to nUSD amount (normalize decimals)
         nUSDAmount = _convertToNUSDAmount(collateralAsset, collateralAmount);
@@ -615,6 +694,20 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @dev Override decimals to ensure 18 decimals
     function decimals() public pure override(ERC4626, ERC20) returns (uint8) {
         return 18;
+    }
+
+    /**
+     * @dev Hook that is called before any transfer of tokens
+     * @dev Disables transfers from or to addresses with FULL_RESTRICTED_ROLE
+     */
+    function _update(address from, address to, uint256 value) internal virtual override {
+        if (hasRole(FULL_RESTRICTED_ROLE, from) && to != address(0)) {
+            revert OperationNotAllowed();
+        }
+        if (hasRole(FULL_RESTRICTED_ROLE, to)) {
+            revert OperationNotAllowed();
+        }
+        super._update(from, to, value);
     }
 
     /**
