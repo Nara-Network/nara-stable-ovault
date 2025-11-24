@@ -65,7 +65,7 @@ const deployStakedNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     } else {
         // Step 1: Deploy StakednUSD
         console.log('1. Deploying StakednUSD...')
-        const stakedNusdDeployment = await deploy('staked-usde/StakednUSD', {
+        const stakedNusdDeployment = await deploy('staked-nusd/StakednUSD', {
             from: deployer,
             args: [
                 NUSD_ADDRESS, // nUSD token
@@ -98,7 +98,7 @@ const deployStakedNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 3: Grant REWARDER_ROLE to StakingRewardsDistributor
     console.log('3. Granting REWARDER_ROLE to StakingRewardsDistributor...')
-    const stakedNusd = await hre.ethers.getContractAt('staked-usde/StakednUSD', stakedNusdAddress)
+    const stakedNusd = await hre.ethers.getContractAt('staked-nusd/StakednUSD', stakedNusdAddress)
     const REWARDER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('REWARDER_ROLE'))
     const BLACKLIST_MANAGER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('BLACKLIST_MANAGER_ROLE'))
 
@@ -122,7 +122,7 @@ const deployStakedNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 4: Approve nUSD from distributor to StakednUSD (already done in constructor)
     console.log('4. Verifying nUSD approval...')
-    const nusd = await hre.ethers.getContractAt('usde/nUSD', NUSD_ADDRESS)
+    const nusd = await hre.ethers.getContractAt('nusd/nUSD', NUSD_ADDRESS)
     const allowance = await nusd.allowance(distributorDeployment.address, stakedNusdAddress)
     if (allowance.gt(0)) {
         console.log('   ✓ StakingRewardsDistributor has nUSD approval')
@@ -152,12 +152,12 @@ const deployStakedNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     console.log('# StakednUSD')
     console.log(
-        `npx hardhat verify --contract contracts/staked-usde/StakednUSD.sol:StakednUSD --network ${hre.network.name} ${stakedNusdAddress} "${NUSD_ADDRESS}" "${initialRewarder}" "${ADMIN_ADDRESS}"\n`
+        `npx hardhat verify --contract contracts/staked-nusd/StakednUSD.sol:StakednUSD --network ${hre.network.name} ${stakedNusdAddress} "${NUSD_ADDRESS}" "${initialRewarder}" "${ADMIN_ADDRESS}"\n`
     )
 
     console.log('# StakingRewardsDistributor')
     console.log(
-        `npx hardhat verify --contract contracts/staked-usde/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${hre.network.name} ${distributorDeployment.address} "${stakedNusdAddress}" "${NUSD_ADDRESS}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"\n`
+        `npx hardhat verify --contract contracts/staked-nusd/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${hre.network.name} ${distributorDeployment.address} "${stakedNusdAddress}" "${NUSD_ADDRESS}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"\n`
     )
 
     console.log('========================================\n')

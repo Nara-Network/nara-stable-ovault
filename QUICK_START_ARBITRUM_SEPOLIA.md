@@ -85,7 +85,7 @@ const usdc = await ethers.getContractAt(
   "IERC20",
   "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773",
 );
-const nusd = await ethers.getContractAt("usde/nUSD", "YOUR_NUSD_ADDRESS");
+const nusd = await ethers.getContractAt("nusd/nUSD", "YOUR_NUSD_ADDRESS");
 
 // Mint 100 nUSD with 100 USDC
 const amount = ethers.utils.parseUnits("100", 6); // 100 USDC (6 decimals)
@@ -102,7 +102,7 @@ console.log("nUSD balance:", ethers.utils.formatEther(balance));
 
 ```javascript
 const stakedNusd = await ethers.getContractAt(
-  "staked-usde/StakednUSD",
+  "staked-nusd/StakednUSD",
   "YOUR_STAKED_USDE_ADDRESS",
 );
 
@@ -122,7 +122,7 @@ console.log("snUSD balance:", ethers.utils.formatEther(sBalance));
 
 ```javascript
 const distributor = await ethers.getContractAt(
-  "staked-usde/StakingRewardsDistributor",
+  "staked-nusd/StakingRewardsDistributor",
   "YOUR_DISTRIBUTOR_ADDRESS",
 );
 
@@ -250,7 +250,7 @@ await mct.addSupportedAsset("0xNewAssetAddress...");
 ### Update Rate Limits
 
 ```javascript
-const nusd = await ethers.getContractAt("usde/nUSD", "NUSD_ADDRESS");
+const nusd = await ethers.getContractAt("nusd/nUSD", "NUSD_ADDRESS");
 await nusd.setMaxMintPerBlock(ethers.utils.parseEther("2000000"));
 await nusd.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
 ```
@@ -271,7 +271,7 @@ await nusd.disableMintRedeem();
 
 ```javascript
 const distributor = await ethers.getContractAt(
-  "staked-usde/StakingRewardsDistributor",
+  "staked-nusd/StakingRewardsDistributor",
   "DISTRIBUTOR_ADDRESS",
 );
 await distributor.setOperator("NEW_OPERATOR_ADDRESS");

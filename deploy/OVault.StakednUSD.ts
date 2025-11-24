@@ -64,7 +64,7 @@ const deploy: DeployFunction = async (hre) => {
         // Deploy StakednUSDOFTAdapter (lockbox)
         console.log('   → Deploying StakednUSDOFTAdapter (lockbox)...')
         const sNusdAdapter = await deployments.deploy('StakednUSDOFTAdapter', {
-            contract: 'contracts/staked-usde/StakednUSDOFTAdapter.sol:StakednUSDOFTAdapter',
+            contract: 'contracts/staked-nusd/StakednUSDOFTAdapter.sol:StakednUSDOFTAdapter',
             from: deployer,
             args: [stakedNusdAddress, endpointV2.address, deployer],
             log: true,
@@ -83,7 +83,7 @@ const deploy: DeployFunction = async (hre) => {
         // Deploy StakednUSDOFT (mint/burn)
         console.log('   → Deploying StakednUSDOFT (mint/burn)...')
         const sNusdOFT = await deployments.deploy('StakednUSDOFT', {
-            contract: 'contracts/staked-usde/StakednUSDOFT.sol:StakednUSDOFT',
+            contract: 'contracts/staked-nusd/StakednUSDOFT.sol:StakednUSDOFT',
             from: deployer,
             args: [
                 endpointV2.address, // _lzEndpoint
@@ -131,7 +131,7 @@ const deploy: DeployFunction = async (hre) => {
                 const stakedNusd = await hre.deployments.get('StakednUSD')
                 console.log(`# StakednUSDOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --contract contracts/staked-usde/StakednUSDOFTAdapter.sol:StakednUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.sNusdAdapter} "${stakedNusd.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/staked-nusd/StakednUSDOFTAdapter.sol:StakednUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.sNusdAdapter} "${stakedNusd.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         } else {
@@ -139,7 +139,7 @@ const deploy: DeployFunction = async (hre) => {
             if (deployedContracts.sNusdOFT) {
                 console.log(`# StakednUSDOFT`)
                 console.log(
-                    `npx hardhat verify --contract contracts/staked-usde/StakednUSDOFT.sol:StakednUSDOFT --network ${hre.network.name} ${deployedContracts.sNusdOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/staked-nusd/StakednUSDOFT.sol:StakednUSDOFT --network ${hre.network.name} ${deployedContracts.sNusdOFT} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         }

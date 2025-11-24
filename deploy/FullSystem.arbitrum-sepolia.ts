@@ -90,7 +90,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     // Step 2: Deploy nUSD
     console.log('2. Deploying nUSD...')
     const nusdDeployment = await deploy('nUSD', {
-        contract: 'contracts/usde/nUSD.sol:nUSD',
+        contract: 'contracts/nusd/nUSD.sol:nUSD',
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
@@ -127,7 +127,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     // Step 4: Deploy StakednUSD
     console.log('4. Deploying StakednUSD...')
     const stakedNusdDeployment = await deploy('StakednUSD', {
-        contract: 'contracts/staked-usde/StakednUSD.sol:StakednUSD',
+        contract: 'contracts/staked-nusd/StakednUSD.sol:StakednUSD',
         from: deployer,
         args: [
             nusdDeployment.address, // nUSD token
@@ -143,7 +143,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     // Step 5: Deploy StakingRewardsDistributor
     console.log('5. Deploying StakingRewardsDistributor...')
     const distributorDeployment = await deploy('StakingRewardsDistributor', {
-        contract: 'contracts/staked-usde/StakingRewardsDistributor.sol:StakingRewardsDistributor',
+        contract: 'contracts/staked-nusd/StakingRewardsDistributor.sol:StakingRewardsDistributor',
         from: deployer,
         args: [
             stakedNusdDeployment.address, // StakednUSD vault
@@ -160,7 +160,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     // Step 6: Grant roles to StakednUSD
     console.log('6. Granting roles to StakednUSD contracts...')
     const stakedNusd = await hre.ethers.getContractAt(
-        'contracts/staked-usde/StakednUSD.sol:StakednUSD',
+        'contracts/staked-nusd/StakednUSD.sol:StakednUSD',
         stakedNusdDeployment.address
     )
     const REWARDER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('REWARDER_ROLE'))
@@ -232,13 +232,13 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         `   npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network arbitrum-sepolia ${mctDeployment.address} "${ADMIN_ADDRESS}" "[\\"${ARBITRUM_SEPOLIA_USDC}\\"]"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/usde/nUSD.sol:nUSD --network arbitrum-sepolia ${nusdDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
+        `   npx hardhat verify --contract contracts/nusd/nUSD.sol:nUSD --network arbitrum-sepolia ${nusdDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/staked-usde/StakednUSD.sol:StakednUSD --network arbitrum-sepolia ${stakedNusdDeployment.address} "${nusdDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
+        `   npx hardhat verify --contract contracts/staked-nusd/StakednUSD.sol:StakednUSD --network arbitrum-sepolia ${stakedNusdDeployment.address} "${nusdDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/staked-usde/StakingRewardsDistributor.sol:StakingRewardsDistributor --network arbitrum-sepolia ${distributorDeployment.address} "${stakedNusdDeployment.address}" "${nusdDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
+        `   npx hardhat verify --contract contracts/staked-nusd/StakingRewardsDistributor.sol:StakingRewardsDistributor --network arbitrum-sepolia ${distributorDeployment.address} "${stakedNusdDeployment.address}" "${nusdDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
     )
     console.log('')
 

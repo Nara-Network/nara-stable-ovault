@@ -116,7 +116,7 @@ const deploy: DeployFunction = async (hre) => {
         console.log('📦 Deploying Share OFT (nUSD) on spoke chain...')
 
         const nusdOFT = await deployments.deploy('nUSDOFT', {
-            contract: 'contracts/usde/nUSDOFT.sol:nUSDOFT',
+            contract: 'contracts/nusd/nUSDOFT.sol:nUSDOFT',
             from: deployer,
             args: [
                 endpointV2.address, // _lzEndpoint
@@ -166,7 +166,7 @@ const deploy: DeployFunction = async (hre) => {
         // Deploy nUSDOFTAdapter (lockbox for nUSD shares)
         console.log('   → Deploying nUSDOFTAdapter (lockbox)...')
         const nusdAdapter = await deployments.deploy('nUSDOFTAdapter', {
-            contract: 'contracts/usde/nUSDOFTAdapter.sol:nUSDOFTAdapter',
+            contract: 'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter',
             from: deployer,
             args: [nusdAddress, endpointV2.address, deployer],
             log: true,
@@ -195,7 +195,7 @@ const deploy: DeployFunction = async (hre) => {
 
             console.log('   → Deploying nUSDComposer...')
             const composer = await deployments.deploy('nUSDComposer', {
-                contract: 'contracts/usde/nUSDComposer.sol:nUSDComposer',
+                contract: 'contracts/nusd/nUSDComposer.sol:nUSDComposer',
                 from: deployer,
                 args: [
                     nusdAddress, // vault (nUSD)
@@ -239,7 +239,7 @@ const deploy: DeployFunction = async (hre) => {
         }
 
         const stakedComposer = await deployments.deploy('StakednUSDComposer', {
-            contract: 'contracts/staked-usde/StakednUSDComposer.sol:StakednUSDComposer',
+            contract: 'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer',
             from: deployer,
             args: [
                 stakedNusdAddress, // StakednUSD vault
@@ -296,7 +296,7 @@ const deploy: DeployFunction = async (hre) => {
                 const nusd = await hre.deployments.get('nUSD')
                 console.log(`# nUSDOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --contract contracts/usde/nUSDOFTAdapter.sol:nUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.nusdAdapter} "${nusd.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.nusdAdapter} "${nusd.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
 
@@ -308,7 +308,7 @@ const deploy: DeployFunction = async (hre) => {
                 const collateralAssetOFT = DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress
                 console.log(`# nUSDComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/usde/nUSDComposer.sol:nUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${nusd.address}" "${mctAdapter.address}" "${nusdAdapter.address}" "${collateralAsset}" "${collateralAssetOFT}"\n`
+                    `npx hardhat verify --contract contracts/nusd/nUSDComposer.sol:nUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${nusd.address}" "${mctAdapter.address}" "${nusdAdapter.address}" "${collateralAsset}" "${collateralAssetOFT}"\n`
                 )
             }
 
@@ -318,7 +318,7 @@ const deploy: DeployFunction = async (hre) => {
                 const stakedNusdAdapter = await hre.deployments.get('StakednUSDOFTAdapter')
                 console.log(`# StakednUSDComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/staked-usde/StakednUSDComposer.sol:StakednUSDComposer --network ${hre.network.name} ${deployedContracts.stakedComposer} "${stakedNusd.address}" "${nusdAdapter.address}" "${stakedNusdAdapter.address}"\n`
+                    `npx hardhat verify --contract contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer --network ${hre.network.name} ${deployedContracts.stakedComposer} "${stakedNusd.address}" "${nusdAdapter.address}" "${stakedNusdAdapter.address}"\n`
                 )
             }
         } else {
@@ -333,7 +333,7 @@ const deploy: DeployFunction = async (hre) => {
             if (deployedContracts.nusdOFT) {
                 console.log(`# nUSDOFT`)
                 console.log(
-                    `npx hardhat verify --contract contracts/usde/nUSDOFT.sol:nUSDOFT --network ${hre.network.name} ${deployedContracts.nusdOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/nusd/nUSDOFT.sol:nUSDOFT --network ${hre.network.name} ${deployedContracts.nusdOFT} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         }

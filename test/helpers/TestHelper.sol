@@ -8,16 +8,16 @@ import { IOFT } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
-import { nUSD } from "../../contracts/usde/nUSD.sol";
-import { StakednUSD } from "../../contracts/staked-usde/StakednUSD.sol";
+import { nUSD } from "../../contracts/nusd/nUSD.sol";
+import { StakednUSD } from "../../contracts/staked-nusd/StakednUSD.sol";
 
 import { MCTOFTAdapter } from "../../contracts/mct/MCTOFTAdapter.sol";
-import { nUSDOFTAdapter } from "../../contracts/usde/nUSDOFTAdapter.sol";
-import { nUSDOFT } from "../../contracts/usde/nUSDOFT.sol";
-import { StakednUSDOFTAdapter } from "../../contracts/staked-usde/StakednUSDOFTAdapter.sol";
-import { StakednUSDOFT } from "../../contracts/staked-usde/StakednUSDOFT.sol";
-import { nUSDComposer } from "../../contracts/usde/nUSDComposer.sol";
-import { StakednUSDComposer } from "../../contracts/staked-usde/StakednUSDComposer.sol";
+import { nUSDOFTAdapter } from "../../contracts/nusd/nUSDOFTAdapter.sol";
+import { nUSDOFT } from "../../contracts/nusd/nUSDOFT.sol";
+import { StakednUSDOFTAdapter } from "../../contracts/staked-nusd/StakednUSDOFTAdapter.sol";
+import { StakednUSDOFT } from "../../contracts/staked-nusd/StakednUSDOFT.sol";
+import { nUSDComposer } from "../../contracts/nusd/nUSDComposer.sol";
+import { StakednUSDComposer } from "../../contracts/staked-nusd/StakednUSDComposer.sol";
 
 /**
  * @title TestHelper

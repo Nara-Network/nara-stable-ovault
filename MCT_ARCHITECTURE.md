@@ -77,7 +77,7 @@ if (ASSET_OFT.token() != address(VAULT.asset())) {
 
 See detailed explanation in:
 - `contracts/mct/MCTOFTAdapter.sol` (contract documentation)
-- `contracts/usde/nUSDComposer.sol` (constructor documentation)
+- `contracts/nusd/nUSDComposer.sol` (constructor documentation)
 - `WHY_MCTOFT_ADAPTER_EXISTS.md` (technical deep-dive)
 
 ---
@@ -177,4 +177,4 @@ For detailed technical documentation, see:
 - `WHY_MCTOFT_ADAPTER_EXISTS.md`
 - `FINAL_ARCHITECTURE_SUMMARY.md`
 - `contracts/mct/MCTOFTAdapter.sol`
-- `contracts/usde/nUSDComposer.sol`
+- `contracts/nusd/nUSDComposer.sol`

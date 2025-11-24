@@ -14,7 +14,7 @@ contract nUSDSilo is InUSDSiloDefinitions {
 
     constructor(address stakingVault, address nusd) {
         STAKING_VAULT = stakingVault;
-        nUSD = IERC20(nusd);
+        NUSD = IERC20(nusd);
     }
 
     modifier onlyStakingVault() {
@@ -23,7 +23,7 @@ contract nUSDSilo is InUSDSiloDefinitions {
     }
 
     function withdraw(address to, uint256 amount) external onlyStakingVault {
-        nUSD.transfer(to, amount);
+        NUSD.transfer(to, amount);
     }
 }
 

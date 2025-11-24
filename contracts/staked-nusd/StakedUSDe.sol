@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./interfaces/IStakednUSDCooldown.sol";
 import "./nUSDSilo.sol";
-import "../interfaces/usde/InUSD.sol";
+import "../interfaces/nusd/InUSD.sol";
 
 /**
  * @title StakednUSD

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { nUSD } from "../../contracts/usde/nUSD.sol";
+import { nUSD } from "../../contracts/nusd/nUSD.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /**

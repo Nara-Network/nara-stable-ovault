@@ -2,34 +2,34 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { USDeComposer } from "../../contracts/usde/USDeComposer.sol";
+import { nUSDComposer } from "../../contracts/nusd/nUSDComposer.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SendParam } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
 /**
- * @title USDeComposerTest
- * @notice Unit tests for USDeComposer contract
+ * @title nUSDComposerTest
+ * @notice Unit tests for nUSDComposer contract
  * @dev Tests the custom compose logic for cross-chain nUSD minting with collateral
  */
-contract USDeComposerTest is TestHelper {
+contract nUSDComposerTest is TestHelper {
     /**
      * @notice Verify constructor sets up immutables correctly
      */
     function test_Constructor() public view {
-        assertEq(address(usdeComposer.VAULT()), address(nusd), "Vault should be nUSD");
-        assertEq(address(usdeComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
-        assertEq(address(usdeComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be USDeOFTAdapter");
-        assertEq(usdeComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
-        assertEq(usdeComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
-        assertEq(address(usdeComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
+        assertEq(address(nusdComposer.VAULT()), address(nusd), "Vault should be nUSD");
+        assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
+        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be USDeOFTAdapter");
+        assertEq(nusdComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
+        assertEq(nusdComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
+        assertEq(address(nusdComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
     }
 
     /**
      * @notice Verify constructor approves collateral to its OFT
      */
     function test_Constructor_ApprovesCollateral() public view {
-        uint256 allowance = usdc.allowance(address(usdeComposer), address(usdc));
+        uint256 allowance = usdc.allowance(address(nusdComposer), address(usdc));
         assertEq(allowance, type(uint256).max, "Should approve max allowance for collateral refunds");
     }
 
@@ -43,32 +43,32 @@ contract USDeComposerTest is TestHelper {
         uint256 depositAmount = 100e6; // 100 USDC
 
         // Grant composer MINTER_ROLE
-        nusd.grantRole(nusd.MINTER_ROLE(), address(usdeComposer));
+        nusd.grantRole(nusd.MINTER_ROLE(), address(nusdComposer));
 
         // Fund the composer with USDC (simulating cross-chain arrival)
-        usdc.mint(address(usdeComposer), depositAmount);
+        usdc.mint(address(nusdComposer), depositAmount);
 
         // Track balances
-        uint256 composerUsdcBefore = usdc.balanceOf(address(usdeComposer));
-        uint256 composerUsdeBefore = nusd.balanceOf(address(usdeComposer));
+        uint256 composerUsdcBefore = usdc.balanceOf(address(nusdComposer));
+        uint256 composerUsdeBefore = nusd.balanceOf(address(nusdComposer));
 
         // Approve nUSD to pull USDC from composer
-        vm.prank(address(usdeComposer));
+        vm.prank(address(nusdComposer));
         usdc.approve(address(nusd), depositAmount);
 
         // Mint nUSD with collateral (simulating what _depositCollateralAndSend does)
-        vm.prank(address(usdeComposer));
+        vm.prank(address(nusdComposer));
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), depositAmount);
 
         // Verify the flow
         assertEq(
-            usdc.balanceOf(address(usdeComposer)),
+            usdc.balanceOf(address(nusdComposer)),
             composerUsdcBefore - depositAmount,
             "Composer should transfer USDC"
         );
         assertGt(nusdAmount, 0, "Should mint nUSD");
         assertEq(
-            nusd.balanceOf(address(usdeComposer)),
+            nusd.balanceOf(address(nusdComposer)),
             composerUsdeBefore + nusdAmount,
             "Composer should receive nUSD"
         );
@@ -87,7 +87,7 @@ contract USDeComposerTest is TestHelper {
 
         vm.prank(alice);
         vm.expectRevert(); // Will revert with OnlyEndpoint
-        usdeComposer.lzCompose(address(usdc), bytes32(0), message, address(0), "");
+        nusdComposer.lzCompose(address(usdc), bytes32(0), message, address(0), "");
     }
 
     /**
@@ -105,7 +105,7 @@ contract USDeComposerTest is TestHelper {
 
         vm.prank(address(endpoints[HUB_EID]));
         vm.expectRevert(); // Will revert with OnlyValidComposeCaller
-        usdeComposer.lzCompose(address(invalidToken), bytes32(0), message, address(0), "");
+        nusdComposer.lzCompose(address(invalidToken), bytes32(0), message, address(0), "");
     }
 
     /**
@@ -113,7 +113,7 @@ contract USDeComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsAssetOFT() public view {
         // ASSET_OFT should be in the valid senders list
-        assertEq(address(usdeComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
+        assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
     }
 
     /**
@@ -121,7 +121,7 @@ contract USDeComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsShareOFT() public view {
         // SHARE_OFT should be in the valid senders list
-        assertEq(address(usdeComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be USDeOFTAdapter");
+        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be USDeOFTAdapter");
     }
 
     /**
@@ -129,7 +129,7 @@ contract USDeComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsCollateralAssetOFT() public view {
         // collateralAssetOFT should be in the valid senders list
-        assertEq(usdeComposer.collateralAssetOFT(), address(usdc), "collateralAssetOFT should be USDC");
+        assertEq(nusdComposer.collateralAssetOFT(), address(usdc), "collateralAssetOFT should be USDC");
     }
 
     /**
@@ -143,7 +143,7 @@ contract USDeComposerTest is TestHelper {
 
         vm.prank(alice);
         vm.expectRevert(); // Will revert with OnlySelf
-        usdeComposer._handleComposeInternal(address(usdc), bytes32(0), composeMsg, 100e6);
+        nusdComposer._handleComposeInternal(address(usdc), bytes32(0), composeMsg, 100e6);
     }
 
     /**
@@ -154,11 +154,11 @@ contract USDeComposerTest is TestHelper {
         // All constructor params should be non-zero
         // This is implicitly tested by the setUp not reverting,
         // but we can verify the values are set correctly
-        assertTrue(address(usdeComposer.VAULT()) != address(0), "Vault should not be zero");
-        assertTrue(address(usdeComposer.ASSET_OFT()) != address(0), "ASSET_OFT should not be zero");
-        assertTrue(address(usdeComposer.SHARE_OFT()) != address(0), "SHARE_OFT should not be zero");
-        assertTrue(usdeComposer.collateralAsset() != address(0), "collateralAsset should not be zero");
-        assertTrue(usdeComposer.collateralAssetOFT() != address(0), "collateralAssetOFT should not be zero");
+        assertTrue(address(nusdComposer.VAULT()) != address(0), "Vault should not be zero");
+        assertTrue(address(nusdComposer.ASSET_OFT()) != address(0), "ASSET_OFT should not be zero");
+        assertTrue(address(nusdComposer.SHARE_OFT()) != address(0), "SHARE_OFT should not be zero");
+        assertTrue(nusdComposer.collateralAsset() != address(0), "collateralAsset should not be zero");
+        assertTrue(nusdComposer.collateralAssetOFT() != address(0), "collateralAssetOFT should not be zero");
     }
 
     /**
@@ -168,7 +168,7 @@ contract USDeComposerTest is TestHelper {
         // Composer should have approval set for USDC -> nUSD
         // This is set during _depositCollateralAndSend via forceApprove
         // We can't directly test internal function, but we verify the pattern in integration tests
-        assertTrue(address(usdeComposer.collateralAsset()) == address(usdc), "Collateral should be USDC");
+        assertTrue(address(nusdComposer.collateralAsset()) == address(usdc), "Collateral should be USDC");
     }
 
     /**
@@ -180,13 +180,13 @@ contract USDeComposerTest is TestHelper {
         amount = bound(amount, 1e6, 1_000_000e6); // 1 USDC to 1M USDC
 
         // Grant composer MINTER_ROLE
-        nusd.grantRole(nusd.MINTER_ROLE(), address(usdeComposer));
+        nusd.grantRole(nusd.MINTER_ROLE(), address(nusdComposer));
 
         // Fund composer with USDC
-        usdc.mint(address(usdeComposer), amount);
+        usdc.mint(address(nusdComposer), amount);
 
         // Simulate deposit flow
-        vm.startPrank(address(usdeComposer));
+        vm.startPrank(address(nusdComposer));
         usdc.approve(address(nusd), amount);
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), amount);
         vm.stopPrank();
@@ -205,13 +205,13 @@ contract USDeComposerTest is TestHelper {
         uint256 depositAmount = 100e6; // 100 USDT
 
         // Grant composer MINTER_ROLE
-        nusd.grantRole(nusd.MINTER_ROLE(), address(usdeComposer));
+        nusd.grantRole(nusd.MINTER_ROLE(), address(nusdComposer));
 
         // Fund composer with USDT
-        usdt.mint(address(usdeComposer), depositAmount);
+        usdt.mint(address(nusdComposer), depositAmount);
 
         // Simulate deposit flow
-        vm.startPrank(address(usdeComposer));
+        vm.startPrank(address(nusdComposer));
         usdt.approve(address(nusd), depositAmount);
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdt), depositAmount);
         vm.stopPrank();
@@ -224,11 +224,11 @@ contract USDeComposerTest is TestHelper {
      */
     function test_MCT_NeverDirectlyUsed() public view {
         // MCT should never have approval from composer
-        uint256 mctAllowance = mct.allowance(address(usdeComposer), address(mct));
+        uint256 mctAllowance = mct.allowance(address(nusdComposer), address(mct));
         assertEq(mctAllowance, 0, "Composer should never approve MCT");
 
         // MCT balance should always be 0
-        uint256 mctBalance = mct.balanceOf(address(usdeComposer));
+        uint256 mctBalance = mct.balanceOf(address(nusdComposer));
         assertEq(mctBalance, 0, "Composer should never hold MCT");
     }
 
@@ -237,18 +237,18 @@ contract USDeComposerTest is TestHelper {
      */
     function test_AssetOFT_ValidationOnly() public view {
         // ASSET_OFT points to MCTOFTAdapter but is never used operationally
-        assertEq(address(usdeComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT is MCTOFTAdapter");
+        assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT is MCTOFTAdapter");
 
         // The actual deposit flow uses collateralAsset (USDC), not ASSET_OFT
-        assertEq(usdeComposer.collateralAsset(), address(usdc), "Collateral is USDC");
-        assertTrue(address(usdeComposer.ASSET_OFT()) != usdeComposer.collateralAsset(), "ASSET_OFT != collateral");
+        assertEq(nusdComposer.collateralAsset(), address(usdc), "Collateral is USDC");
+        assertTrue(address(nusdComposer.ASSET_OFT()) != nusdComposer.collateralAsset(), "ASSET_OFT != collateral");
     }
 
     /**
      * @notice Test endpoint is correctly set
      */
     function test_Endpoint() public view {
-        assertEq(address(usdeComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
+        assertEq(address(nusdComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
     }
 
     /**

@@ -60,7 +60,7 @@ const deployNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     // Step 2: Deploy nUSD
     console.log('2. Deploying nUSD...')
-    const usdeDeployment = await deploy('usde/nUSD', {
+    const usdeDeployment = await deploy('nusd/nUSD', {
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
@@ -111,7 +111,7 @@ const deployNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     console.log('# nUSD')
     console.log(
-        `npx hardhat verify --contract contracts/usde/nUSD.sol:nUSD --network ${hre.network.name} ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
+        `npx hardhat verify --contract contracts/nusd/nUSD.sol:nUSD --network ${hre.network.name} ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
     )
 
     console.log('========================================\n')

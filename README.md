@@ -246,9 +246,9 @@ For detailed technical information, see:
 | Contract                    | Description                       | Location                 |
 | --------------------------- | --------------------------------- | ------------------------ |
 | `MultiCollateralToken`      | Multi-collateral backing          | `contracts/mct/`         |
-| `nUSD`                      | Stablecoin vault with minting     | `contracts/usde/`        |
-| `StakednUSD`                | Staking vault with cooldowns | `contracts/staked-usde/` |
-| `StakingRewardsDistributor` | Automated rewards                 | `contracts/staked-usde/` |
+| `nUSD`                      | Stablecoin vault with minting     | `contracts/nusd/`        |
+| `StakednUSD`                | Staking vault with cooldowns | `contracts/staked-nusd/` |
+| `StakingRewardsDistributor` | Automated rewards                 | `contracts/staked-nusd/` |
 
 ### OFT Infrastructure
 
@@ -301,7 +301,7 @@ GPL-3.0
 
 For detailed technical information:
 - **MCT Architecture**: See `MCT_ARCHITECTURE.md` for why MCT stays on hub and why MCTOFTAdapter exists but isn't used for cross-chain
-- **Contract Documentation**: See `contracts/mct/MCTOFTAdapter.sol` and `contracts/usde/nUSDComposer.sol` for detailed NatSpec documentation
+- **Contract Documentation**: See `contracts/mct/MCTOFTAdapter.sol` and `contracts/nusd/nUSDComposer.sol` for detailed NatSpec documentation
 
 ---
 

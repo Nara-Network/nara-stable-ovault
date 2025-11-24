@@ -357,13 +357,13 @@ The StakednUSD vault integrates seamlessly with the nUSD OVault system:
 ## Folder Structure
 
 ```
-contracts/staked-usde/
+contracts/staked-nusd/
 ├── StakednUSD.sol                    # Main staking vault (ERC4626)
 ├── StakingRewardsDistributor.sol     # Automated rewards distribution
 ├── StakednUSDOFTAdapter.sol          # Hub chain OFT adapter (lockbox)
 └── StakednUSDOFT.sol                 # Spoke chain OFT (mint/burn)
 
-contracts/interfaces/staked-usde/
+contracts/interfaces/staked-nusd/
 ├── IStakednUSD.sol                   # StakednUSD interface
 └── IStakingRewardsDistributor.sol    # Distributor interface
 ```

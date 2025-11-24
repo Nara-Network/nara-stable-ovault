@@ -21,13 +21,13 @@ contracts/
 │   ├── MCTOFTAdapter.sol             # Hub chain OFT adapter (lockbox)
 │   └── MCTOFT.sol                    # Spoke chain OFT (mint/burn)
 │
-├── usde/                             # nUSD Module
+├── nusd/                             # nUSD Module
 │   ├── nUSD.sol                      # ERC4626 vault with minting
 │   ├── nUSDOFTAdapter.sol            # Hub chain OFT adapter (lockbox)
 │   ├── nUSDOFT.sol                   # Spoke chain OFT (mint/burn)
 │   └── nUSDComposer.sol              # Cross-chain composer
 │
-├── staked-usde/                      # StakednUSD Module
+├── staked-nusd/                      # StakednUSD Module
 │   ├── StakednUSD.sol                # ERC4626 staking vault
 │   ├── StakingRewardsDistributor.sol # Automated rewards distribution
 │   ├── StakednUSDOFTAdapter.sol      # Hub chain OFT adapter (lockbox)
@@ -36,9 +36,9 @@ contracts/
 └── interfaces/                       # Interfaces
     ├── mct/
     │   └── IMultiCollateralToken.sol
-    ├── usde/
+    ├── nusd/
     │   └── InUSD.sol
-    └── staked-usde/
+    └── staked-nusd/
         ├── IStakednUSD.sol
         └── IStakingRewardsDistributor.sol
 ```
