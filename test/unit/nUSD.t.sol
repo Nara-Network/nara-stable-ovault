@@ -1459,6 +1459,70 @@ contract nUSDTest is TestHelper {
         nusd.setKeyringWhitelist(bob, true);
         vm.stopPrank();
     }
+
+    /**
+     * @notice Test hasValidCredentials returns true when Keyring is disabled
+     */
+    function test_HasValidCredentials_NoKeyring() public {
+        // Keyring not configured - everyone should be valid
+        assertTrue(nusd.hasValidCredentials(alice), "Should be valid when Keyring disabled");
+        assertTrue(nusd.hasValidCredentials(bob), "Should be valid when Keyring disabled");
+        assertTrue(nusd.hasValidCredentials(address(0x123)), "Should be valid when Keyring disabled");
+    }
+
+    /**
+     * @notice Test hasValidCredentials with Keyring enabled
+     */
+    function test_HasValidCredentials_WithKeyring() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        
+        // Alice doesn't have credentials
+        assertFalse(nusd.hasValidCredentials(alice), "Should be invalid without credentials");
+        
+        // Give Alice credentials
+        keyring.setCredential(policyId, alice, true);
+        assertTrue(nusd.hasValidCredentials(alice), "Should be valid with credentials");
+        
+        // Bob still doesn't have credentials
+        assertFalse(nusd.hasValidCredentials(bob), "Should be invalid without credentials");
+    }
+
+    /**
+     * @notice Test hasValidCredentials respects whitelist
+     */
+    function test_HasValidCredentials_Whitelist() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        
+        // Alice doesn't have credentials but is whitelisted
+        nusd.setKeyringWhitelist(alice, true);
+        assertTrue(nusd.hasValidCredentials(alice), "Should be valid when whitelisted");
+        
+        // Bob is not whitelisted and has no credentials
+        assertFalse(nusd.hasValidCredentials(bob), "Should be invalid");
+    }
+
+    /**
+     * @notice Test hasValidCredentials can be called by anyone
+     */
+    function test_HasValidCredentials_PublicAccess() public {
+        MockKeyring keyring = new MockKeyring();
+        uint256 policyId = 1;
+        
+        nusd.setKeyringConfig(address(keyring), policyId);
+        keyring.setCredential(policyId, alice, true);
+        
+        // Anyone can call hasValidCredentials
+        vm.startPrank(bob);
+        assertTrue(nusd.hasValidCredentials(alice), "Bob can check Alice's credentials");
+        assertFalse(nusd.hasValidCredentials(bob), "Bob can check his own credentials");
+        vm.stopPrank();
+    }
 }
 
 

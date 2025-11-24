@@ -229,20 +229,44 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /* --------------- INTERNAL HELPERS --------------- */
 
     /**
-     * @notice Check if an address has valid Keyring credentials
+     * @notice Check if an address has valid Keyring credentials (public view)
      * @param account The address to check
-     * @dev Skips check if Keyring is not configured, address is whitelisted, or is address(0)
+     * @return bool True if account has credentials or Keyring is disabled
+     * @dev Returns true if:
+     *      - Keyring is not configured (keyringAddress == address(0))
+     *      - Account is whitelisted
+     *      - Account has valid credentials in Keyring
+     */
+    function hasValidCredentials(address account) public view returns (bool) {
+        // If Keyring not configured, everyone is valid
+        if (keyringAddress == address(0)) {
+            return true;
+        }
+
+        // If whitelisted, skip check
+        if (keyringWhitelist[account]) {
+            return true;
+        }
+
+        // Check Keyring credentials
+        IKeyring keyring = IKeyring(keyringAddress);
+        return keyring.checkCredential(keyringPolicyId, account);
+    }
+
+    /**
+     * @notice Check if an address has valid Keyring credentials (internal with revert)
+     * @param account The address to check
+     * @dev Reverts if account does not have valid credentials
+     *      Uses hasValidCredentials() for the actual check
      */
     function _checkKeyringCredential(address account) internal view {
-        // Skip check for zero address, whitelisted addresses, or if Keyring not configured
-        if (account == address(0) || keyringWhitelist[account] || keyringAddress == address(0)) {
+        // Skip check for zero address (shouldn't happen but defensive)
+        if (account == address(0)) {
             return;
         }
 
-        // Check credentials via Keyring
-        IKeyring keyring = IKeyring(keyringAddress);
-        bool hasCredential = keyring.checkCredential(keyringPolicyId, account);
-        if (!hasCredential) {
+        // Use the public function for consistency
+        if (!hasValidCredentials(account)) {
             revert KeyringCredentialInvalid(account);
         }
     }

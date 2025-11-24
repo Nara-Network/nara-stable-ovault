@@ -370,4 +370,11 @@ interface InUSD is IERC4626, IERC20Permit {
      * @return bool True if whitelisted
      */
     function keyringWhitelist(address account) external view returns (bool);
+
+    /**
+     * @notice Check if an address has valid Keyring credentials
+     * @param account The address to check
+     * @return bool True if account has credentials or Keyring is disabled
+     */
+    function hasValidCredentials(address account) external view returns (bool);
 }

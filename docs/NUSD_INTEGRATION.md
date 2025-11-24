@@ -281,15 +281,38 @@ const policyId = 1;
 // 2. Configure nUSD to use Keyring
 await nusd.setKeyringConfig(keyringAddress, policyId);
 
-// 3. Whitelist necessary smart contracts
+// 3. Whitelist necessary smart contracts (e.g., nUSDComposer for cross-chain mints)
 await nusd.setKeyringWhitelist(uniswapPoolAddress, true);
 await nusd.setKeyringWhitelist(treasuryAddress, true);
+await nusd.setKeyringWhitelist(nUSDComposerAddress, true); // For cross-chain minting
 
 // 4. Users need credentials from Keyring before they can:
 //    - Mint nUSD (sender only, can mint to anyone)
 //    - Redeem nUSD
 //    - Transfers are COMPLETELY FREE - no credentials needed
 ```
+
+### Cross-Chain Minting with Keyring
+
+The `nUSDComposer` handles cross-chain minting and integrates with Keyring to gate access:
+
+```solidity
+// Check if a user has valid credentials (public view function)
+bool isValid = await nusd.hasValidCredentials(userAddress);
+
+// The composer calls this before minting:
+// 1. User sends collateral from source chain (e.g., Arbitrum)
+// 2. nUSDComposer receives collateral on hub chain
+// 3. Composer checks: nusd.hasValidCredentials(originalSender)
+// 4. If valid: Proceeds with mint and sends nUSD to destination
+// 5. If invalid: Automatically refunds collateral back to source chain
+```
+
+**Key Points:**
+- The **composer itself** must be whitelisted (it's a smart contract)
+- The **original user** (from source chain) has their credentials checked
+- Failed credential checks trigger automatic refunds via LayerZero
+- This maintains compliance even for cross-chain flows
 
 ### Security Features
 
