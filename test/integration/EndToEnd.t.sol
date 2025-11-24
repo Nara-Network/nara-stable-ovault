@@ -21,17 +21,17 @@ contract EndToEndTest is TestHelper {
      */
     function test_CompleteUserJourney() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedUsde = 1000e18;
+        uint256 expectedNusd = 1000e18;
 
         _switchToHub();
 
         // === STEP 1: User deposits collateral to mint nUSD ===
         vm.startPrank(alice);
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
         usdc.approve(address(nusd), usdcAmount);
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(nusdAmount, expectedUsde, "Step 1: Should mint correct nUSD");
-        assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Step 1: Alice should have additional nUSD");
+        assertEq(nusdAmount, expectedNusd, "Step 1: Should mint correct nUSD");
+        assertEq(nusd.balanceOf(alice) - aliceNusdBefore, expectedNusd, "Step 1: Alice should have additional nUSD");
 
         // === STEP 2: User stakes nUSD to earn yield ===
         nusd.approve(address(stakedNusd), nusdAmount);
@@ -289,15 +289,15 @@ contract EndToEndTest is TestHelper {
 
         // === Verify total supply consistency ===
         _switchToHub();
-        uint256 hubUsdeSupply = nusd.totalSupply();
+        uint256 hubNusdSupply = nusd.totalSupply();
 
         _switchToSpoke();
-        uint256 spokeUsdeSupply = nusdOFT.totalSupply();
+        uint256 spokeNusdSupply = nusdOFT.totalSupply();
 
         _switchToHub();
         uint256 lockedInAdapter = nusd.balanceOf(address(nusdAdapter));
 
-        assertEq(spokeUsdeSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
+        assertEq(spokeNusdSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
     }
 
     /**
@@ -372,7 +372,7 @@ contract EndToEndTest is TestHelper {
      */
     function test_TVLTracking() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedUsde = 1000e18;
+        uint256 expectedNusd = 1000e18;
 
         _switchToHub();
 
@@ -387,17 +387,17 @@ contract EndToEndTest is TestHelper {
 
         // TVL should increase
         uint256 afterDepositAssets = nusd.totalAssets();
-        assertEq(afterDepositAssets, initialVaultAssets + expectedUsde, "TVL should increase");
+        assertEq(afterDepositAssets, initialVaultAssets + expectedNusd, "TVL should increase");
 
         // Alice stakes
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), expectedUsde);
-        stakedNusd.deposit(expectedUsde, alice);
+        nusd.approve(address(stakedNusd), expectedNusd);
+        stakedNusd.deposit(expectedNusd, alice);
         vm.stopPrank();
 
         // StakednUSD TVL should increase
         uint256 stakedTVL = stakedNusd.totalAssets();
-        assertEq(stakedTVL, expectedUsde, "Staked TVL should match deposit");
+        assertEq(stakedTVL, expectedNusd, "Staked TVL should match deposit");
     }
 
     /**

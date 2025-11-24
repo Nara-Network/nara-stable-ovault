@@ -49,7 +49,7 @@ interface InUSD is IERC4626, IERC20Permit {
         address indexed collateralAsset,
         uint256 collateralAmount
     );
-    event RedemptionCancelled(address indexed user, uint256 usdeAmount);
+    event RedemptionCancelled(address indexed user, uint256 nUSDAmount);
 
     /* --------------- STRUCTS --------------- */
 

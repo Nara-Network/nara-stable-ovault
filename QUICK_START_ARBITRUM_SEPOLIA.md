@@ -103,7 +103,7 @@ console.log("nUSD balance:", ethers.utils.formatEther(balance));
 ```javascript
 const stakedNusd = await ethers.getContractAt(
   "staked-nusd/StakednUSD",
-  "YOUR_STAKED_USDE_ADDRESS",
+  "YOUR_STAKED_NUSD_ADDRESS",
 );
 
 // Stake 50 nUSD

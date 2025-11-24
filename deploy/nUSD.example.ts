@@ -60,13 +60,13 @@ const deployNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     // Step 2: Deploy nUSD
     console.log('2. Deploying nUSD...')
-    const usdeDeployment = await deploy('nusd/nUSD', {
+    const nusdDeployment = await deploy('nusd/nUSD', {
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
         waitConfirmations: 1,
     })
-    console.log('   ✓ nUSD deployed at:', usdeDeployment.address)
+    console.log('   ✓ nUSD deployed at:', nusdDeployment.address)
     console.log('')
 
     // Step 3: Grant MINTER_ROLE to nUSD on MCT
@@ -76,13 +76,13 @@ const deployNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     // Only grant role if deployer is admin or has permission
     try {
-        const tx = await mct.grantRole(MINTER_ROLE, usdeDeployment.address)
+        const tx = await mct.grantRole(MINTER_ROLE, nusdDeployment.address)
         await tx.wait()
         console.log('   ✓ MINTER_ROLE granted to nUSD')
     } catch (error) {
         console.log('   ⚠ Could not grant MINTER_ROLE automatically')
-        console.log('   Please manually grant MINTER_ROLE to:', usdeDeployment.address)
-        console.log('   Call: mct.grantRole(MINTER_ROLE, usdeAddress) as admin')
+        console.log('   Please manually grant MINTER_ROLE to:', nusdDeployment.address)
+        console.log('   Call: mct.grantRole(MINTER_ROLE, nusdAddress) as admin')
     }
     console.log('')
 
@@ -91,7 +91,7 @@ const deployNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     console.log('Deployment Summary')
     console.log('========================================')
     console.log('MultiCollateralToken:', mctDeployment.address)
-    console.log('nUSD:', usdeDeployment.address)
+    console.log('nUSD:', nusdDeployment.address)
     console.log('Admin:', ADMIN_ADDRESS)
     console.log('Max Mint Per Block:', MAX_MINT_PER_BLOCK)
     console.log('Max Redeem Per Block:', MAX_REDEEM_PER_BLOCK)
@@ -111,7 +111,7 @@ const deployNUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     console.log('# nUSD')
     console.log(
-        `npx hardhat verify --contract contracts/nusd/nUSD.sol:nUSD --network ${hre.network.name} ${usdeDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
+        `npx hardhat verify --contract contracts/nusd/nUSD.sol:nUSD --network ${hre.network.name} ${nusdDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"\n`
     )
 
     console.log('========================================\n')

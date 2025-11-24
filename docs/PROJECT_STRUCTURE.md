@@ -258,13 +258,13 @@ Bridge back to Hub
 
    ```solidity
    MCTOFTAdapter mctAdapter = new MCTOFTAdapter(mct, lzEndpoint, admin);
-   nUSDOFTAdapter usdeAdapter = new nUSDOFTAdapter(nusd, lzEndpoint, admin);
+   nUSDOFTAdapter nusdAdapter = new nUSDOFTAdapter(nusd, lzEndpoint, admin);
    StakednUSDOFTAdapter stakedNusdAdapter = new StakednUSDOFTAdapter(stakednUSD, lzEndpoint, admin);
    ```
 
 8. **Deploy Composer**
    ```solidity
-   nUSDComposer composer = new nUSDComposer(nusd, mctAdapter, usdeAdapter);
+   nUSDComposer composer = new nUSDComposer(nusd, mctAdapter, nusdAdapter);
    ```
 
 ### Spoke Chain Deployment
@@ -279,12 +279,12 @@ StakednUSDOFT stakedNusdOFT = new StakednUSDOFT(lzEndpoint, admin);
 
 // 2. Set peers to hub adapters
 await mctOFT.setPeer(HUB_EID, addressToBytes32(mctAdapter.address));
-await nusdOFT.setPeer(HUB_EID, addressToBytes32(usdeAdapter.address));
+await nusdOFT.setPeer(HUB_EID, addressToBytes32(nusdAdapter.address));
 await stakedNusdOFT.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.address));
 
 // 3. Set peers on hub to spoke OFTs
 await mctAdapter.setPeer(SPOKE_EID, addressToBytes32(mctOFT.address));
-await usdeAdapter.setPeer(SPOKE_EID, addressToBytes32(nusdOFT.address));
+await nusdAdapter.setPeer(SPOKE_EID, addressToBytes32(nusdOFT.address));
 await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT.address));
 ```
 

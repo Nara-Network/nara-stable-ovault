@@ -6,10 +6,10 @@ import { StakednUSD } from "../../contracts/staked-nusd/StakednUSD.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /**
- * @title StakedUSDeTest
+ * @title StakednUSDTest
  * @notice Unit tests for StakednUSD core functionality
  */
-contract StakedUSDeTest is TestHelper {
+contract StakednUSDTest is TestHelper {
     function setUp() public override {
         super.setUp();
 
@@ -63,12 +63,12 @@ contract StakedUSDeTest is TestHelper {
         uint256 shares = stakedNusd.deposit(depositAmount, alice);
 
         // Redeem
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
         uint256 assets = stakedNusd.redeem(shares, alice, alice);
-        uint256 aliceUsdeAfter = nusd.balanceOf(alice);
+        uint256 aliceNusdAfter = nusd.balanceOf(alice);
 
         assertEq(assets, depositAmount, "Should redeem 1:1");
-        assertEq(aliceUsdeAfter - aliceUsdeBefore, depositAmount, "nUSD returned");
+        assertEq(aliceNusdAfter - aliceNusdBefore, depositAmount, "nUSD returned");
         assertEq(stakedNusd.balanceOf(alice), 0, "snUSD burned");
 
         vm.stopPrank();
@@ -84,7 +84,7 @@ contract StakedUSDeTest is TestHelper {
         // Deposit
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
 
         nusd.approve(address(stakedNusd), depositAmount);
         uint256 shares = stakedNusd.deposit(depositAmount, alice);
@@ -108,7 +108,7 @@ contract StakedUSDeTest is TestHelper {
         // Unstake
         stakedNusd.unstake(alice);
 
-        assertEq(nusd.balanceOf(alice), aliceUsdeBefore, "nUSD returned");
+        assertEq(nusd.balanceOf(alice), aliceNusdBefore, "nUSD returned");
 
         vm.stopPrank();
     }
@@ -121,7 +121,7 @@ contract StakedUSDeTest is TestHelper {
 
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
 
         nusd.approve(address(stakedNusd), depositAmount);
         stakedNusd.deposit(depositAmount, alice);
@@ -138,7 +138,7 @@ contract StakedUSDeTest is TestHelper {
         stakedNusd.unstake(alice);
 
         // Should have returned 500 (depositAmount - cooldownAssets is still staked)
-        assertEq(nusd.balanceOf(alice), aliceUsdeBefore - depositAmount + cooldownAssets, "Partial nUSD returned");
+        assertEq(nusd.balanceOf(alice), aliceNusdBefore - depositAmount + cooldownAssets, "Partial nUSD returned");
 
         vm.stopPrank();
     }

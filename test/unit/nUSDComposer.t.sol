@@ -19,7 +19,7 @@ contract nUSDComposerTest is TestHelper {
     function test_Constructor() public view {
         assertEq(address(nusdComposer.VAULT()), address(nusd), "Vault should be nUSD");
         assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
-        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be USDeOFTAdapter");
+        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be nUSDOFTAdapter");
         assertEq(nusdComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
         assertEq(nusdComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
         assertEq(address(nusdComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
@@ -50,7 +50,7 @@ contract nUSDComposerTest is TestHelper {
 
         // Track balances
         uint256 composerUsdcBefore = usdc.balanceOf(address(nusdComposer));
-        uint256 composerUsdeBefore = nusd.balanceOf(address(nusdComposer));
+        uint256 composerNusdBefore = nusd.balanceOf(address(nusdComposer));
 
         // Approve nUSD to pull USDC from composer
         vm.prank(address(nusdComposer));
@@ -69,7 +69,7 @@ contract nUSDComposerTest is TestHelper {
         assertGt(nusdAmount, 0, "Should mint nUSD");
         assertEq(
             nusd.balanceOf(address(nusdComposer)),
-            composerUsdeBefore + nusdAmount,
+            composerNusdBefore + nusdAmount,
             "Composer should receive nUSD"
         );
     }
@@ -117,11 +117,11 @@ contract nUSDComposerTest is TestHelper {
     }
 
     /**
-     * @notice Test that SHARE_OFT (USDeOFTAdapter) is accepted as compose sender
+     * @notice Test that SHARE_OFT (nUSDOFTAdapter) is accepted as compose sender
      */
     function test_LzCompose_AcceptsShareOFT() public view {
         // SHARE_OFT should be in the valid senders list
-        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be USDeOFTAdapter");
+        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be nUSDOFTAdapter");
     }
 
     /**

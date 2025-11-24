@@ -136,7 +136,7 @@ const lzOptions = Options.newOptions()
 // Build send parameters
 const sendParam = {
   dstEid: ARBITRUM_EID, // Hub
-  to: addressToBytes32(STAKED_USDE_COMPOSER), // Composer address
+  to: addressToBytes32(STAKED_NUSD_COMPOSER), // Composer address
   amountLD: amount,
   minAmountLD: (amount * 99n) / 100n,
   extraOptions: lzOptions,
@@ -145,7 +145,7 @@ const sendParam = {
 };
 
 // Approve nUSD OFT on Base
-await nusdOFT.approve(USDE_OFT_BASE, amount);
+await nusdOFT.approve(NUSD_OFT_BASE, amount);
 
 // Quote the fee
 const fee = await nusdOFT.quoteSend(sendParam, false);
@@ -232,7 +232,7 @@ distributor.transferInRewards(rewardsAmount);
 
 ```solidity
 StakednUSD stakednUSD = new StakednUSD(
-    IERC20(usdeAddress),      // nUSD token
+    IERC20(nusdAddress),      // nUSD token
     rewarderAddress,           // Initial rewarder
     adminAddress               // Admin (multisig)
 );
@@ -243,7 +243,7 @@ StakednUSD stakednUSD = new StakednUSD(
 ```solidity
 StakingRewardsDistributor distributor = new StakingRewardsDistributor(
     stakednUSD,                // Staking vault
-    IERC20(usdeAddress),       // nUSD token
+    IERC20(nusdAddress),       // nUSD token
     adminAddress,              // Admin (multisig)
     operatorAddress            // Operator (bot)
 );

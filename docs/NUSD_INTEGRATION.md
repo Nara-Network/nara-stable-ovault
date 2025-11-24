@@ -96,9 +96,9 @@ nUSD prioritizes safety during redemptions by locking requests in a silo until t
 
 1. **Request Redemption**
    ```solidity
-   await nusd.cooldownRedeem(collateralAsset, amountUSDe);
+   await nusd.cooldownRedeem(collateralAsset, amountNUSD);
    ```
-   - Transfers nUSD from user to `USDeRedeemSilo`
+   - Transfers nUSD from user to `nUSDRedeemSilo`
    - Records `cooldownEnd` + requested amount + asset
 
 2. **Wait Cooldown** (default 7 days; configurable via `setCooldownDuration`)

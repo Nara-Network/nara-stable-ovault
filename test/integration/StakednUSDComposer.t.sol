@@ -168,7 +168,7 @@ contract StakednUSDComposerTest is TestHelper {
         MessagingFee memory fee = _getMessagingFee(address(stakedNusdOFT), sendParam);
         uint256 totalFee = fee.nativeFee + hopFee.nativeFee;
 
-        uint256 bobUsdeBeforeOnSpoke = nusdOFT.balanceOf(bob);
+        uint256 bobNusdBeforeOnSpoke = nusdOFT.balanceOf(bob);
 
         stakedNusdOFT.send{ value: totalFee }(sendParam, MessagingFee(totalFee, 0), bob);
         vm.stopPrank();
@@ -295,11 +295,11 @@ contract StakednUSDComposerTest is TestHelper {
         vm.startPrank(alice);
         nusd.approve(address(stakedNusd), nusdAmount);
 
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
         uint256 sNusdReceived = stakedNusd.deposit(nusdAmount, alice);
-        uint256 aliceUsdeAfter = nusd.balanceOf(alice);
+        uint256 aliceNusdAfter = nusd.balanceOf(alice);
 
-        assertEq(aliceUsdeBefore - aliceUsdeAfter, nusdAmount, "nUSD should be transferred");
+        assertEq(aliceNusdBefore - aliceNusdAfter, nusdAmount, "nUSD should be transferred");
         assertEq(sNusdReceived, nusdAmount, "Should receive 1:1 initially");
         assertEq(stakedNusd.balanceOf(alice), sNusdReceived, "Alice should have snUSD");
 
@@ -530,7 +530,7 @@ contract StakednUSDComposerTest is TestHelper {
      */
     function test_EndToEndStakingFlow() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedUsde = 1000e18;
+        uint256 expectedNusd = 1000e18;
 
         _switchToHub();
 
@@ -538,7 +538,7 @@ contract StakednUSDComposerTest is TestHelper {
         vm.startPrank(alice);
         usdc.approve(address(nusd), usdcAmount);
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(nusdAmount, expectedUsde, "Should mint expected nUSD");
+        assertEq(nusdAmount, expectedNusd, "Should mint expected nUSD");
 
         // Step 2: Alice stakes nUSD to get snUSD
         nusd.approve(address(stakedNusd), nusdAmount);

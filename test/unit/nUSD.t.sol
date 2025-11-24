@@ -6,10 +6,10 @@ import { nUSD } from "../../contracts/nusd/nUSD.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /**
- * @title USDeTest
+ * @title nUSDTest
  * @notice Unit tests for nUSD core functionality
  */
-contract USDeTest is TestHelper {
+contract nUSDTest is TestHelper {
     function setUp() public override {
         super.setUp();
         
@@ -35,27 +35,27 @@ contract USDeTest is TestHelper {
      */
     function test_MintWithCollateral_USDC() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedUsde = 1000e18;
+        uint256 expectedNusd = 1000e18;
         
         vm.startPrank(alice);
         usdc.approve(address(nusd), usdcAmount);
         
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        uint256 usdeContractMctBefore = mct.balanceOf(address(nusd));
+        uint256 nusdContractMctBefore = mct.balanceOf(address(nusd));
         
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
         
         // Verify nUSD minted
-        assertEq(nusdAmount, expectedUsde, "Should mint 1000 nUSD");
-        assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Alice should have additional nUSD");
+        assertEq(nusdAmount, expectedNusd, "Should mint 1000 nUSD");
+        assertEq(nusd.balanceOf(alice) - aliceNusdBefore, expectedNusd, "Alice should have additional nUSD");
         
         // Verify USDC transferred
         assertEq(aliceUsdcBefore - aliceUsdcAfter, usdcAmount, "USDC transferred");
         
         // Verify MCT created (held by nUSD contract)
-        assertEq(mct.balanceOf(address(nusd)) - usdeContractMctBefore, expectedUsde, "nUSD holds additional MCT");
+        assertEq(mct.balanceOf(address(nusd)) - nusdContractMctBefore, expectedNusd, "nUSD holds additional MCT");
         
         vm.stopPrank();
     }
@@ -65,16 +65,16 @@ contract USDeTest is TestHelper {
      */
     function test_MintWithCollateral_USDT() public {
         uint256 usdtAmount = 500e6;
-        uint256 expectedUsde = 500e18;
+        uint256 expectedNusd = 500e18;
         
         vm.startPrank(alice);
         usdt.approve(address(nusd), usdtAmount);
         
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdt), usdtAmount);
         
-        assertEq(nusdAmount, expectedUsde, "Should mint 500 nUSD");
-        assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, expectedUsde, "Alice should have additional nUSD");
+        assertEq(nusdAmount, expectedNusd, "Should mint 500 nUSD");
+        assertEq(nusd.balanceOf(alice) - aliceNusdBefore, expectedNusd, "Alice should have additional nUSD");
         
         vm.stopPrank();
     }
@@ -86,7 +86,7 @@ contract USDeTest is TestHelper {
         // Setup: Mint nUSD
         uint256 nusdAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
         usdc.approve(address(nusd), 1000e6);
         nusd.mintWithCollateral(address(usdc), 1000e6);
         
@@ -102,7 +102,7 @@ contract USDeTest is TestHelper {
         assertEq(cooldownEnd, block.timestamp + 7 days, "Cooldown should be 7 days");
         
         // Verify nUSD is in silo (alice balance should be same as before mint)
-        assertEq(nusd.balanceOf(alice), aliceUsdeBefore, "Alice nUSD should be in silo");
+        assertEq(nusd.balanceOf(alice), aliceNusdBefore, "Alice nUSD should be in silo");
         assertEq(nusd.balanceOf(address(nusd.redeemSilo())), nusdAmount, "nUSD in silo");
         
         // Step 2: Try to complete too early (should fail)
@@ -120,7 +120,7 @@ contract USDeTest is TestHelper {
         // Verify redemption completed
         assertEq(collateralReceived, 1000e6, "Should receive 1000 USDC");
         assertEq(aliceUsdcAfter - aliceUsdcBefore, 1000e6, "USDC received");
-        assertEq(nusd.balanceOf(alice), aliceUsdeBefore, "nUSD burned, balance back to initial");
+        assertEq(nusd.balanceOf(alice), aliceNusdBefore, "nUSD burned, balance back to initial");
         
         // Verify request cleared
         (uint104 endAfter, uint152 amountAfter, ) = nusd.redemptionRequests(alice);
@@ -279,17 +279,17 @@ contract USDeTest is TestHelper {
         nusd.mintWithCollateral(address(usdc), 1000e6);
         
         uint256 burnAmount = 500e18;
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
         uint256 mctBefore = mct.totalSupply();
         
         // Burn
         nusd.burn(burnAmount);
         
-        uint256 aliceUsdeAfter = nusd.balanceOf(alice);
+        uint256 aliceNusdAfter = nusd.balanceOf(alice);
         uint256 mctAfter = mct.totalSupply();
         
         // Verify burn
-        assertEq(aliceUsdeBefore - aliceUsdeAfter, burnAmount, "nUSD burned");
+        assertEq(aliceNusdBefore - aliceNusdAfter, burnAmount, "nUSD burned");
         assertEq(mctBefore - mctAfter, burnAmount, "MCT burned");
         
         // Collateral stays in MCT (deflationary)
@@ -374,14 +374,14 @@ contract USDeTest is TestHelper {
         usdc.approve(address(nusd), 1000e6);
         
         // Bob can now mint for Alice using Alice's collateral
-        uint256 aliceUsdeBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = nusd.balanceOf(alice);
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         
         vm.prank(bob);
         uint256 nusdAmount = nusd.mintWithCollateralFor(address(usdc), 1000e6, alice);
         
         // Verify Alice received nUSD and her USDC was spent
-        assertEq(nusd.balanceOf(alice) - aliceUsdeBefore, nusdAmount, "Alice should have additional nUSD");
+        assertEq(nusd.balanceOf(alice) - aliceNusdBefore, nusdAmount, "Alice should have additional nUSD");
         assertEq(aliceUsdcBefore - usdc.balanceOf(alice), 1000e6, "Alice's USDC was spent");
         
         vm.stopPrank();
@@ -519,10 +519,10 @@ contract USDeTest is TestHelper {
         usdc.mint(alice, amount);
         usdc.approve(address(nusd), amount);
         
-        uint256 expectedUsde = amount * 1e12; // 6 to 18 decimals
+        uint256 expectedNusd = amount * 1e12; // 6 to 18 decimals
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), amount);
         
-        assertEq(nusdAmount, expectedUsde, "Should mint correct amount");
+        assertEq(nusdAmount, expectedNusd, "Should mint correct amount");
         
         vm.stopPrank();
     }
