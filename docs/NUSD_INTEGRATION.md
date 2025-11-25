@@ -47,7 +47,6 @@ Collateral (USDC/USDT/DAI/...) ──▶ MultiCollateralToken (MCT)
 |          | `COLLATERAL_MANAGER_ROLE` | Handles redemption cooldown actions |
 |          | `MINTER_ROLE` | Can mint nUSD + corresponding MCT without collateral |
 |          | `BLACKLIST_MANAGER_ROLE` | Can add/remove addresses from blacklist |
-|          | `SOFT_RESTRICTED_ROLE` | Prevents minting but allows transfers |
 |          | `FULL_RESTRICTED_ROLE` | Prevents all transfers, minting, and redemptions |
 
 > ⚠️ When granting `MINTER_ROLE` on nUSD, ensure MCT already granted `MINTER_ROLE` to nUSD so the vault can call `mintWithoutCollateral`.
@@ -94,14 +93,9 @@ Keep the on-chain collateral balance ≥ total MCT supply for full backing (unle
 
 ## Blacklist System
 
-nUSD implements a two-tier blacklist system similar to Ethena's sUSDe for compliance and security.
+nUSD implements a blacklist system for compliance and security.
 
-### Blacklist Levels
-
-**Soft Restriction** (`SOFT_RESTRICTED_ROLE`):
-- **Prevents**: Minting new nUSD with collateral
-- **Allows**: Transfers and redemptions
-- **Use case**: Restrict new minting while allowing users to exit
+### Blacklist Level
 
 **Full Restriction** (`FULL_RESTRICTED_ROLE`):
 - **Prevents**: All transfers (sending and receiving), minting, and redemptions
@@ -111,10 +105,10 @@ nUSD implements a two-tier blacklist system similar to Ethena's sUSDe for compli
 
 ```solidity
 // Add to blacklist (admin only)
-await nusd.addToBlacklist(address, isFullRestriction);  // true = full, false = soft
+await nusd.addToBlacklist(address);
 
 // Remove from blacklist
-await nusd.removeFromBlacklist(address, isFullRestriction);
+await nusd.removeFromBlacklist(address);
 
 // Redistribute locked funds from fully restricted address
 await nusd.redistributeLockedAmount(fromAddress, toAddress);  // or address(0) to burn
@@ -124,22 +118,13 @@ await nusd.redistributeLockedAmount(fromAddress, toAddress);  // or address(0) t
 
 - **Admin Protection**: Cannot blacklist addresses with `DEFAULT_ADMIN_ROLE`
 - **Fund Recovery**: Admin can redistribute locked funds from fully restricted addresses
-- **Granular Control**: Two levels allow proportional response to different situations
 - **Access Control**: Only `BLACKLIST_MANAGER_ROLE` can manage blacklist
 
-### Example Scenarios
+### Example Scenario
 
-**Soft Restriction Example:**
-```solidity
-// User can still redeem and transfer existing nUSD
-// But cannot mint new nUSD
-nusd.addToBlacklist(user, false);
-```
-
-**Full Restriction Example:**
 ```solidity
 // User is completely frozen
-nusd.addToBlacklist(user, true);
+nusd.addToBlacklist(user);
 
 // Later, admin can recover and redistribute funds
 nusd.redistributeLockedAmount(user, treasury);  // Move to treasury
@@ -155,10 +140,11 @@ nUSD supports configurable mint and redeem fees collected to a designated treasu
 
 ### Fee Configuration
 
-Fees are denominated in **basis points (bps)**:
+Fees are denominated in **basis points (bps)** with optional minimum amounts:
 - 1 bps = 0.01%
 - Maximum fee = 1000 bps (10%)
 - Example: 50 bps = 0.5%
+- Minimum fee amounts ensure fees never fall below a threshold, even for small transactions
 
 ```solidity
 // Set fees (admin only)
@@ -166,25 +152,41 @@ await nusd.setMintFee(50);        // 0.5% mint fee
 await nusd.setRedeemFee(30);      // 0.3% redeem fee
 await nusd.setFeeTreasury(treasury);
 
+// Set minimum fee amounts (admin only)
+await nusd.setMinMintFeeAmount(1e18);      // Minimum 1 nUSD mint fee
+await nusd.setMinRedeemFeeAmount(1e18);    // Minimum 1 nUSD redeem fee
+
 // Query current fees
 uint16 mintFee = await nusd.mintFeeBps();
 uint16 redeemFee = await nusd.redeemFeeBps();
+uint256 minMintFee = await nusd.minMintFeeAmount();
+uint256 minRedeemFee = await nusd.minRedeemFeeAmount();
 address treasury = await nusd.feeTreasury();
 ```
 
 ### How Fees Work
 
+Fees are calculated as: `fee = max(percentageFee, minFeeAmount)`
+
 **Mint Fee** (collected in nUSD):
 - User deposits 1000 USDC with 0.5% fee (50 bps)
 - Total MCT minted: 1000e18
-- Fee: 5e18 nUSD → treasury
-- User receives: 995e18 nUSD
+- Percentage fee: 5e18 nUSD
+- If minMintFeeAmount = 1e18: fee = max(5e18, 1e18) = 5e18 nUSD
+- If minMintFeeAmount = 10e18: fee = max(5e18, 10e18) = 10e18 nUSD
+- Fee: nUSD → treasury
+- User receives: remaining nUSD
 
-**Redeem Fee** (collected in collateral):
+**Redeem Fee** (collected in nUSD):
 - User redeems 1000 nUSD with 0.3% fee (30 bps)
 - Total collateral: 1000 USDC
-- Fee: 3 USDC → treasury
-- User receives: 997 USDC
+- Percentage fee: 3 USDC equivalent = 3e18 nUSD
+- If minRedeemFeeAmount = 1e18: fee = max(3e18, 1e18) = 3e18 nUSD
+- If minRedeemFeeAmount = 5e18: fee = max(3e18, 5e18) = 5e18 nUSD
+- Fee: nUSD → treasury (minted)
+- User receives: remaining collateral
+
+**Note**: Both mint and redeem fees are collected in nUSD. The treasury receives nUSD tokens for all fees.
 
 ### Cross-Chain Compatibility
 
@@ -400,8 +402,8 @@ await nusd.burn(amount);
 | **Minimum Amounts** | `setMinMintAmount(uint256)`, `setMinRedeemAmount(uint256)` |
 | **Pause Mint/Redeem** | `pause()` / `unpause()` (GATEKEEPER_ROLE) |
 | **Cooldown Duration** | `setCooldownDuration(uint24 duration)` |
-| **Mint/Redeem Fees** | `setMintFee(bps)`, `setRedeemFee(bps)`, `setFeeTreasury(address)` |
-| **Blacklist** | `addToBlacklist(address, bool)`, `removeFromBlacklist(address, bool)` |
+| **Mint/Redeem Fees** | `setMintFee(bps)`, `setRedeemFee(bps)`, `setFeeTreasury(address)`, `setMinMintFeeAmount(uint256)`, `setMinRedeemFeeAmount(uint256)` |
+| **Blacklist** | `addToBlacklist(address)`, `removeFromBlacklist(address)` |
 | **Keyring Permissioning** | `setKeyringConfig(address, uint256)`, `setKeyringWhitelist(address, bool)` |
 | **Deflationary Burn** | `mint` + `burn` combo described above |
 | **Collateral Ops** | `withdrawCollateral` / `depositCollateral` |
@@ -437,10 +439,10 @@ uint256 minRedeem = await nusd.minRedeemAmount();
 - Total MCT vs total nUSD supply
 - Outstanding redemption requests (`nusd.redemptionRequests(user)`) 
 - Rate limiter utilization (`mintedPerBlock`, `redeemedPerBlock`)
-- Fee configuration (`mintFeeBps`, `redeemFeeBps`, `feeTreasury`)
+- Fee configuration (`mintFeeBps`, `redeemFeeBps`, `minMintFeeAmount`, `minRedeemFeeAmount`, `feeTreasury`)
 - Minimum amounts (`minMintAmount`, `minRedeemAmount`)
 - Keyring configuration (`keyringAddress`, `keyringPolicyId`)
-- Blacklist status (addresses with `SOFT_RESTRICTED_ROLE` or `FULL_RESTRICTED_ROLE`)
+- Blacklist status (addresses with `FULL_RESTRICTED_ROLE`)
 - Treasury balance accumulation
 
 ---
@@ -466,6 +468,8 @@ await nusd.mint(incentivesVault, amount);
 // Fee configuration (admin only)
 await nusd.setMintFee(50);        // 0.5% fee
 await nusd.setRedeemFee(30);      // 0.3% fee
+await nusd.setMinMintFeeAmount(1e18);      // Minimum 1 nUSD mint fee
+await nusd.setMinRedeemFeeAmount(1e18);    // Minimum 1 nUSD redeem fee
 await nusd.setFeeTreasury(treasury);
 
 // Minimum amounts (admin only)
@@ -473,9 +477,8 @@ await nusd.setMinMintAmount(100e18);   // 100 nUSD minimum to mint
 await nusd.setMinRedeemAmount(100e18); // 100 nUSD minimum to redeem
 
 // Blacklist management (admin only)
-await nusd.addToBlacklist(address, false);       // Soft restriction
-await nusd.addToBlacklist(address, true);        // Full restriction
-await nusd.removeFromBlacklist(address, true);
+await nusd.addToBlacklist(address);
+await nusd.removeFromBlacklist(address);
 await nusd.redistributeLockedAmount(from, to);   // Recover locked funds
 
 // Redemption lifecycle
