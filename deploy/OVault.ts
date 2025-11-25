@@ -4,6 +4,8 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 
 import { DEPLOYMENT_CONFIG, isVaultChain, shouldDeployAsset, shouldDeployShare } from '../devtools'
 
+import { handleDeploymentWithRetry } from './utils'
+
 /**
  * OVault Deployment Script for nUSD System
  *
@@ -102,13 +104,18 @@ const deploy: DeployFunction = async (hre) => {
                 )
             }
 
-            const mctAdapter = await deployments.deploy('MCTOFTAdapter', {
-                contract: 'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter',
-                from: deployer,
-                args: [mctAddress, endpointV2.address, deployer],
-                log: true,
-                skipIfAlreadyDeployed: true,
-            })
+            const mctAdapter = await handleDeploymentWithRetry(
+                hre,
+                deployments.deploy('MCTOFTAdapter', {
+                    contract: 'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter',
+                    from: deployer,
+                    args: [mctAddress, endpointV2.address, deployer],
+                    log: true,
+                    skipIfAlreadyDeployed: true,
+                }),
+                'MCTOFTAdapter',
+                'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter'
+            )
             deployedContracts.mctAdapter = mctAdapter.address
             console.log(`   ✓ MCTOFTAdapter deployed at: ${mctAdapter.address}`)
         } else {
@@ -128,9 +135,9 @@ const deploy: DeployFunction = async (hre) => {
                 throw new Error(`Invalid deployer address: ${deployer}`)
             }
 
-            let mctOFT
-            try {
-                mctOFT = await deployments.deploy('MCTOFT', {
+            const mctOFT = await handleDeploymentWithRetry(
+                hre,
+                deployments.deploy('MCTOFT', {
                     contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
                     from: deployer,
                     args: [
@@ -139,58 +146,12 @@ const deploy: DeployFunction = async (hre) => {
                     ],
                     log: true,
                     skipIfAlreadyDeployed: true,
-                })
-                deployedContracts.mctOFT = mctOFT.address
-                console.log(`   ✓ MCTOFT deployed at: ${mctOFT.address}`)
-            } catch (error: unknown) {
-                // Handle RPC provider issue where contract creation returns empty 'to' field
-                const err = error as { message?: string; transactionHash?: string; checkKey?: string }
-                if (err?.message?.includes('invalid address') && err?.transactionHash && err?.checkKey === 'to') {
-                    console.log(
-                        `   ⚠️  RPC provider returned malformed transaction response, checking if deployment succeeded...`
-                    )
-                    const txHash = err.transactionHash
-                    console.log(`   Transaction hash: ${txHash}`)
-                    console.log(`   Waiting for transaction to be finalized...`)
-
-                    // Retry logic with exponential backoff for delayed finalization
-                    let receipt = null
-                    const maxRetries = 10
-                    const initialDelay = 2000 // 2 seconds
-                    for (let i = 0; i < maxRetries; i++) {
-                        receipt = await hre.ethers.provider.getTransactionReceipt(txHash)
-                        if (receipt && receipt.contractAddress) {
-                            break
-                        }
-                        if (i < maxRetries - 1) {
-                            const delay = initialDelay * Math.pow(2, i)
-                            console.log(
-                                `   Retry ${i + 1}/${maxRetries}: Waiting ${delay}ms for transaction finalization...`
-                            )
-                            await new Promise((resolve) => setTimeout(resolve, delay))
-                        }
-                    }
-
-                    if (receipt && receipt.contractAddress) {
-                        console.log(`   ✓ MCTOFT deployment succeeded (contract address from receipt)`)
-                        console.log(`   ✓ MCTOFT deployed at: ${receipt.contractAddress}`)
-                        // Save the deployment manually
-                        await hre.deployments.save('MCTOFT', {
-                            address: receipt.contractAddress,
-                            abi: (await hre.artifacts.readArtifact('contracts/mct/MCTOFT.sol:MCTOFT')).abi,
-                        })
-                        deployedContracts.mctOFT = receipt.contractAddress
-                    } else {
-                        throw new Error(
-                            `MCTOFT deployment transaction exists (${txHash}) but contract address not found in receipt after ${maxRetries} retries. ` +
-                                `The transaction may still be pending. Please check the transaction on the block explorer: ` +
-                                `https://etherscan.io/tx/${txHash}`
-                        )
-                    }
-                } else {
-                    throw error
-                }
-            }
+                }),
+                'MCTOFT',
+                'contracts/mct/MCTOFT.sol:MCTOFT'
+            )
+            deployedContracts.mctOFT = mctOFT.address
+            console.log(`   ✓ MCTOFT deployed at: ${mctOFT.address}`)
         }
     } else if (DEPLOYMENT_CONFIG.vault.assetOFTAddress) {
         console.log('⏭️  Skipping asset OFT deployment (existing mesh)')
@@ -205,16 +166,21 @@ const deploy: DeployFunction = async (hre) => {
         // Spoke chain: Deploy nUSDOFT (mint/burn)
         console.log('📦 Deploying Share OFT (nUSD) on spoke chain...')
 
-        const nusdOFT = await deployments.deploy('nUSDOFT', {
-            contract: 'contracts/nusd/nUSDOFT.sol:nUSDOFT',
-            from: deployer,
-            args: [
-                endpointV2.address, // _lzEndpoint
-                deployer, // _delegate
-            ],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
+        const nusdOFT = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('nUSDOFT', {
+                contract: 'contracts/nusd/nUSDOFT.sol:nUSDOFT',
+                from: deployer,
+                args: [
+                    endpointV2.address, // _lzEndpoint
+                    deployer, // _delegate
+                ],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'nUSDOFT',
+            'contracts/nusd/nUSDOFT.sol:nUSDOFT'
+        )
         deployedContracts.nusdOFT = nusdOFT.address
         console.log(`   ✓ nUSDOFT deployed at: ${nusdOFT.address}`)
     } else if (DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && !isVaultChain(networkEid)) {
@@ -242,13 +208,18 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy nUSDOFTAdapter (lockbox for nUSD shares)
         console.log('   → Deploying nUSDOFTAdapter (lockbox)...')
-        const nusdAdapter = await deployments.deploy('nUSDOFTAdapter', {
-            contract: 'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter',
-            from: deployer,
-            args: [nusdAddress, endpointV2.address, deployer],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
+        const nusdAdapter = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('nUSDOFTAdapter', {
+                contract: 'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter',
+                from: deployer,
+                args: [nusdAddress, endpointV2.address, deployer],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'nUSDOFTAdapter',
+            'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter'
+        )
         deployedContracts.nusdAdapter = nusdAdapter.address
         console.log(`   ✓ nUSDOFTAdapter deployed at: ${nusdAdapter.address}`)
 
@@ -319,19 +290,24 @@ const deploy: DeployFunction = async (hre) => {
             }
 
             console.log('   → Deploying nUSDComposer...')
-            const composer = await deployments.deploy('nUSDComposer', {
-                contract: 'contracts/nusd/nUSDComposer.sol:nUSDComposer',
-                from: deployer,
-                args: [
-                    nusdAddress, // vault (nUSD)
-                    mctAssetOFTAddress, // asset OFT (MCT adapter)
-                    nusdAdapter.address, // share OFT adapter
-                    collateralAsset, // configured collateral asset (e.g., USDC)
-                    collateralAssetOFT, // USDC OFT address
-                ],
-                log: true,
-                skipIfAlreadyDeployed: true,
-            })
+            const composer = await handleDeploymentWithRetry(
+                hre,
+                deployments.deploy('nUSDComposer', {
+                    contract: 'contracts/nusd/nUSDComposer.sol:nUSDComposer',
+                    from: deployer,
+                    args: [
+                        nusdAddress, // vault (nUSD)
+                        mctAssetOFTAddress, // asset OFT (MCT adapter)
+                        nusdAdapter.address, // share OFT adapter
+                        collateralAsset, // configured collateral asset (e.g., USDC)
+                        collateralAssetOFT, // USDC OFT address
+                    ],
+                    log: true,
+                    skipIfAlreadyDeployed: true,
+                }),
+                'nUSDComposer',
+                'contracts/nusd/nUSDComposer.sol:nUSDComposer'
+            )
             deployedContracts.composer = composer.address
             console.log(`   ✓ nUSDComposer deployed at: ${composer.address}`)
         } else {
@@ -363,17 +339,22 @@ const deploy: DeployFunction = async (hre) => {
             return
         }
 
-        const stakedComposer = await deployments.deploy('StakednUSDComposer', {
-            contract: 'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer',
-            from: deployer,
-            args: [
-                stakedNusdAddress, // StakednUSD vault
-                nusdAdapter.address, // nUSD OFT adapter (asset)
-                stakedNusdAdapterAddress, // snUSD OFT adapter (share)
-            ],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
+        const stakedComposer = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('StakednUSDComposer', {
+                contract: 'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer',
+                from: deployer,
+                args: [
+                    stakedNusdAddress, // StakednUSD vault
+                    nusdAdapter.address, // nUSD OFT adapter (asset)
+                    stakedNusdAdapterAddress, // snUSD OFT adapter (share)
+                ],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'StakednUSDComposer',
+            'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer'
+        )
         deployedContracts.stakedComposer = stakedComposer.address
         console.log(`   ✓ StakednUSDComposer deployed at: ${stakedComposer.address}`)
     }
