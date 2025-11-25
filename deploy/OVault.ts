@@ -177,7 +177,17 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy nUSDComposer if collateral asset is configured
         const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
+        const collateralAssetOFT = DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress
+
         if (collateralAsset) {
+            // Validate collateralAssetOFT is set
+            if (!collateralAssetOFT || collateralAssetOFT === '0x0000000000000000000000000000000000000000') {
+                throw new Error(
+                    'collateralAssetOFTAddress is not set in deployConfig. ' +
+                        'Please set vault.collateralAssetOFTAddress (e.g., Stargate USDC OFT address) in devtools/deployConfig.ts'
+                )
+            }
+
             // Resolve MCT asset OFT (adapter) address required by base composer
             let mctAssetOFTAddress: string
             if (DEPLOYMENT_CONFIG.vault.assetOFTAddress) {
@@ -193,6 +203,44 @@ const deploy: DeployFunction = async (hre) => {
                 }
             }
 
+            // Validate addresses before deployment
+            console.log('   → Validating addresses for nUSDComposer...')
+            console.log(`      Vault (nUSD): ${nusdAddress}`)
+            console.log(`      Asset OFT (MCT Adapter): ${mctAssetOFTAddress}`)
+            console.log(`      Share OFT (nUSD Adapter): ${nusdAdapter.address}`)
+            console.log(`      Collateral Asset: ${collateralAsset}`)
+            console.log(`      Collateral Asset OFT: ${collateralAssetOFT}`)
+
+            // Check if addresses are valid contracts
+            const vaultCodeSize = await hre.ethers.provider.getCode(nusdAddress)
+            if (vaultCodeSize === '0x') {
+                throw new Error(`nUSD vault at ${nusdAddress} is not a contract`)
+            }
+
+            const assetOftCodeSize = await hre.ethers.provider.getCode(mctAssetOFTAddress)
+            if (assetOftCodeSize === '0x') {
+                throw new Error(`MCTOFTAdapter at ${mctAssetOFTAddress} is not a contract`)
+            }
+
+            const shareOftCodeSize = await hre.ethers.provider.getCode(nusdAdapter.address)
+            if (shareOftCodeSize === '0x') {
+                throw new Error(`nUSDOFTAdapter at ${nusdAdapter.address} is not a contract`)
+            }
+
+            const codeSize = await hre.ethers.provider.getCode(collateralAsset)
+            if (codeSize === '0x') {
+                throw new Error(`Collateral asset at ${collateralAsset} is not a contract`)
+            }
+
+            const oftCodeSize = await hre.ethers.provider.getCode(collateralAssetOFT)
+            if (oftCodeSize === '0x') {
+                throw new Error(
+                    `Collateral Asset OFT at ${collateralAssetOFT} is not a contract. ` +
+                        'Please deploy it first or use an existing OFT address. ' +
+                        `Current network: ${hre.network.name}`
+                )
+            }
+
             console.log('   → Deploying nUSDComposer...')
             const composer = await deployments.deploy('nUSDComposer', {
                 contract: 'contracts/nusd/nUSDComposer.sol:nUSDComposer',
@@ -202,7 +250,7 @@ const deploy: DeployFunction = async (hre) => {
                     mctAssetOFTAddress, // asset OFT (MCT adapter)
                     nusdAdapter.address, // share OFT adapter
                     collateralAsset, // configured collateral asset (e.g., USDC)
-                    DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress, // USDC OFT address
+                    collateralAssetOFT, // USDC OFT address
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,

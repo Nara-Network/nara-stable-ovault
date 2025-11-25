@@ -32,10 +32,8 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
         // This must be the address of the nUSDOFTAdapter
         shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
-        // TODO: Update with mainnet USDC address
-        collateralAssetAddress: '0x0000000000000000000000000000000000000000', // USDC on Arbitrum Mainnet (UPDATE THIS)
-        // TODO: Update with mainnet USDC OFT address (e.g., Stargate USDC OFT)
-        collateralAssetOFTAddress: '0x0000000000000000000000000000000000000000', // USDC OFT on Arbitrum Mainnet (UPDATE THIS)
+        collateralAssetAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum Mainnet (UPDATE THIS)
+        collateralAssetOFTAddress: '0xe8CDF27AcD73a434D661C84887215F7598e7d0d3', // USDC OFT on Arbitrum Mainnet (UPDATE THIS)
     },
 
     // Share OFT configuration (nUSD shares on spoke chains)
