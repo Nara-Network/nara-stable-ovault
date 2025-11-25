@@ -1,122 +1,47 @@
-import { EndpointId } from '@layerzerolabs/lz-definitions'
+/**
+ * Deployment Configuration Selector
+ *
+ * This file exports the appropriate deployment configuration based on the DEPLOY_ENV environment variable.
+ *
+ * Usage:
+ * - Testnet: DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
+ * - Mainnet: DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
+ *
+ * Default: testnet (if DEPLOY_ENV is not set)
+ *
+ * Note: The environment variable is checked at module load time, so make sure to set it before running hardhat commands.
+ */
 
-import { DeploymentConfig } from './types'
+import * as mainnetConfig from './deployConfig.mainnet'
+import * as testnetConfig from './deployConfig.testnet'
 
-// ============================================
-// OVault Deployment Configuration
-// npx hardhat lz:deploy --tags ovault
-// ============================================
-//
-// DEFAULT: You have an ERC4626 vault and assetOFT deployed
-// - Set vault.vaultAddress to your existing vault
-// - Set vault.assetOFTAddress to your existing asset OFT
-// - ShareAdapter, ShareOFT, and Composer will be deployed to integrate with LayerZero
-//
-// ALTERNATIVE SCENARIOS:
-// - New vault, existing asset: Set only assetOFTAddress
-// - New vault, new asset: Leave both addresses undefined
-// ============================================
+// Determine which config to use based on environment variable
+const deployEnv = (process.env.DEPLOY_ENV || 'testnet').toLowerCase()
 
-// Define the chains we're deploying to
-// - _hubEid: The hub chain (where the OVault [ERC4626, ShareOFTAdapter, Composer] is deployed)
-// - _spokeEids: The spoke chains (where the ShareOFT is deployed)
-const _hubEid = EndpointId.ARBSEP_V2_TESTNET // Arbitrum Sepolia as hub chain
-const _spokeEids = [EndpointId.BASESEP_V2_TESTNET, EndpointId.SEPOLIA_V2_TESTNET]
+if (deployEnv !== 'testnet' && deployEnv !== 'mainnet') {
+    throw new Error(
+        `Invalid DEPLOY_ENV: ${deployEnv}. Must be either 'testnet' or 'mainnet'. ` +
+            `Current value: ${process.env.DEPLOY_ENV || 'undefined (defaulting to testnet)'}`
+    )
+}
 
-// ============================================
-// Deployment Export
-// ============================================
-//
-// This is the configuration for the deployment of the OVault.
-//
-// ============================================
-export const DEPLOYMENT_CONFIG: DeploymentConfig = {
-    // Vault chain configuration (where the ERC4626 vault lives)
-    vault: {
-        deploymentEid: _hubEid,
-        contracts: {
-            vault: 'nusd/nUSD',
-            shareAdapter: 'nusd/nUSDOFTAdapter',
-            composer: 'nusd/nUSDComposer',
-        },
-        // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
-        // This will skip deployment and use your existing hubEid contract deployments instead
-        // This must be the address of the nUSD (ERC4626 vault)
-        vaultAddress: undefined, // Set to '0xabc...' to use existing vault
-        // This must be the address of the MCT OFT adapter (not MCT itself - use the OFT adapter address)
-        assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
-        // This must be the address of the nUSDOFTAdapter
-        shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
-        collateralAssetAddress: '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773', // e.g., USDC on hub chain
-        collateralAssetOFTAddress: '0x543BdA7c6cA4384FE90B1F5929bb851F52888983', // Set to '0x...' to use existing USDC OFT (e.g., Stargate USDC OFT)
-    },
+// Select the appropriate configuration
+const selectedConfig = deployEnv === 'mainnet' ? mainnetConfig : testnetConfig
 
-    // Share OFT configuration (nUSD shares on spoke chains)
-    shareOFT: {
-        contract: 'nusd/nUSDOFT',
-        metadata: {
-            name: 'nUSD',
-            symbol: 'nUSD',
-        },
-        deploymentEids: _spokeEids,
-    },
+// Export default (the entire config object)
+export default selectedConfig
 
-    // Asset OFT configuration (MCT on hub and spoke chains)
-    // Hub uses MCTOFTAdapter (lockbox), spokes use MCTOFT (mint/burn)
-    assetOFT: {
-        contract: 'mct/MCTOFT', // On spokes: MCTOFT, On hub: MCTOFTAdapter (handled in deploy script)
-        metadata: {
-            name: 'MultiCollateralToken',
-            symbol: 'MCT',
-        },
-        deploymentEids: [_hubEid, ..._spokeEids],
-    },
-} as const
-
-export const isVaultChain = (eid: number): boolean => eid === DEPLOYMENT_CONFIG.vault.deploymentEid
-export const shouldDeployVault = (eid: number): boolean => isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.vaultAddress
-export const shouldDeployAsset = (eid: number): boolean =>
-    !DEPLOYMENT_CONFIG.vault.assetOFTAddress && DEPLOYMENT_CONFIG.assetOFT.deploymentEids.includes(eid)
-export const shouldDeployShare = (eid: number): boolean =>
-    !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && DEPLOYMENT_CONFIG.shareOFT.deploymentEids.includes(eid)
-
-export const shouldDeployShareAdapter = (eid: number): boolean =>
-    isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress
-
-// ============================================
-// StakednUSD Deployment Configuration
-// npx hardhat lz:deploy --tags staked-nusd
-// ============================================
-export const STAKED_NUSD_CONFIG = {
-    // StakednUSD vault configuration (where the staking vault lives)
-    vault: {
-        deploymentEid: _hubEid,
-        contracts: {
-            vault: 'staked-nusd/StakednUSD',
-            shareAdapter: 'staked-nusd/StakednUSDOFTAdapter',
-            distributor: 'staked-nusd/StakingRewardsDistributor',
-        },
-        // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
-        vaultAddress: undefined, // Set to '0xabc...' to use existing StakednUSD vault
-        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing StakednUSDOFTAdapter
-        distributorAddress: undefined, // Set to '0xghi...' to use existing StakingRewardsDistributor
-    },
-
-    // Share OFT configuration (snUSD shares on spoke chains)
-    shareOFT: {
-        contract: 'staked-nusd/StakednUSDOFT',
-        metadata: {
-            name: 'Staked nUSD',
-            symbol: 'snUSD',
-        },
-        deploymentEids: _spokeEids,
-    },
-} as const
-
-export const isStakedNusdVaultChain = (eid: number): boolean => eid === STAKED_NUSD_CONFIG.vault.deploymentEid
-export const shouldDeployStakedNusdVault = (eid: number): boolean =>
-    isStakedNusdVaultChain(eid) && !STAKED_NUSD_CONFIG.vault.vaultAddress
-export const shouldDeployStakedNusdShare = (eid: number): boolean =>
-    !STAKED_NUSD_CONFIG.vault.shareOFTAdapterAddress && STAKED_NUSD_CONFIG.shareOFT.deploymentEids.includes(eid)
-export const shouldDeployStakedNusdShareAdapter = (eid: number): boolean =>
-    isStakedNusdVaultChain(eid) && !STAKED_NUSD_CONFIG.vault.shareOFTAdapterAddress
+// Re-export all named exports using spread (simpler approach)
+export const {
+    DEPLOYMENT_CONFIG,
+    STAKED_NUSD_CONFIG,
+    isVaultChain,
+    shouldDeployVault,
+    shouldDeployAsset,
+    shouldDeployShare,
+    shouldDeployShareAdapter,
+    isStakedNusdVaultChain,
+    shouldDeployStakedNusdVault,
+    shouldDeployStakedNusdShare,
+    shouldDeployStakedNusdShareAdapter,
+} = selectedConfig

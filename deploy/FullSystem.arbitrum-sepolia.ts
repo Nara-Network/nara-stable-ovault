@@ -1,8 +1,10 @@
 import { type HardhatRuntimeEnvironment } from 'hardhat/types'
 import { type DeployFunction } from 'hardhat-deploy/types'
 
+import { DEPLOYMENT_CONFIG } from '../devtools'
+
 /**
- * Complete deployment script for the full nUSD OVault system on Arbitrum Sepolia testnet
+ * Complete deployment script for the full nUSD OVault system
  *
  * This script deploys:
  * 1. MultiCollateralToken (MCT) with USDC as initial asset
@@ -10,14 +12,15 @@ import { type DeployFunction } from 'hardhat-deploy/types'
  * 3. StakednUSD vault for staking nUSD
  * 4. StakingRewardsDistributor for automated rewards
  *
- * Arbitrum Sepolia Testnet Configuration:
- * - USDC: 0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773 (Bridged USDC)
- * - Network: Arbitrum Sepolia (Chain ID: 421614)
+ * Supports both testnet and mainnet deployments based on DEPLOY_ENV:
+ * - Testnet: DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
+ * - Mainnet: DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags FullSystem
  *
  * To use this script:
- * 1. Set your admin address below
- * 2. Set operator address for rewards distribution
- * 3. Run: npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
+ * 1. Set DEPLOY_ENV environment variable (testnet or mainnet)
+ * 2. Set your admin address below
+ * 3. Set operator address for rewards distribution
+ * 4. Run: npx hardhat deploy --network <network> --tags FullSystem
  */
 
 // ============================================
@@ -26,9 +29,6 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 
 const ADMIN_ADDRESS = '0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671' // TODO: Set admin address (multisig recommended)
 const OPERATOR_ADDRESS = '0xD5259f0B4aA6189210970243d3B57eb04f5C64B7' // TODO: Set operator address (bot/EOA)
-
-// Arbitrum Sepolia USDC Address (Bridged USDC)
-const ARBITRUM_SEPOLIA_USDC = '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773'
 
 // Limits
 const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M nUSD (18 decimals)
@@ -41,9 +41,23 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const { deploy } = deployments
     const { deployer } = await getNamedAccounts()
 
+    // Get network info
+    const network = await hre.ethers.provider.getNetwork()
+    const networkName = hre.network.name
+    const deployEnv = (process.env.DEPLOY_ENV || 'testnet').toLowerCase()
+
+    // Get USDC address from config
+    const usdcAddress = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
+    if (!usdcAddress || usdcAddress === '0x0000000000000000000000000000000000000000') {
+        throw new Error(
+            `USDC address not configured for ${deployEnv}. Please update deployConfig.${deployEnv}.ts with the correct USDC address.`
+        )
+    }
+
     console.log('\n=====================================================')
     console.log('Deploying Full nUSD OVault System')
-    console.log('Network: Arbitrum Sepolia Testnet')
+    console.log(`Environment: ${deployEnv.toUpperCase()}`)
+    console.log(`Network: ${networkName} (Chain ID: ${network.chainId})`)
     console.log('=====================================================\n')
 
     // Validate configuration
@@ -54,18 +68,10 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         throw new Error('Please set OPERATOR_ADDRESS in the deployment script')
     }
 
-    // Verify network
-    const network = await hre.ethers.provider.getNetwork()
-    if (network.chainId !== 421614) {
-        console.warn('⚠️  Warning: This script is configured for Arbitrum Sepolia (Chain ID: 421614)')
-        console.warn(`   Current network Chain ID: ${network.chainId}`)
-        console.warn('   Proceeding anyway...\n')
-    }
-
     console.log('Deployer:', deployer)
     console.log('Admin:', ADMIN_ADDRESS)
     console.log('Operator:', OPERATOR_ADDRESS)
-    console.log('USDC (Arbitrum Sepolia):', ARBITRUM_SEPOLIA_USDC)
+    console.log('USDC Address:', usdcAddress)
     console.log('')
 
     // ========================================
@@ -80,7 +86,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const mctDeployment = await deploy('MultiCollateralToken', {
         contract: 'contracts/mct/MultiCollateralToken.sol:MultiCollateralToken',
         from: deployer,
-        args: [ADMIN_ADDRESS, [ARBITRUM_SEPOLIA_USDC]],
+        args: [ADMIN_ADDRESS, [usdcAddress]],
         log: true,
         waitConfirmations: 1,
     })
@@ -191,7 +197,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('')
     console.log('ℹ️  Note: Cross-chain functionality (OVault Composers)')
     console.log('   nUSDComposer and StakednUSDComposer are deployed separately')
-    console.log('   Run: npx hardhat deploy --network arbitrum-sepolia --tags ovault')
+    console.log(`   Run: DEPLOY_ENV=${deployEnv} npx hardhat deploy --network ${networkName} --tags ovault`)
     console.log('   This enables cross-chain minting and staking operations')
     console.log('')
 
@@ -212,7 +218,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('⚙️  Configuration:')
     console.log('   Admin:', ADMIN_ADDRESS)
     console.log('   Operator:', OPERATOR_ADDRESS)
-    console.log('   USDC (Arbitrum Sepolia):', ARBITRUM_SEPOLIA_USDC)
+    console.log('   USDC Address:', usdcAddress)
     console.log('   Max Mint/Block:', MAX_MINT_PER_BLOCK)
     console.log('   Max Redeem/Block:', MAX_REDEEM_PER_BLOCK)
     console.log('')
@@ -229,21 +235,25 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     console.log('1️⃣  Verify Contracts:')
     console.log(
-        `   npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network arbitrum-sepolia ${mctDeployment.address} "${ADMIN_ADDRESS}" "[\\"${ARBITRUM_SEPOLIA_USDC}\\"]"`
+        `   npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network ${networkName} ${mctDeployment.address} "${ADMIN_ADDRESS}" "[\\"${usdcAddress}\\"]"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/nusd/nUSD.sol:nUSD --network arbitrum-sepolia ${nusdDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
+        `   npx hardhat verify --contract contracts/nusd/nUSD.sol:nUSD --network ${networkName} ${nusdDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/staked-nusd/StakednUSD.sol:StakednUSD --network arbitrum-sepolia ${stakedNusdDeployment.address} "${nusdDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
+        `   npx hardhat verify --contract contracts/staked-nusd/StakednUSD.sol:StakednUSD --network ${networkName} ${stakedNusdDeployment.address} "${nusdDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/staked-nusd/StakingRewardsDistributor.sol:StakingRewardsDistributor --network arbitrum-sepolia ${distributorDeployment.address} "${stakedNusdDeployment.address}" "${nusdDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
+        `   npx hardhat verify --contract contracts/staked-nusd/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${networkName} ${distributorDeployment.address} "${stakedNusdDeployment.address}" "${nusdDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
     )
     console.log('')
 
     console.log('2️⃣  Test Minting nUSD:')
-    console.log('   - Get Arbitrum Sepolia USDC from faucet/bridge')
+    if (deployEnv === 'testnet') {
+        console.log('   - Get testnet USDC from faucet/bridge')
+    } else {
+        console.log('   - Get mainnet USDC')
+    }
     console.log('   - usdc.approve(nusd.address, amount)')
     console.log('   - nusd.mintWithCollateral(usdc.address, amount)')
     console.log('')
@@ -259,8 +269,8 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('')
 
     console.log('5️⃣  Deploy OFT Infrastructure for Cross-Chain:')
-    console.log('   npx hardhat deploy --network arbitrum-sepolia --tags ovault')
-    console.log('   npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft')
+    console.log(`   DEPLOY_ENV=${deployEnv} npx hardhat deploy --network ${networkName} --tags ovault`)
+    console.log(`   DEPLOY_ENV=${deployEnv} npx hardhat deploy --network ${networkName} --tags staked-nusd-oft`)
     console.log('   This deploys:')
     console.log('   - MCTOFTAdapter, nUSDOFTAdapter, nUSDComposer (for nUSD)')
     console.log('   - StakednUSDOFTAdapter, StakednUSDComposer (for snUSD)')
@@ -281,4 +291,4 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
 export default deployFullSystem
 
-deployFullSystem.tags = ['FullSystem', 'ArbitrumSepolia', 'Complete']
+deployFullSystem.tags = ['FullSystem', 'Complete']

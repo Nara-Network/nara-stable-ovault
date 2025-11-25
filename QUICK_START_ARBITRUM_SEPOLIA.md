@@ -1,6 +1,6 @@
-# ⚡ Quick Start - Deploy on Arbitrum Sepolia
+# ⚡ Quick Start - Deploy nUSD OVault System
 
-Fast deployment guide for Arbitrum Sepolia testnet with pre-configured settings.
+Fast deployment guide for both testnet and mainnet with environment-based configuration.
 
 ## 🎯 One-Command Deployment
 
@@ -13,11 +13,19 @@ const ADMIN_ADDRESS = "YOUR_ADMIN_ADDRESS_HERE";
 const OPERATOR_ADDRESS = "YOUR_OPERATOR_ADDRESS_HERE";
 ```
 
-### Step 2: Deploy Everything
+### Step 2: Choose Your Environment
 
+**For Testnet (Default):**
 ```bash
-npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 ```
+
+**For Mainnet:**
+```bash
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags FullSystem
+```
+
+> **Note**: If `DEPLOY_ENV` is not set, it defaults to `testnet`.
 
 That's it! ✅
 
@@ -34,19 +42,31 @@ That's it! ✅
 
 ---
 
-## 🔧 Pre-Configured Settings
+## 🔧 Configuration
 
-### Network: Arbitrum Sepolia Testnet (Hub Chain)
+The deployment uses environment-based configuration. Settings are automatically selected based on `DEPLOY_ENV`:
 
-- **Chain ID**: 421614
-- **RPC**: https://sepolia-rollup.arbitrum.io/rpc
-- **LayerZero Endpoint ID**: 40231 (ARBSEP_V2_TESTNET)
+### Testnet Configuration (Default)
 
-### Collateral Asset
-
-- **USDC (Arbitrum Sepolia)**: `0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773`
+- **Hub Chain**: Arbitrum Sepolia
+  - **Chain ID**: 421614
+  - **RPC**: https://sepolia-rollup.arbitrum.io/rpc
+  - **LayerZero Endpoint ID**: 40231 (ARBSEP_V2_TESTNET)
+- **USDC Address**: `0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773`
+- **USDC OFT**: `0x543BdA7c6cA4384FE90B1F5929bb851F52888983`
 - Bridge USDC: https://bridge.arbitrum.io/
 - Faucet: https://faucet.quicknode.com/arbitrum/sepolia
+
+### Mainnet Configuration
+
+- **Hub Chain**: Arbitrum
+  - **Chain ID**: 42161
+  - **RPC**: Configured in `hardhat.config.ts`
+  - **LayerZero Endpoint ID**: 30110 (ARBITRUM_V2_MAINNET)
+- **USDC Address**: ⚠️ **Update in `devtools/deployConfig.mainnet.ts`**
+- **USDC OFT**: ⚠️ **Update in `devtools/deployConfig.mainnet.ts`**
+
+> **Important**: Before deploying to mainnet, update the USDC addresses in `devtools/deployConfig.mainnet.ts`
 
 ### Limits
 
@@ -59,31 +79,44 @@ That's it! ✅
 
 After deployment, test the system:
 
-### 1. Get Arbitrum Sepolia ETH
+### 1. Get Network Native Token (ETH)
 
+**Testnet:**
 ```
 https://faucet.quicknode.com/arbitrum/sepolia
 https://www.alchemy.com/faucets/arbitrum-sepolia
 ```
 
-### 2. Get Arbitrum Sepolia USDC
+**Mainnet:**
+- Use a DEX or bridge to get ETH on Arbitrum
 
+### 2. Get USDC
+
+**Testnet:**
 ```
 Bridge from Sepolia: https://bridge.arbitrum.io/
 Or use faucet: https://faucet.circle.com/ (then bridge)
 ```
 
+**Mainnet:**
+- Bridge USDC from Ethereum mainnet or use a DEX
+
 ### 3. Mint nUSD
 
 ```bash
+# Testnet
 npx hardhat console --network arbitrum-sepolia
+
+# Mainnet
+npx hardhat console --network arbitrum
 ```
 
 ```javascript
 // Get contracts (replace with your deployed addresses)
+// USDC address comes from deployConfig based on DEPLOY_ENV
 const usdc = await ethers.getContractAt(
   "IERC20",
-  "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773",
+  "YOUR_USDC_ADDRESS", // Check deployConfig for the correct address
 );
 const nusd = await ethers.getContractAt("nusd/nUSD", "YOUR_NUSD_ADDRESS");
 
