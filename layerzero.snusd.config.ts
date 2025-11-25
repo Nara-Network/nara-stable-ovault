@@ -9,21 +9,21 @@ import type { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 const arbitrumContract: OmniPointHardhat = {
     eid: EndpointId.ARBSEP_V2_TESTNET, // 40231
     contractName: 'StakednUSDOFTAdapter',
-    address: '0xB5fdA7720934E417DC172A1c58E7C4369050C929',
+    address: '0x6fe214431A633AEc321D59756730e15F335c11b4',
 }
 
 // Base Sepolia - Spoke Chain (uses OFT/mint-burn)
 const baseContract: OmniPointHardhat = {
     eid: EndpointId.BASESEP_V2_TESTNET, // 40245
     contractName: 'StakednUSDOFT',
-    address: '0x9fCA2f60e14DB9654b2597923D0c244A809DF9f9',
+    address: '0x41ff3eCEf8b4180175df5FF0B67a3522C808594E',
 }
 
 // Sepolia - Spoke Chain (uses OFT/mint-burn)
 const sepoliaContract: OmniPointHardhat = {
     eid: EndpointId.SEPOLIA_V2_TESTNET, // 40161
     contractName: 'StakednUSDOFT',
-    address: '0xDEE7EFF65f082c19EE3e036Cb4fA242a57f5D779',
+    address: '0x163936e32fbC04eE0c69A8d08a0B626E1BEb7631',
 }
 
 // Gas settings for cross-chain messages
