@@ -52,7 +52,33 @@ const deploy: DeployFunction = async (hre) => {
         )
     }
 
-    const endpointV2 = await hre.deployments.get('EndpointV2')
+    let endpointV2
+    try {
+        endpointV2 = await hre.deployments.get('EndpointV2')
+    } catch (error) {
+        throw new Error(
+            `EndpointV2 not found. Please deploy EndpointV2 first using: ` +
+                `npx hardhat deploy --network ${hre.network.name} --tags EndpointV2`
+        )
+    }
+
+    // Validate EndpointV2 address
+    if (!endpointV2.address || endpointV2.address === '0x0000000000000000000000000000000000000000') {
+        throw new Error(
+            `EndpointV2 address is invalid or not set: ${endpointV2.address}. ` +
+                `Please deploy EndpointV2 first using: npx hardhat deploy --network ${hre.network.name} --tags EndpointV2`
+        )
+    }
+
+    // Verify EndpointV2 is actually deployed on-chain
+    const endpointCode = await hre.ethers.provider.getCode(endpointV2.address)
+    if (endpointCode === '0x' || endpointCode === '0x0') {
+        throw new Error(
+            `EndpointV2 at ${endpointV2.address} is not a contract on ${hre.network.name}. ` +
+                `Please deploy EndpointV2 first using: npx hardhat deploy --network ${hre.network.name} --tags EndpointV2`
+        )
+    }
+
     const deployedContracts: Record<string, string> = {}
 
     // ========================================
@@ -88,19 +114,83 @@ const deploy: DeployFunction = async (hre) => {
         } else {
             // Spoke chain: Deploy MCTOFT (mint/burn)
             console.log('   → Spoke chain detected: Deploying MCTOFT (mint/burn)')
+            console.log(`      EndpointV2: ${endpointV2.address}`)
+            console.log(`      Deployer: ${deployer}`)
 
-            const mctOFT = await deployments.deploy('MCTOFT', {
-                contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
-                from: deployer,
-                args: [
-                    endpointV2.address, // _lzEndpoint
-                    deployer, // _delegate
-                ],
-                log: true,
-                skipIfAlreadyDeployed: true,
-            })
-            deployedContracts.mctOFT = mctOFT.address
-            console.log(`   ✓ MCTOFT deployed at: ${mctOFT.address}`)
+            // Validate addresses before deployment
+            if (!endpointV2.address || endpointV2.address === '0x0000000000000000000000000000000000000000') {
+                throw new Error(
+                    `Invalid EndpointV2 address: ${endpointV2.address}. ` +
+                        `Please deploy EndpointV2 first on ${hre.network.name}`
+                )
+            }
+            if (!deployer || deployer === '0x0000000000000000000000000000000000000000') {
+                throw new Error(`Invalid deployer address: ${deployer}`)
+            }
+
+            let mctOFT
+            try {
+                mctOFT = await deployments.deploy('MCTOFT', {
+                    contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
+                    from: deployer,
+                    args: [
+                        endpointV2.address, // _lzEndpoint
+                        deployer, // _delegate
+                    ],
+                    log: true,
+                    skipIfAlreadyDeployed: true,
+                })
+                deployedContracts.mctOFT = mctOFT.address
+                console.log(`   ✓ MCTOFT deployed at: ${mctOFT.address}`)
+            } catch (error: unknown) {
+                // Handle RPC provider issue where contract creation returns empty 'to' field
+                const err = error as { message?: string; transactionHash?: string; checkKey?: string }
+                if (err?.message?.includes('invalid address') && err?.transactionHash && err?.checkKey === 'to') {
+                    console.log(
+                        `   ⚠️  RPC provider returned malformed transaction response, checking if deployment succeeded...`
+                    )
+                    const txHash = err.transactionHash
+                    console.log(`   Transaction hash: ${txHash}`)
+                    console.log(`   Waiting for transaction to be finalized...`)
+
+                    // Retry logic with exponential backoff for delayed finalization
+                    let receipt = null
+                    const maxRetries = 10
+                    const initialDelay = 2000 // 2 seconds
+                    for (let i = 0; i < maxRetries; i++) {
+                        receipt = await hre.ethers.provider.getTransactionReceipt(txHash)
+                        if (receipt && receipt.contractAddress) {
+                            break
+                        }
+                        if (i < maxRetries - 1) {
+                            const delay = initialDelay * Math.pow(2, i)
+                            console.log(
+                                `   Retry ${i + 1}/${maxRetries}: Waiting ${delay}ms for transaction finalization...`
+                            )
+                            await new Promise((resolve) => setTimeout(resolve, delay))
+                        }
+                    }
+
+                    if (receipt && receipt.contractAddress) {
+                        console.log(`   ✓ MCTOFT deployment succeeded (contract address from receipt)`)
+                        console.log(`   ✓ MCTOFT deployed at: ${receipt.contractAddress}`)
+                        // Save the deployment manually
+                        await hre.deployments.save('MCTOFT', {
+                            address: receipt.contractAddress,
+                            abi: (await hre.artifacts.readArtifact('contracts/mct/MCTOFT.sol:MCTOFT')).abi,
+                        })
+                        deployedContracts.mctOFT = receipt.contractAddress
+                    } else {
+                        throw new Error(
+                            `MCTOFT deployment transaction exists (${txHash}) but contract address not found in receipt after ${maxRetries} retries. ` +
+                                `The transaction may still be pending. Please check the transaction on the block explorer: ` +
+                                `https://etherscan.io/tx/${txHash}`
+                        )
+                    }
+                } else {
+                    throw error
+                }
+            }
         }
     } else if (DEPLOYMENT_CONFIG.vault.assetOFTAddress) {
         console.log('⏭️  Skipping asset OFT deployment (existing mesh)')
