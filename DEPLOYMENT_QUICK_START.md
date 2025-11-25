@@ -1,6 +1,6 @@
-# ⚡ Quick Start - Deploy on Arbitrum Sepolia
+# ⚡ Quick Start - Deploy nUSD OVault System
 
-Fast deployment guide for Arbitrum Sepolia testnet with pre-configured settings.
+Fast deployment guide for both testnet and mainnet with environment-based configuration.
 
 ## 🎯 One-Command Deployment
 
@@ -13,11 +13,21 @@ const ADMIN_ADDRESS = "YOUR_ADMIN_ADDRESS_HERE";
 const OPERATOR_ADDRESS = "YOUR_OPERATOR_ADDRESS_HERE";
 ```
 
-### Step 2: Deploy Everything
+### Step 2: Choose Your Environment
+
+**For Testnet (Default):**
 
 ```bash
-npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 ```
+
+**For Mainnet:**
+
+```bash
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags FullSystem
+```
+
+> **Note**: If `DEPLOY_ENV` is not set, it defaults to `testnet`.
 
 That's it! ✅
 
@@ -34,19 +44,31 @@ That's it! ✅
 
 ---
 
-## 🔧 Pre-Configured Settings
+## 🔧 Configuration
 
-### Network: Arbitrum Sepolia Testnet (Hub Chain)
+The deployment uses environment-based configuration. Settings are automatically selected based on `DEPLOY_ENV`:
 
-- **Chain ID**: 421614
-- **RPC**: https://sepolia-rollup.arbitrum.io/rpc
-- **LayerZero Endpoint ID**: 40231 (ARBSEP_V2_TESTNET)
+### Testnet Configuration (Default)
 
-### Collateral Asset
-
-- **USDC (Arbitrum Sepolia)**: `0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773`
+- **Hub Chain**: Arbitrum Sepolia
+  - **Chain ID**: 421614
+  - **RPC**: https://sepolia-rollup.arbitrum.io/rpc
+  - **LayerZero Endpoint ID**: 40231 (ARBSEP_V2_TESTNET)
+- **USDC Address**: `0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773`
+- **USDC OFT**: `0x543BdA7c6cA4384FE90B1F5929bb851F52888983`
 - Bridge USDC: https://bridge.arbitrum.io/
 - Faucet: https://faucet.quicknode.com/arbitrum/sepolia
+
+### Mainnet Configuration
+
+- **Hub Chain**: Arbitrum
+  - **Chain ID**: 42161
+  - **RPC**: Configured in `hardhat.config.ts`
+  - **LayerZero Endpoint ID**: 30110 (ARBITRUM_V2_MAINNET)
+- **USDC Address**: ⚠️ **Update in `devtools/deployConfig.mainnet.ts`**
+- **USDC OFT**: ⚠️ **Update in `devtools/deployConfig.mainnet.ts`**
+
+> **Important**: Before deploying to mainnet, update the USDC addresses in `devtools/deployConfig.mainnet.ts`
 
 ### Limits
 
@@ -59,31 +81,48 @@ That's it! ✅
 
 After deployment, test the system:
 
-### 1. Get Arbitrum Sepolia ETH
+### 1. Get Network Native Token (ETH)
+
+**Testnet:**
 
 ```
 https://faucet.quicknode.com/arbitrum/sepolia
 https://www.alchemy.com/faucets/arbitrum-sepolia
 ```
 
-### 2. Get Arbitrum Sepolia USDC
+**Mainnet:**
+
+- Use a DEX or bridge to get ETH on Arbitrum
+
+### 2. Get USDC
+
+**Testnet:**
 
 ```
 Bridge from Sepolia: https://bridge.arbitrum.io/
 Or use faucet: https://faucet.circle.com/ (then bridge)
 ```
 
+**Mainnet:**
+
+- Bridge USDC from Ethereum mainnet or use a DEX
+
 ### 3. Mint nUSD
 
 ```bash
+# Testnet
 npx hardhat console --network arbitrum-sepolia
+
+# Mainnet
+npx hardhat console --network arbitrum
 ```
 
 ```javascript
 // Get contracts (replace with your deployed addresses)
+// USDC address comes from deployConfig based on DEPLOY_ENV
 const usdc = await ethers.getContractAt(
   "IERC20",
-  "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773",
+  "YOUR_USDC_ADDRESS", // Check deployConfig for the correct address
 );
 const nusd = await ethers.getContractAt("nusd/nUSD", "YOUR_NUSD_ADDRESS");
 
@@ -186,51 +225,73 @@ Run these commands to verify each contract on Arbiscan.
 
 To enable cross-chain nUSD and snUSD:
 
-### 1. Update LayerZero Config
+### 1. Configuration
 
-Already configured for Arbitrum Sepolia hub in `devtools/deployConfig.ts`:
+The deployment configuration is automatically selected based on `DEPLOY_ENV`:
 
-```typescript
-const _hubEid = EndpointId.ARBSEP_V2_TESTNET;
-const _spokeEids = [
-  EndpointId.OPTSEP_V2_TESTNET,
-  EndpointId.BASESEP_V2_TESTNET,
-  EndpointId.SEPOLIA_V2_TESTNET,
-];
-```
+- **Testnet**: Uses `devtools/deployConfig.testnet.ts`
+- **Mainnet**: Uses `devtools/deployConfig.mainnet.ts`
+
+You can update spoke chains and other settings in these files.
 
 ### 2. Deploy OFT Infrastructure (Includes Hub Composers)
+
+**Testnet:**
 
 ```bash
 # On Arbitrum Sepolia (hub)
 # 1) Deploy nUSD OFT infra (deploys nUSDOFTAdapter and nUSDComposer on hub)
-npx hardhat deploy --network arbitrum-sepolia --tags ovault
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # 2) Deploy StakednUSD OFT adapter on hub (required for StakednUSDComposer)
-npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
 
 # 3) Re-run ovault on hub to deploy StakednUSDComposer once the adapter exists
-npx hardhat deploy --network arbitrum-sepolia --tags ovault
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Base Sepolia (spoke)
-npx hardhat deploy --network base-sepolia --tags ovault
-npx hardhat deploy --network base-sepolia --tags staked-nusd-oft
+DEPLOY_ENV=testnet npx hardhat deploy --network base-sepolia --tags ovault
+```
 
-# On Sepolia (spoke)
-npx hardhat deploy --network sepolia --tags ovault
-npx hardhat deploy --network sepolia --tags staked-nusd-oft
+**Mainnet:**
+
+```bash
+# On Arbitrum (hub)
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags staked-nusd-oft
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
+
+# On Base (spoke)
+DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags ovault
+DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags staked-nusd-oft
+
+# On Ethereum (spoke)
+DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags ovault
+DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags staked-nusd-oft
 ```
 
 ### 3. Wire LayerZero Peers
 
 Update the contract addresses in respective config files. Then, run these commands:
 
+**Testnet:**
+
 ```bash
 # nUSD peers (hub adapter ↔ spoke OFT)
-npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
+DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
 
 # snUSD peers (hub adapter ↔ spoke OFT)
-npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
+DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
+```
+
+**Mainnet:**
+
+```bash
+# nUSD peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
+
+# snUSD peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
 ```
 
 ---

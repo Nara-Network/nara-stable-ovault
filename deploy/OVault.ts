@@ -4,6 +4,8 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 
 import { DEPLOYMENT_CONFIG, isVaultChain, shouldDeployAsset, shouldDeployShare } from '../devtools'
 
+import { handleDeploymentWithRetry } from './utils'
+
 /**
  * OVault Deployment Script for nUSD System
  *
@@ -52,7 +54,33 @@ const deploy: DeployFunction = async (hre) => {
         )
     }
 
-    const endpointV2 = await hre.deployments.get('EndpointV2')
+    let endpointV2
+    try {
+        endpointV2 = await hre.deployments.get('EndpointV2')
+    } catch (error) {
+        throw new Error(
+            `EndpointV2 not found. Please deploy EndpointV2 first using: ` +
+                `npx hardhat deploy --network ${hre.network.name} --tags EndpointV2`
+        )
+    }
+
+    // Validate EndpointV2 address
+    if (!endpointV2.address || endpointV2.address === '0x0000000000000000000000000000000000000000') {
+        throw new Error(
+            `EndpointV2 address is invalid or not set: ${endpointV2.address}. ` +
+                `Please deploy EndpointV2 first using: npx hardhat deploy --network ${hre.network.name} --tags EndpointV2`
+        )
+    }
+
+    // Verify EndpointV2 is actually deployed on-chain
+    const endpointCode = await hre.ethers.provider.getCode(endpointV2.address)
+    if (endpointCode === '0x' || endpointCode === '0x0') {
+        throw new Error(
+            `EndpointV2 at ${endpointV2.address} is not a contract on ${hre.network.name}. ` +
+                `Please deploy EndpointV2 first using: npx hardhat deploy --network ${hre.network.name} --tags EndpointV2`
+        )
+    }
+
     const deployedContracts: Record<string, string> = {}
 
     // ========================================
@@ -76,29 +104,52 @@ const deploy: DeployFunction = async (hre) => {
                 )
             }
 
-            const mctAdapter = await deployments.deploy('MCTOFTAdapter', {
-                contract: 'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter',
-                from: deployer,
-                args: [mctAddress, endpointV2.address, deployer],
-                log: true,
-                skipIfAlreadyDeployed: true,
-            })
+            const mctAdapter = await handleDeploymentWithRetry(
+                hre,
+                deployments.deploy('MCTOFTAdapter', {
+                    contract: 'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter',
+                    from: deployer,
+                    args: [mctAddress, endpointV2.address, deployer],
+                    log: true,
+                    skipIfAlreadyDeployed: true,
+                }),
+                'MCTOFTAdapter',
+                'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter'
+            )
             deployedContracts.mctAdapter = mctAdapter.address
             console.log(`   ✓ MCTOFTAdapter deployed at: ${mctAdapter.address}`)
         } else {
             // Spoke chain: Deploy MCTOFT (mint/burn)
             console.log('   → Spoke chain detected: Deploying MCTOFT (mint/burn)')
+            console.log(`      EndpointV2: ${endpointV2.address}`)
+            console.log(`      Deployer: ${deployer}`)
 
-            const mctOFT = await deployments.deploy('MCTOFT', {
-                contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
-                from: deployer,
-                args: [
-                    endpointV2.address, // _lzEndpoint
-                    deployer, // _delegate
-                ],
-                log: true,
-                skipIfAlreadyDeployed: true,
-            })
+            // Validate addresses before deployment
+            if (!endpointV2.address || endpointV2.address === '0x0000000000000000000000000000000000000000') {
+                throw new Error(
+                    `Invalid EndpointV2 address: ${endpointV2.address}. ` +
+                        `Please deploy EndpointV2 first on ${hre.network.name}`
+                )
+            }
+            if (!deployer || deployer === '0x0000000000000000000000000000000000000000') {
+                throw new Error(`Invalid deployer address: ${deployer}`)
+            }
+
+            const mctOFT = await handleDeploymentWithRetry(
+                hre,
+                deployments.deploy('MCTOFT', {
+                    contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
+                    from: deployer,
+                    args: [
+                        endpointV2.address, // _lzEndpoint
+                        deployer, // _delegate
+                    ],
+                    log: true,
+                    skipIfAlreadyDeployed: true,
+                }),
+                'MCTOFT',
+                'contracts/mct/MCTOFT.sol:MCTOFT'
+            )
             deployedContracts.mctOFT = mctOFT.address
             console.log(`   ✓ MCTOFT deployed at: ${mctOFT.address}`)
         }
@@ -115,16 +166,21 @@ const deploy: DeployFunction = async (hre) => {
         // Spoke chain: Deploy nUSDOFT (mint/burn)
         console.log('📦 Deploying Share OFT (nUSD) on spoke chain...')
 
-        const nusdOFT = await deployments.deploy('nUSDOFT', {
-            contract: 'contracts/nusd/nUSDOFT.sol:nUSDOFT',
-            from: deployer,
-            args: [
-                endpointV2.address, // _lzEndpoint
-                deployer, // _delegate
-            ],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
+        const nusdOFT = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('nUSDOFT', {
+                contract: 'contracts/nusd/nUSDOFT.sol:nUSDOFT',
+                from: deployer,
+                args: [
+                    endpointV2.address, // _lzEndpoint
+                    deployer, // _delegate
+                ],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'nUSDOFT',
+            'contracts/nusd/nUSDOFT.sol:nUSDOFT'
+        )
         deployedContracts.nusdOFT = nusdOFT.address
         console.log(`   ✓ nUSDOFT deployed at: ${nusdOFT.address}`)
     } else if (DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && !isVaultChain(networkEid)) {
@@ -150,34 +206,36 @@ const deploy: DeployFunction = async (hre) => {
             )
         }
 
-        // Get MCT OFT Adapter address (should have been deployed above)
-        let mctAdapterAddress: string
-        if (deployedContracts.mctAdapter) {
-            mctAdapterAddress = deployedContracts.mctAdapter
-        } else {
-            try {
-                const adapter = await hre.deployments.get('MCTOFTAdapter')
-                mctAdapterAddress = adapter.address
-            } catch (error) {
-                throw new Error('MCTOFTAdapter not found. This should have been deployed in the Asset OFT step.')
-            }
-        }
-
         // Deploy nUSDOFTAdapter (lockbox for nUSD shares)
         console.log('   → Deploying nUSDOFTAdapter (lockbox)...')
-        const nusdAdapter = await deployments.deploy('nUSDOFTAdapter', {
-            contract: 'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter',
-            from: deployer,
-            args: [nusdAddress, endpointV2.address, deployer],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
+        const nusdAdapter = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('nUSDOFTAdapter', {
+                contract: 'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter',
+                from: deployer,
+                args: [nusdAddress, endpointV2.address, deployer],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'nUSDOFTAdapter',
+            'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter'
+        )
         deployedContracts.nusdAdapter = nusdAdapter.address
         console.log(`   ✓ nUSDOFTAdapter deployed at: ${nusdAdapter.address}`)
 
         // Deploy nUSDComposer if collateral asset is configured
         const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
+        const collateralAssetOFT = DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress
+
         if (collateralAsset) {
+            // Validate collateralAssetOFT is set
+            if (!collateralAssetOFT || collateralAssetOFT === '0x0000000000000000000000000000000000000000') {
+                throw new Error(
+                    'collateralAssetOFTAddress is not set in deployConfig. ' +
+                        'Please set vault.collateralAssetOFTAddress (e.g., Stargate USDC OFT address) in devtools/deployConfig.ts'
+                )
+            }
+
             // Resolve MCT asset OFT (adapter) address required by base composer
             let mctAssetOFTAddress: string
             if (DEPLOYMENT_CONFIG.vault.assetOFTAddress) {
@@ -193,20 +251,63 @@ const deploy: DeployFunction = async (hre) => {
                 }
             }
 
+            // Validate addresses before deployment
+            console.log('   → Validating addresses for nUSDComposer...')
+            console.log(`      Vault (nUSD): ${nusdAddress}`)
+            console.log(`      Asset OFT (MCT Adapter): ${mctAssetOFTAddress}`)
+            console.log(`      Share OFT (nUSD Adapter): ${nusdAdapter.address}`)
+            console.log(`      Collateral Asset: ${collateralAsset}`)
+            console.log(`      Collateral Asset OFT: ${collateralAssetOFT}`)
+
+            // Check if addresses are valid contracts
+            const vaultCodeSize = await hre.ethers.provider.getCode(nusdAddress)
+            if (vaultCodeSize === '0x') {
+                throw new Error(`nUSD vault at ${nusdAddress} is not a contract`)
+            }
+
+            const assetOftCodeSize = await hre.ethers.provider.getCode(mctAssetOFTAddress)
+            if (assetOftCodeSize === '0x') {
+                throw new Error(`MCTOFTAdapter at ${mctAssetOFTAddress} is not a contract`)
+            }
+
+            const shareOftCodeSize = await hre.ethers.provider.getCode(nusdAdapter.address)
+            if (shareOftCodeSize === '0x') {
+                throw new Error(`nUSDOFTAdapter at ${nusdAdapter.address} is not a contract`)
+            }
+
+            const codeSize = await hre.ethers.provider.getCode(collateralAsset)
+            if (codeSize === '0x') {
+                throw new Error(`Collateral asset at ${collateralAsset} is not a contract`)
+            }
+
+            const oftCodeSize = await hre.ethers.provider.getCode(collateralAssetOFT)
+            if (oftCodeSize === '0x') {
+                throw new Error(
+                    `Collateral Asset OFT at ${collateralAssetOFT} is not a contract. ` +
+                        'Please deploy it first or use an existing OFT address. ' +
+                        `Current network: ${hre.network.name}`
+                )
+            }
+
             console.log('   → Deploying nUSDComposer...')
-            const composer = await deployments.deploy('nUSDComposer', {
-                contract: 'contracts/nusd/nUSDComposer.sol:nUSDComposer',
-                from: deployer,
-                args: [
-                    nusdAddress, // vault (nUSD)
-                    mctAssetOFTAddress, // asset OFT (MCT adapter)
-                    nusdAdapter.address, // share OFT adapter
-                    collateralAsset, // configured collateral asset (e.g., USDC)
-                    DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress, // USDC OFT address
-                ],
-                log: true,
-                skipIfAlreadyDeployed: true,
-            })
+            const composer = await handleDeploymentWithRetry(
+                hre,
+                deployments.deploy('nUSDComposer', {
+                    contract: 'contracts/nusd/nUSDComposer.sol:nUSDComposer',
+                    from: deployer,
+                    args: [
+                        nusdAddress, // vault (nUSD)
+                        mctAssetOFTAddress, // asset OFT (MCT adapter)
+                        nusdAdapter.address, // share OFT adapter
+                        collateralAsset, // configured collateral asset (e.g., USDC)
+                        collateralAssetOFT, // USDC OFT address
+                    ],
+                    log: true,
+                    skipIfAlreadyDeployed: true,
+                }),
+                'nUSDComposer',
+                'contracts/nusd/nUSDComposer.sol:nUSDComposer'
+            )
             deployedContracts.composer = composer.address
             console.log(`   ✓ nUSDComposer deployed at: ${composer.address}`)
         } else {
@@ -238,17 +339,22 @@ const deploy: DeployFunction = async (hre) => {
             return
         }
 
-        const stakedComposer = await deployments.deploy('StakednUSDComposer', {
-            contract: 'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer',
-            from: deployer,
-            args: [
-                stakedNusdAddress, // StakednUSD vault
-                nusdAdapter.address, // nUSD OFT adapter (asset)
-                stakedNusdAdapterAddress, // snUSD OFT adapter (share)
-            ],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
+        const stakedComposer = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('StakednUSDComposer', {
+                contract: 'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer',
+                from: deployer,
+                args: [
+                    stakedNusdAddress, // StakednUSD vault
+                    nusdAdapter.address, // nUSD OFT adapter (asset)
+                    stakedNusdAdapterAddress, // snUSD OFT adapter (share)
+                ],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'StakednUSDComposer',
+            'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer'
+        )
         deployedContracts.stakedComposer = stakedComposer.address
         console.log(`   ✓ StakednUSDComposer deployed at: ${stakedComposer.address}`)
     }

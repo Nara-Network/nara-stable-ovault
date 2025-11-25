@@ -2,7 +2,9 @@ import assert from 'assert'
 
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-import { STAKED_NUSD_CONFIG, isStakedNusdVaultChain, shouldDeployStakedNusdShare } from '../devtools'
+import { isStakedNusdVaultChain, shouldDeployStakedNusdShare } from '../devtools'
+
+import { handleDeploymentWithRetry } from './utils'
 
 /**
  * OVault Deployment Script for StakednUSD System
@@ -63,13 +65,18 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy StakednUSDOFTAdapter (lockbox)
         console.log('   → Deploying StakednUSDOFTAdapter (lockbox)...')
-        const sNusdAdapter = await deployments.deploy('StakednUSDOFTAdapter', {
-            contract: 'contracts/staked-nusd/StakednUSDOFTAdapter.sol:StakednUSDOFTAdapter',
-            from: deployer,
-            args: [stakedNusdAddress, endpointV2.address, deployer],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
+        const sNusdAdapter = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('StakednUSDOFTAdapter', {
+                contract: 'contracts/staked-nusd/StakednUSDOFTAdapter.sol:StakednUSDOFTAdapter',
+                from: deployer,
+                args: [stakedNusdAddress, endpointV2.address, deployer],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'StakednUSDOFTAdapter',
+            'contracts/staked-nusd/StakednUSDOFTAdapter.sol:StakednUSDOFTAdapter'
+        )
         deployedContracts.sNusdAdapter = sNusdAdapter.address
         console.log(`   ✓ StakednUSDOFTAdapter deployed at: ${sNusdAdapter.address}`)
     }
@@ -82,16 +89,21 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy StakednUSDOFT (mint/burn)
         console.log('   → Deploying StakednUSDOFT (mint/burn)...')
-        const sNusdOFT = await deployments.deploy('StakednUSDOFT', {
-            contract: 'contracts/staked-nusd/StakednUSDOFT.sol:StakednUSDOFT',
-            from: deployer,
-            args: [
-                endpointV2.address, // _lzEndpoint
-                deployer, // _delegate
-            ],
-            log: true,
-            skipIfAlreadyDeployed: true,
-        })
+        const sNusdOFT = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('StakednUSDOFT', {
+                contract: 'contracts/staked-nusd/StakednUSDOFT.sol:StakednUSDOFT',
+                from: deployer,
+                args: [
+                    endpointV2.address, // _lzEndpoint
+                    deployer, // _delegate
+                ],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'StakednUSDOFT',
+            'contracts/staked-nusd/StakednUSDOFT.sol:StakednUSDOFT'
+        )
         deployedContracts.sNusdOFT = sNusdOFT.address
         console.log(`   ✓ StakednUSDOFT deployed at: ${sNusdOFT.address}`)
     }

@@ -257,22 +257,6 @@ contract StakednUSDTest is TestHelper {
         assertApproxEqAbs(aliceAssets, 900e18, 1e18, "Should be ~900 nUSD (1000 - 10% burn)");
     }
 
-    /**
-     * @notice Test soft blacklist (can't stake)
-     */
-    function test_SoftBlacklist() public {
-        // Blacklist alice
-        stakedNusd.addToBlacklist(alice, false); // soft = false
-
-        // Alice can't deposit
-        vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), 1000e18);
-
-        vm.expectRevert();
-        stakedNusd.deposit(1000e18, alice);
-
-        vm.stopPrank();
-    }
 
     /**
      * @notice Test full blacklist (can't transfer)
@@ -284,8 +268,8 @@ contract StakednUSDTest is TestHelper {
         stakedNusd.deposit(1000e18, alice);
         vm.stopPrank();
 
-        // Blacklist alice fully
-        stakedNusd.addToBlacklist(alice, true); // full = true
+        // Blacklist alice
+        stakedNusd.addToBlacklist(alice);
 
         // Alice can't transfer
         vm.startPrank(alice);
@@ -309,8 +293,8 @@ contract StakednUSDTest is TestHelper {
      */
     function test_RemoveFromBlacklist() public {
         // Blacklist and remove
-        stakedNusd.addToBlacklist(alice, false);
-        stakedNusd.removeFromBlacklist(alice, false);
+        stakedNusd.addToBlacklist(alice);
+        stakedNusd.removeFromBlacklist(alice);
 
         // Alice can deposit now
         vm.startPrank(alice);
@@ -331,8 +315,8 @@ contract StakednUSDTest is TestHelper {
         stakedNusd.deposit(1000e18, alice);
         vm.stopPrank();
 
-        // Blacklist alice fully
-        stakedNusd.addToBlacklist(alice, true);
+        // Blacklist alice
+        stakedNusd.addToBlacklist(alice);
 
         uint256 aliceShares = stakedNusd.balanceOf(alice);
 
@@ -354,7 +338,7 @@ contract StakednUSDTest is TestHelper {
         vm.stopPrank();
 
         // Blacklist alice
-        stakedNusd.addToBlacklist(alice, true);
+        stakedNusd.addToBlacklist(alice);
 
         // Redistribute to burn
         stakedNusd.redistributeLockedAmount(alice, address(0));

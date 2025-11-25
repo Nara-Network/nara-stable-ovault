@@ -56,6 +56,22 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
+        arbitrum: {
+            eid: EndpointId.ARBITRUM_V2_MAINNET,
+            url: process.env.RPC_URL_ARBITRUM_MAINNET || 'https://arbitrum-mainnet.gateway.tenderly.co',
+            accounts,
+        },
+        base: {
+            eid: EndpointId.BASE_V2_MAINNET,
+            url: process.env.RPC_URL_BASE_MAINNET || 'https://base-mainnet.gateway.tenderly.co',
+            accounts,
+        },
+        ethereum: {
+            eid: EndpointId.ETHEREUM_V2_MAINNET,
+            url: process.env.RPC_URL_ETHEREUM_MAINNET || 'https://eth-mainnet.gateway.tenderly.co',
+            accounts,
+        },
+
         'optimism-sepolia': {
             eid: EndpointId.OPTSEP_V2_TESTNET,
             url: process.env.RPC_URL_OPTIMISM_TESTNET || 'https://optimism-sepolia.gateway.tenderly.co',
@@ -88,12 +104,40 @@ const config: HardhatUserConfig = {
     },
     etherscan: {
         apiKey: {
+            arbitrum: process.env.ARBISCAN_API_KEY || '',
+            base: process.env.BASESCAN_API_KEY || '',
+            mainnet: process.env.ETHERSCAN_API_KEY || '',
+
             arbitrumSepolia: process.env.ARBISCAN_API_KEY || '',
             optimismSepolia: process.env.OPTIMISM_API_KEY || '',
             baseSepolia: process.env.BASESCAN_API_KEY || '',
             sepolia: process.env.ETHERSCAN_API_KEY || '',
         },
         customChains: [
+            {
+                network: 'arbitrum',
+                chainId: 42161,
+                urls: {
+                    apiURL: 'https://api.etherscan.io/v2/api?chainid=42161',
+                    browserURL: 'https://arbiscan.io',
+                },
+            },
+            {
+                network: 'base',
+                chainId: 8453,
+                urls: {
+                    apiURL: 'https://api.etherscan.io/v2/api?chainid=8453',
+                    browserURL: 'https://basescan.org',
+                },
+            },
+            {
+                network: 'mainnet',
+                chainId: 1,
+                urls: {
+                    apiURL: 'https://api.etherscan.io/api',
+                    browserURL: 'https://etherscan.io',
+                },
+            },
             {
                 network: 'arbitrumSepolia',
                 chainId: 421614,
