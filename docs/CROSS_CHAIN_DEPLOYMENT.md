@@ -172,7 +172,7 @@ npx hardhat deploy --network sepolia --tags staked-nusd-oft
 
 **Deploys:**
 
-- ✅ `StakednUSDOFT` - Mint/burn OFT for snUSD on spoke
+- ✅ `StakednUSDOFT` - Mint/burn OFT for snUSD on spoke (includes blacklist functionality) (includes blacklist functionality)
 
 ---
 
@@ -258,6 +258,48 @@ console.log("Gas fee:", ethers.utils.formatEther(quote.nativeFee));
 // Send tokens
 await mctAdapter.send(sendParam, { value: quote.nativeFee });
 ```
+
+---
+
+## 🛡️ OFT Blacklist Functionality
+
+The OFT contracts on spoke chains (`nUSDOFT` and `StakednUSDOFT`) include blacklist functionality to prevent transfers from or to restricted addresses.
+
+### Features
+
+- **Full Restriction**: Blacklisted addresses cannot send or receive tokens
+- **Consistent with Hub**: Same blacklist system as nUSD and StakednUSD on hub chain
+- **Admin Protection**: Cannot blacklist addresses with `DEFAULT_ADMIN_ROLE`
+- **Access Control**: Only `BLACKLIST_MANAGER_ROLE` can manage blacklist
+
+### Usage
+
+```solidity
+// On spoke chain (e.g., Optimism Sepolia)
+const nusdOFT = await ethers.getContractAt("nUSDOFT", "<nUSDOFT_ADDRESS>");
+
+// Add address to blacklist (requires BLACKLIST_MANAGER_ROLE)
+await nusdOFT.addToBlacklist(restrictedAddress);
+
+// Remove from blacklist
+await nusdOFT.removeFromBlacklist(restrictedAddress);
+
+// Check if address is blacklisted
+const isBlacklisted = await nusdOFT.hasRole(
+  await nusdOFT.FULL_RESTRICTED_ROLE(),
+  restrictedAddress
+);
+```
+
+### Roles
+
+| Role | Description |
+|------|-------------|
+| `DEFAULT_ADMIN_ROLE` | Full admin access, can manage all roles |
+| `BLACKLIST_MANAGER_ROLE` | Can add/remove addresses from blacklist |
+| `FULL_RESTRICTED_ROLE` | Prevents all transfers (blacklisted) |
+
+**Note**: The deployer address automatically receives `DEFAULT_ADMIN_ROLE` and `BLACKLIST_MANAGER_ROLE` during deployment.
 
 ---
 

@@ -44,16 +44,14 @@ interface IStakednUSD is IERC4626, IERC20Permit {
     /**
      * @notice Add an address to blacklist
      * @param target The address to blacklist
-     * @param isFullBlacklisting Soft or full blacklisting level
      */
-    function addToBlacklist(address target, bool isFullBlacklisting) external;
+    function addToBlacklist(address target) external;
 
     /**
      * @notice Remove an address from blacklist
      * @param target The address to un-blacklist
-     * @param isFullBlacklisting Soft or full blacklisting level
      */
-    function removeFromBlacklist(address target, bool isFullBlacklisting) external;
+    function removeFromBlacklist(address target) external;
 
     /**
      * @notice Rescue tokens accidentally sent to the contract

@@ -43,6 +43,7 @@ The StakednUSD system allows users to stake nUSD tokens and earn rewards. The im
 - **StakednUSDOFT.sol**: OFT for spoke chains
   - Mint/burn model for snUSD
   - Represents snUSD shares cross-chain
+  - Blacklist functionality (prevents transfers from/to restricted addresses)
 
 ## Key Features
 
@@ -293,7 +294,6 @@ await stakedNusdOFT_spoke.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.ad
 | `DEFAULT_ADMIN_ROLE`          | Contract admin      | Manage all roles, rescue tokens, redistribute locked amounts |
 | `REWARDER_ROLE`               | Rewards distributor | Transfer rewards to vault                                    |
 | `BLACKLIST_MANAGER_ROLE`      | Blacklist manager   | Add/remove addresses from blacklist                          |
-| `SOFT_RESTRICTED_STAKER_ROLE` | Soft blacklist      | Cannot stake                                                 |
 | `FULL_RESTRICTED_STAKER_ROLE` | Full blacklist      | Cannot transfer, stake, or unstake                           |
 
 ### StakingRewardsDistributor Roles
@@ -319,7 +319,6 @@ await stakedNusdOFT_spoke.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.ad
 
 ### Blacklist System
 
-- **Soft restricted**: Can hold but cannot deposit
 - **Full restricted**: Cannot transfer, stake, or unstake
 - Admin can redistribute locked amounts
 

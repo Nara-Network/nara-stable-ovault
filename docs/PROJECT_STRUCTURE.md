@@ -120,7 +120,7 @@ Deposit USDC → Mint MCT → Receive nUSD → Transfer cross-chain
 
 - ERC4626 standard vault
 - 8-hour reward vesting (prevents MEV)
-- Blacklist system (soft & full restrictions)
+- Blacklist system (full restriction)
 - Minimum shares protection (1 ether)
 - Cross-chain snUSD transfers
 - **Cross-chain staking from any spoke chain** ⭐ NEW (mirrors Ethena)
@@ -131,7 +131,6 @@ Deposit USDC → Mint MCT → Receive nUSD → Transfer cross-chain
 - `DEFAULT_ADMIN_ROLE`: Manage all roles, rescue tokens
 - `REWARDER_ROLE`: Transfer rewards to vault
 - `BLACKLIST_MANAGER_ROLE`: Manage blacklist
-- `SOFT_RESTRICTED_STAKER_ROLE`: Cannot stake
 - `FULL_RESTRICTED_STAKER_ROLE`: Cannot transfer/stake/unstake
 
 **User Flow**:
@@ -304,10 +303,11 @@ await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT.addres
 - Cannot add new rewards while vesting
 - Smooth reward distribution
 
-### 3. Blacklist System (StakednUSD)
+### 3. Blacklist System
 
-- **Soft**: Cannot stake new funds
-- **Full**: Cannot transfer/stake/unstake
+- **nUSD**: Full restriction prevents all transfers, minting, and redemptions
+- **StakednUSD**: Full restriction prevents all transfers, staking, and unstaking
+- **OFT Contracts**: Full restriction prevents transfers on spoke chains (nUSDOFT, StakednUSDOFT)
 - Admin can redistribute locked funds
 
 ### 4. Minimum Shares Protection
