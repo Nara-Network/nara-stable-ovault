@@ -16,11 +16,13 @@ const OPERATOR_ADDRESS = "YOUR_OPERATOR_ADDRESS_HERE";
 ### Step 2: Choose Your Environment
 
 **For Testnet (Default):**
+
 ```bash
 DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 ```
 
 **For Mainnet:**
+
 ```bash
 DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags FullSystem
 ```
@@ -82,23 +84,27 @@ After deployment, test the system:
 ### 1. Get Network Native Token (ETH)
 
 **Testnet:**
+
 ```
 https://faucet.quicknode.com/arbitrum/sepolia
 https://www.alchemy.com/faucets/arbitrum-sepolia
 ```
 
 **Mainnet:**
+
 - Use a DEX or bridge to get ETH on Arbitrum
 
 ### 2. Get USDC
 
 **Testnet:**
+
 ```
 Bridge from Sepolia: https://bridge.arbitrum.io/
 Or use faucet: https://faucet.circle.com/ (then bridge)
 ```
 
 **Mainnet:**
+
 - Bridge USDC from Ethereum mainnet or use a DEX
 
 ### 3. Mint nUSD
@@ -219,39 +225,45 @@ Run these commands to verify each contract on Arbiscan.
 
 To enable cross-chain nUSD and snUSD:
 
-### 1. Update LayerZero Config
+### 1. Configuration
 
-Already configured for Arbitrum Sepolia hub in `devtools/deployConfig.ts`:
+The deployment configuration is automatically selected based on `DEPLOY_ENV`:
 
-```typescript
-const _hubEid = EndpointId.ARBSEP_V2_TESTNET;
-const _spokeEids = [
-  EndpointId.OPTSEP_V2_TESTNET,
-  EndpointId.BASESEP_V2_TESTNET,
-  EndpointId.SEPOLIA_V2_TESTNET,
-];
-```
+- **Testnet**: Uses `devtools/deployConfig.testnet.ts`
+- **Mainnet**: Uses `devtools/deployConfig.mainnet.ts`
+
+You can update spoke chains and other settings in these files.
 
 ### 2. Deploy OFT Infrastructure (Includes Hub Composers)
+
+**Testnet:**
 
 ```bash
 # On Arbitrum Sepolia (hub)
 # 1) Deploy nUSD OFT infra (deploys nUSDOFTAdapter and nUSDComposer on hub)
-npx hardhat deploy --network arbitrum-sepolia --tags ovault
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # 2) Deploy StakednUSD OFT adapter on hub (required for StakednUSDComposer)
-npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
 
 # 3) Re-run ovault on hub to deploy StakednUSDComposer once the adapter exists
-npx hardhat deploy --network arbitrum-sepolia --tags ovault
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Base Sepolia (spoke)
-npx hardhat deploy --network base-sepolia --tags ovault
-npx hardhat deploy --network base-sepolia --tags staked-nusd-oft
+DEPLOY_ENV=testnet npx hardhat deploy --network base-sepolia --tags ovault
+```
 
-# On Sepolia (spoke)
-npx hardhat deploy --network sepolia --tags ovault
-npx hardhat deploy --network sepolia --tags staked-nusd-oft
+**Mainnet:**
+
+```bash
+# On Arbitrum (hub)
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags staked-nusd-oft
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
+
+# On Base (spoke)
+DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags ovault
+DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags staked-nusd-oft
 ```
 
 ### 3. Wire LayerZero Peers
