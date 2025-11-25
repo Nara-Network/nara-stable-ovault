@@ -264,6 +264,10 @@ DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
 # On Base (spoke)
 DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags ovault
 DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags staked-nusd-oft
+
+# On Ethereum (spoke)
+DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags ovault
+DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags staked-nusd-oft
 ```
 
 ### 3. Wire LayerZero Peers

@@ -10,7 +10,7 @@ import { DeploymentConfig } from './types'
 // - _hubEid: The hub chain (where the OVault [ERC4626, ShareOFTAdapter, Composer] is deployed)
 // - _spokeEids: The spoke chains (where the ShareOFT is deployed)
 const _hubEid = EndpointId.ARBITRUM_V2_MAINNET // Arbitrum as hub chain
-const _spokeEids = [EndpointId.BASE_V2_MAINNET] // Add more mainnet chains as needed
+const _spokeEids = [EndpointId.BASE_V2_MAINNET, EndpointId.ETHEREUM_V2_MAINNET] // Base and Ethereum as spoke chains
 
 // ============================================
 // nUSD OVault Deployment Configuration

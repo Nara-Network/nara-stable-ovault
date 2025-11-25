@@ -66,6 +66,11 @@ const config: HardhatUserConfig = {
             url: process.env.RPC_URL_BASE_MAINNET || 'https://base-mainnet.gateway.tenderly.co',
             accounts,
         },
+        ethereum: {
+            eid: EndpointId.ETHEREUM_V2_MAINNET,
+            url: process.env.RPC_URL_ETHEREUM_MAINNET || 'https://eth-mainnet.gateway.tenderly.co',
+            accounts,
+        },
 
         'optimism-sepolia': {
             eid: EndpointId.OPTSEP_V2_TESTNET,
@@ -101,6 +106,7 @@ const config: HardhatUserConfig = {
         apiKey: {
             arbitrum: process.env.ARBISCAN_API_KEY || '',
             base: process.env.BASESCAN_API_KEY || '',
+            mainnet: process.env.ETHERSCAN_API_KEY || '',
 
             arbitrumSepolia: process.env.ARBISCAN_API_KEY || '',
             optimismSepolia: process.env.OPTIMISM_API_KEY || '',
@@ -122,6 +128,14 @@ const config: HardhatUserConfig = {
                 urls: {
                     apiURL: 'https://api.etherscan.io/v2/api?chainid=8453',
                     browserURL: 'https://basescan.org',
+                },
+            },
+            {
+                network: 'mainnet',
+                chainId: 1,
+                urls: {
+                    apiURL: 'https://api.etherscan.io/api',
+                    browserURL: 'https://etherscan.io',
                 },
             },
             {

@@ -53,7 +53,9 @@ npx hardhat deploy --network arbitrum-sepolia --tags StakednUSD
 
 ### 2. Configuration
 
-Update `devtools/deployConfig.ts`:
+Update `devtools/deployConfig.ts` (or `deployConfig.testnet.ts` / `deployConfig.mainnet.ts`):
+
+**Testnet:**
 
 ```typescript
 // Hub chain (where core contracts live)
@@ -67,25 +69,64 @@ const _spokeEids = [
 ];
 ```
 
+**Mainnet:**
+
+```typescript
+// Hub chain (where core contracts live)
+const _hubEid = EndpointId.ARBITRUM_V2_MAINNET;
+
+// Spoke chains (where OFTs will be deployed)
+const _spokeEids = [EndpointId.BASE_V2_MAINNET, EndpointId.ETHEREUM_V2_MAINNET];
+```
+
 ### 3. Network Configuration
 
 Ensure networks are configured in `hardhat.config.ts`:
 
+**Testnet:**
+
 ```typescript
 networks: {
   sepolia: {
-    url: process.env.SEPOLIA_RPC_URL,
+    url: process.env.RPC_URL_SEPOLIA_TESTNET,
     eid: EndpointId.SEPOLIA_V2_TESTNET,
     // ...
   },
   'optimism-sepolia': {
-    url: process.env.OP_SEPOLIA_RPC_URL,
+    url: process.env.RPC_URL_OPTIMISM_TESTNET,
     eid: EndpointId.OPTSEP_V2_TESTNET,
     // ...
   },
   'base-sepolia': {
-    url: process.env.BASE_SEPOLIA_RPC_URL,
+    url: process.env.RPC_URL_BASE_TESTNET,
     eid: EndpointId.BASESEP_V2_TESTNET,
+    // ...
+  },
+  'arbitrum-sepolia': {
+    url: process.env.RPC_URL_ARBITRUM_TESTNET,
+    eid: EndpointId.ARBSEP_V2_TESTNET,
+    // ...
+  },
+}
+```
+
+**Mainnet:**
+
+```typescript
+networks: {
+  arbitrum: {
+    url: process.env.RPC_URL_ARBITRUM_MAINNET,
+    eid: EndpointId.ARBITRUM_V2_MAINNET,
+    // ...
+  },
+  base: {
+    url: process.env.RPC_URL_BASE_MAINNET,
+    eid: EndpointId.BASE_V2_MAINNET,
+    // ...
+  },
+  ethereum: {
+    url: process.env.RPC_URL_ETHEREUM_MAINNET,
+    eid: EndpointId.ETHEREUM_V2_MAINNET,
     // ...
   },
 }
@@ -117,17 +158,27 @@ npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 #### Spoke Chains
 
+**Testnet:**
+
 ```bash
 # Optimism Sepolia
-npx hardhat deploy --network optimism-sepolia --tags ovault
+DEPLOY_ENV=testnet npx hardhat deploy --network optimism-sepolia --tags ovault
 
 # Base Sepolia
-npx hardhat deploy --network base-sepolia --tags ovault
+DEPLOY_ENV=testnet npx hardhat deploy --network base-sepolia --tags ovault
 
 # Sepolia
-npx hardhat deploy --network sepolia --tags ovault
+DEPLOY_ENV=testnet npx hardhat deploy --network sepolia --tags ovault
+```
 
-# Add more spoke chains as needed
+**Mainnet:**
+
+```bash
+# Base
+DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags ovault
+
+# Ethereum
+DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags ovault
 ```
 
 **Deploys:**
@@ -147,10 +198,18 @@ npx hardhat deploy --network sepolia --tags ovault
 
 Only needed if you want cross-chain snUSD transfers.
 
-#### Hub Chain (Arbitrum Sepolia)
+#### Hub Chain
+
+**Testnet:**
 
 ```bash
-npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
+```
+
+**Mainnet:**
+
+```bash
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags staked-nusd-oft
 ```
 
 **Deploys:**
@@ -159,15 +218,27 @@ npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
 
 #### Spoke Chains
 
+**Testnet:**
+
 ```bash
 # Optimism Sepolia
-npx hardhat deploy --network optimism-sepolia --tags staked-nusd-oft
+DEPLOY_ENV=testnet npx hardhat deploy --network optimism-sepolia --tags staked-nusd-oft
 
 # Base Sepolia
-npx hardhat deploy --network base-sepolia --tags staked-nusd-oft
+DEPLOY_ENV=testnet npx hardhat deploy --network base-sepolia --tags staked-nusd-oft
 
 # Sepolia
-npx hardhat deploy --network sepolia --tags staked-nusd-oft
+DEPLOY_ENV=testnet npx hardhat deploy --network sepolia --tags staked-nusd-oft
+```
+
+**Mainnet:**
+
+```bash
+# Base
+DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags staked-nusd-oft
+
+# Ethereum
+DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags staked-nusd-oft
 ```
 
 **Deploys:**
@@ -307,7 +378,9 @@ const isBlacklisted = await nusdOFT.hasRole(
 
 After successful deployment, you should have:
 
-### Hub Chain (Arbitrum Sepolia)
+### Testnet Deployment
+
+#### Hub Chain (Arbitrum Sepolia)
 
 ```
 Core Contracts:
@@ -323,16 +396,7 @@ OFT Infrastructure:
   StakednUSDOFTAdapter: 0x012...
 ```
 
-### Spoke Chain 1 (OP Sepolia)
-
-```
-OFT Contracts:
-  MCTOFT: 0x345...
-  nUSDOFT: 0x678...
-  StakednUSDOFT: 0x901...
-```
-
-### Spoke Chain 2 (Base Sepolia)
+#### Spoke Chain 1 (Base Sepolia)
 
 ```
 OFT Contracts:
@@ -341,7 +405,43 @@ OFT Contracts:
   StakednUSDOFT: 0x890...
 ```
 
-### Spoke Chain 3 (Sepolia)
+#### Spoke Chain 2 (Sepolia)
+
+```
+OFT Contracts:
+  MCTOFT: 0x345...
+  nUSDOFT: 0x678...
+  StakednUSDOFT: 0x901...
+```
+
+### Mainnet Deployment
+
+#### Hub Chain (Arbitrum)
+
+```
+Core Contracts:
+  MultiCollateralToken: 0xabc...
+  nUSD: 0xdef...
+  StakednUSD: 0xghi...
+  StakingRewardsDistributor: 0xjkl...
+
+OFT Infrastructure:
+  MCTOFTAdapter: 0x123...
+  nUSDOFTAdapter: 0x456...
+  nUSDComposer: 0x789...
+  StakednUSDOFTAdapter: 0x012...
+```
+
+#### Spoke Chain 1 (Base)
+
+```
+OFT Contracts:
+  MCTOFT: 0x234...
+  nUSDOFT: 0x567...
+  StakednUSDOFT: 0x890...
+```
+
+#### Spoke Chain 2 (Ethereum)
 
 ```
 OFT Contracts:
