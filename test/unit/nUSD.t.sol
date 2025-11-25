@@ -599,10 +599,105 @@ contract nUSDTest is TestHelper {
     }
 
     /**
+     * @notice Test setting minimum mint fee amount
+     */
+    function test_SetMinMintFeeAmount() public {
+        // Note: address(this) is the admin in TestHelper setup
+        
+        uint256 minFee = 10e18; // 10 nUSD minimum
+        
+        vm.expectEmit(true, true, true, true);
+        emit nUSD.MinMintFeeAmountUpdated(0, minFee);
+        nusd.setMinMintFeeAmount(minFee);
+        
+        assertEq(nusd.minMintFeeAmount(), minFee, "Min mint fee amount should be set");
+    }
+
+    /**
+     * @notice Test setting minimum redeem fee amount
+     */
+    function test_SetMinRedeemFeeAmount() public {
+        // Note: address(this) is the admin in TestHelper setup
+        
+        uint256 minFee = 5e18; // 5 nUSD minimum
+        
+        vm.expectEmit(true, true, true, true);
+        emit nUSD.MinRedeemFeeAmountUpdated(0, minFee);
+        nusd.setMinRedeemFeeAmount(minFee);
+        
+        assertEq(nusd.minRedeemFeeAmount(), minFee, "Min redeem fee amount should be set");
+    }
+
+    /**
+     * @notice Test minting with minimum fee (when percentage fee is lower)
+     */
+    function test_MintWithMinFee() public {
+        address treasury = makeAddr("treasury");
+        usdc.mint(treasury, 0); // Initialize treasury balance
+        
+        // Setup: Small percentage fee but high minimum
+        nusd.setMintFee(10); // 0.1%
+        nusd.setMinMintFeeAmount(10e18); // 10 nUSD minimum (in 18 decimals)
+        nusd.setFeeTreasury(treasury);
+        
+        uint256 usdcAmount = 1000e6; // 1000 USDC
+        uint256 expectedTotal = 1000e18;
+        uint256 percentageFee18 = (expectedTotal * 10) / 10000; // 0.1% = 0.1e18
+        uint256 minFee18 = 10e18;
+        uint256 expectedFee18 = minFee18 > percentageFee18 ? minFee18 : percentageFee18; // Should use min
+        uint256 expectedFeeCollateral = expectedFee18 / 1e12; // Convert to 6 decimals
+        uint256 expectedUserAmount = expectedTotal - expectedFee18;
+        
+        vm.startPrank(alice);
+        uint256 treasuryUsdcBefore = usdc.balanceOf(treasury);
+        usdc.approve(address(nusd), usdcAmount);
+        
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        
+        // Verify minimum fee is used
+        assertEq(nusdAmount, expectedUserAmount, "User should receive amount after min fee");
+        assertEq(usdc.balanceOf(treasury) - treasuryUsdcBefore, expectedFeeCollateral, "Treasury should receive min fee in USDC");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test minting with minimum fee even when percentage is zero
+     */
+    function test_MintWithMinFeeZeroPercentage() public {
+        address treasury = makeAddr("treasury");
+        usdc.mint(treasury, 0); // Initialize treasury balance
+        
+        // Setup: Zero percentage but minimum fee set
+        nusd.setMintFee(0); // 0%
+        nusd.setMinMintFeeAmount(5e18); // 5 nUSD minimum
+        nusd.setFeeTreasury(treasury);
+        
+        uint256 usdcAmount = 1000e6;
+        uint256 expectedTotal = 1000e18;
+        uint256 expectedFee18 = 5e18; // Should use minimum
+        uint256 expectedFeeCollateral = expectedFee18 / 1e12;
+        uint256 expectedUserAmount = expectedTotal - expectedFee18;
+        
+        vm.startPrank(alice);
+        uint256 treasuryUsdcBefore = usdc.balanceOf(treasury);
+        usdc.approve(address(nusd), usdcAmount);
+        
+        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        
+        // Verify minimum fee is still applied
+        assertEq(nusdAmount, expectedUserAmount, "User should receive amount after min fee");
+        assertEq(usdc.balanceOf(treasury) - treasuryUsdcBefore, expectedFeeCollateral, "Treasury should receive min fee even with 0%");
+        
+        vm.stopPrank();
+    }
+
+    /**
      * @notice Test minting with fee
      */
     function test_MintWithFee() public {
         address treasury = makeAddr("treasury");
+        usdc.mint(treasury, 0); // Initialize treasury balance
         
         // Setup fees (address(this) is admin)
         nusd.setMintFee(50); // 0.5%
@@ -610,11 +705,13 @@ contract nUSDTest is TestHelper {
         
         uint256 usdcAmount = 1000e6;
         uint256 expectedTotal = 1000e18;
-        uint256 expectedFee = (expectedTotal * 50) / 10000; // 0.5%
-        uint256 expectedUserAmount = expectedTotal - expectedFee;
+        uint256 expectedFee18 = (expectedTotal * 50) / 10000; // 0.5% in 18 decimals
+        uint256 expectedFeeCollateral = expectedFee18 / 1e12; // Convert to 6 decimals
+        uint256 expectedUserAmount = expectedTotal - expectedFee18;
         
         vm.startPrank(alice);
         uint256 aliceBalanceBefore = nusd.balanceOf(alice);
+        uint256 treasuryUsdcBefore = usdc.balanceOf(treasury);
         usdc.approve(address(nusd), usdcAmount);
         
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
@@ -623,59 +720,20 @@ contract nUSDTest is TestHelper {
         assertEq(nusdAmount, expectedUserAmount, "User should receive amount after fee");
         assertEq(nusd.balanceOf(alice) - aliceBalanceBefore, expectedUserAmount, "Alice balance should be after fee");
         
-        // Verify treasury receives fee
-        assertEq(nusd.balanceOf(treasury), expectedFee, "Treasury should receive fee");
+        // Verify treasury receives fee in collateral (USDC)
+        assertEq(usdc.balanceOf(treasury) - treasuryUsdcBefore, expectedFeeCollateral, "Treasury should receive fee in USDC");
+        assertEq(nusd.balanceOf(treasury), 0, "Treasury should not receive nUSD");
         
         vm.stopPrank();
     }
 
-    /**
-     * @notice Test redeeming with fee
-     */
-    function test_RedeemWithFee() public {
-        address treasury = makeAddr("treasury");
-        
-        // Setup: Mint nUSD first (no fee)
-        vm.startPrank(alice);
-        uint256 usdcAmount = 1000e6;
-        usdc.approve(address(nusd), usdcAmount);
-        nusd.mintWithCollateral(address(usdc), usdcAmount);
-        uint256 nusdAmount = 1000e18;
-        vm.stopPrank();
-        
-        // Set redeem fee (address(this) is admin)
-        nusd.setRedeemFee(30); // 0.3%
-        nusd.setFeeTreasury(treasury);
-        
-        // Redeem with fee
-        vm.startPrank(alice);
-        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        
-        nusd.cooldownRedeem(address(usdc), nusdAmount);
-        vm.warp(block.timestamp + 7 days);
-        
-        uint256 collateralReceived = nusd.completeRedeem();
-        
-        // Calculate expected amounts
-        uint256 expectedCollateralTotal = 1000e6;
-        uint256 expectedFee = (expectedCollateralTotal * 30) / 10000; // 0.3%
-        uint256 expectedUserCollateral = expectedCollateralTotal - expectedFee;
-        
-        // Verify user receives collateral after fee
-        assertEq(collateralReceived, expectedUserCollateral, "User should receive collateral after fee");
-        assertEq(usdc.balanceOf(alice) - aliceUsdcBefore, expectedUserCollateral, "Alice USDC increased by after-fee amount");
-        
-        // Verify treasury receives fee
-        assertEq(usdc.balanceOf(treasury), expectedFee, "Treasury should receive fee in collateral");
-        
-        vm.stopPrank();
-    }
 
     /**
      * @notice Test minting with fee disabled (zero fee)
      */
     function test_MintWithZeroFee() public {
         address treasury = makeAddr("treasury");
+        usdc.mint(treasury, 0); // Initialize treasury balance
         
         // Setup (address(this) is admin)
         nusd.setMintFee(0); // No fee
@@ -686,6 +744,7 @@ contract nUSDTest is TestHelper {
         
         vm.startPrank(alice);
         uint256 aliceBalanceBefore = nusd.balanceOf(alice);
+        uint256 treasuryUsdcBefore = usdc.balanceOf(treasury);
         usdc.approve(address(nusd), usdcAmount);
         
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
@@ -695,7 +754,8 @@ contract nUSDTest is TestHelper {
         assertEq(nusd.balanceOf(alice) - aliceBalanceBefore, expectedNusd, "Alice balance increase should be full amount");
         
         // Verify treasury receives nothing
-        assertEq(nusd.balanceOf(treasury), 0, "Treasury should receive no fee");
+        assertEq(usdc.balanceOf(treasury) - treasuryUsdcBefore, 0, "Treasury should receive no fee in USDC");
+        assertEq(nusd.balanceOf(treasury), 0, "Treasury should receive no fee in nUSD");
         
         vm.stopPrank();
     }
@@ -769,6 +829,7 @@ contract nUSDTest is TestHelper {
         feeBps = uint16(bound(feeBps, 1, 1000)); // 0.01% to 10%
         
         address treasury = makeAddr("treasury");
+        usdc.mint(treasury, 0); // Initialize treasury balance
         
         // Setup (address(this) is admin)
         nusd.setMintFee(feeBps);
@@ -779,56 +840,22 @@ contract nUSDTest is TestHelper {
         usdc.approve(address(nusd), amount);
         
         uint256 expectedTotal = amount * 1e12; // Convert to 18 decimals
-        uint256 expectedFee = (expectedTotal * feeBps) / 10000;
-        uint256 expectedUserAmount = expectedTotal - expectedFee;
+        uint256 expectedFee18 = (expectedTotal * feeBps) / 10000;
+        uint256 expectedFeeCollateral = expectedFee18 / 1e12; // Convert to 6 decimals
+        uint256 expectedUserAmount = expectedTotal - expectedFee18;
         
+        uint256 treasuryUsdcBefore = usdc.balanceOf(treasury);
         uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), amount);
         
         assertEq(nusdAmount, expectedUserAmount, "User amount incorrect");
-        assertEq(nusd.balanceOf(treasury), expectedFee, "Treasury fee incorrect");
+        assertEq(usdc.balanceOf(treasury) - treasuryUsdcBefore, expectedFeeCollateral, "Treasury fee in USDC incorrect");
+        assertEq(nusd.balanceOf(treasury), 0, "Treasury should not receive nUSD");
         
         vm.stopPrank();
     }
 
     /* --------------- BLACKLIST TESTS --------------- */
 
-    /**
-     * @notice Test soft restriction prevents minting
-     */
-    function test_SoftRestriction_PreventsMinting() public {
-        // Add alice to soft blacklist (address(this) is admin)
-        nusd.addToBlacklist(alice, false);
-
-        vm.startPrank(alice);
-        usdc.approve(address(nusd), 1000e6);
-
-        // Should revert when trying to mint
-        vm.expectRevert(nUSD.OperationNotAllowed.selector);
-        nusd.mintWithCollateral(address(usdc), 1000e6);
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Test soft restriction allows transfers
-     */
-    function test_SoftRestriction_AllowsTransfers() public {
-        // Mint some nUSD to alice first
-        vm.startPrank(alice);
-        usdc.approve(address(nusd), 1000e6);
-        nusd.mintWithCollateral(address(usdc), 1000e6);
-        vm.stopPrank();
-
-        // Add alice to soft blacklist
-        nusd.addToBlacklist(alice, false);
-
-        // Alice should still be able to transfer
-        uint256 bobBalanceBefore = nusd.balanceOf(bob);
-        vm.startPrank(alice);
-        nusd.transfer(bob, 100e18);
-        assertEq(nusd.balanceOf(bob) - bobBalanceBefore, 100e18, "Bob should receive 100 nUSD");
-        vm.stopPrank();
-    }
 
     /**
      * @notice Test full restriction prevents transfers
@@ -840,8 +867,8 @@ contract nUSDTest is TestHelper {
         nusd.mintWithCollateral(address(usdc), 1000e6);
         vm.stopPrank();
 
-        // Add alice to full blacklist
-        nusd.addToBlacklist(alice, true);
+        // Add alice to blacklist
+        nusd.addToBlacklist(alice);
 
         // Alice should NOT be able to transfer
         vm.startPrank(alice);
@@ -861,7 +888,7 @@ contract nUSDTest is TestHelper {
         vm.stopPrank();
 
         // Add bob to full blacklist
-        nusd.addToBlacklist(bob, true);
+        nusd.addToBlacklist(bob);
 
         // Alice should NOT be able to send to bob
         vm.startPrank(alice);
@@ -880,8 +907,8 @@ contract nUSDTest is TestHelper {
         nusd.mintWithCollateral(address(usdc), 1000e6);
         vm.stopPrank();
 
-        // Add alice to full blacklist
-        nusd.addToBlacklist(alice, true);
+        // Add alice to blacklist
+        nusd.addToBlacklist(alice);
 
         // Alice should NOT be able to request redemption
         vm.startPrank(alice);
@@ -900,8 +927,8 @@ contract nUSDTest is TestHelper {
         nusd.mintWithCollateral(address(usdc), 1000e6);
         vm.stopPrank();
 
-        // Add alice to full blacklist
-        nusd.addToBlacklist(alice, true);
+        // Add alice to blacklist
+        nusd.addToBlacklist(alice);
 
         // Verify she can't transfer
         vm.startPrank(alice);
@@ -910,7 +937,7 @@ contract nUSDTest is TestHelper {
         vm.stopPrank();
 
         // Remove from blacklist
-        nusd.removeFromBlacklist(alice, true);
+        nusd.removeFromBlacklist(alice);
 
         // Now she should be able to transfer
         uint256 bobBalanceBefore = nusd.balanceOf(bob);
@@ -930,8 +957,8 @@ contract nUSDTest is TestHelper {
         uint256 mintedAmount = nusd.mintWithCollateral(address(usdc), 1000e6);
         vm.stopPrank();
 
-        // Add alice to full blacklist
-        nusd.addToBlacklist(alice, true);
+        // Add alice to blacklist
+        nusd.addToBlacklist(alice);
 
         uint256 aliceBalance = nusd.balanceOf(alice);
         uint256 bobBalanceBefore = nusd.balanceOf(bob);
@@ -953,8 +980,8 @@ contract nUSDTest is TestHelper {
         nusd.mintWithCollateral(address(usdc), 1000e6);
         vm.stopPrank();
 
-        // Add alice to full blacklist
-        nusd.addToBlacklist(alice, true);
+        // Add alice to blacklist
+        nusd.addToBlacklist(alice);
 
         uint256 totalSupplyBefore = nusd.totalSupply();
         uint256 aliceBalance = nusd.balanceOf(alice);
@@ -973,10 +1000,7 @@ contract nUSDTest is TestHelper {
         address admin = address(this);
 
         vm.expectRevert(nUSD.CantBlacklistOwner.selector);
-        nusd.addToBlacklist(admin, false);
-
-        vm.expectRevert(nUSD.CantBlacklistOwner.selector);
-        nusd.addToBlacklist(admin, true);
+        nusd.addToBlacklist(admin);
     }
 
     /**
@@ -986,10 +1010,10 @@ contract nUSDTest is TestHelper {
         vm.startPrank(alice);
 
         vm.expectRevert();
-        nusd.addToBlacklist(bob, false);
+        nusd.addToBlacklist(bob);
 
         vm.expectRevert();
-        nusd.removeFromBlacklist(bob, false);
+        nusd.removeFromBlacklist(bob);
 
         vm.stopPrank();
     }

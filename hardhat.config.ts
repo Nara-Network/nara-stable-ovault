@@ -56,6 +56,17 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
+        arbitrum: {
+            eid: EndpointId.ARBITRUM_V2_MAINNET,
+            url: process.env.RPC_URL_ARBITRUM_MAINNET || 'https://arbitrum-mainnet.gateway.tenderly.co',
+            accounts,
+        },
+        base: {
+            eid: EndpointId.BASE_V2_MAINNET,
+            url: process.env.RPC_URL_BASE_MAINNET || 'https://base-mainnet.gateway.tenderly.co',
+            accounts,
+        },
+
         'optimism-sepolia': {
             eid: EndpointId.OPTSEP_V2_TESTNET,
             url: process.env.RPC_URL_OPTIMISM_TESTNET || 'https://optimism-sepolia.gateway.tenderly.co',
@@ -88,6 +99,9 @@ const config: HardhatUserConfig = {
     },
     etherscan: {
         apiKey: {
+            arbitrum: process.env.ARBISCAN_API_KEY || '',
+            base: process.env.BASESCAN_API_KEY || '',
+
             arbitrumSepolia: process.env.ARBISCAN_API_KEY || '',
             optimismSepolia: process.env.OPTIMISM_API_KEY || '',
             baseSepolia: process.env.BASESCAN_API_KEY || '',
