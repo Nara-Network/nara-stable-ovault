@@ -274,12 +274,24 @@ DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags staked-nusd-oft
 
 Update the contract addresses in respective config files. Then, run these commands:
 
+**Testnet:**
+
 ```bash
 # nUSD peers (hub adapter ↔ spoke OFT)
-npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
+DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
 
 # snUSD peers (hub adapter ↔ spoke OFT)
-npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
+DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
+```
+
+**Mainnet:**
+
+```bash
+# nUSD peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
+
+# snUSD peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
 ```
 
 ---

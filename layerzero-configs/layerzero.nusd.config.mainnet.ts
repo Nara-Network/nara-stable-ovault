@@ -23,7 +23,7 @@ const baseContract: OmniPointHardhat = {
 const ethereumContract: OmniPointHardhat = {
     eid: EndpointId.ETHEREUM_V2_MAINNET, // 30101
     contractName: 'nUSDOFT',
-    address: '0x0000000000000000000000000000000000000000', // TODO: Update with deployed address
+    address: '0xB95412e521d4A7aa5074878E3AADF8D9b09A141f', // TODO: Update with deployed address
 }
 
 // Gas settings for cross-chain messages
