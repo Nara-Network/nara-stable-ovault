@@ -117,6 +117,12 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @notice Redeem fee in basis points (e.g., 10 = 0.1%)
     uint16 public redeemFeeBps;
 
+    /// @notice Minimum mint fee amount (18 decimals)
+    uint256 public minMintFeeAmount;
+
+    /// @notice Minimum redeem fee amount (18 decimals)
+    uint256 public minRedeemFeeAmount;
+
     /// @notice Treasury address to receive fees
     address public feeTreasury;
 
@@ -177,6 +183,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
     event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event MinMintFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event MinRedeemFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event KeyringConfigUpdated(address indexed keyringAddress, uint256 policyId);
     event KeyringWhitelistUpdated(address indexed account, bool status);
 
@@ -410,29 +418,28 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Withdraw nUSD from silo back to this contract
         redeemSilo.withdraw(address(this), nUSDAmount);
 
-        // Convert nUSD amount to collateral amount
-        collateralAmount = _convertToCollateralAmount(collateralAsset, nUSDAmount);
-
-        // Burn nUSD (now it's in this contract)
+        // Burn nUSD
         _burn(address(this), nUSDAmount);
 
         // Redeem MCT for collateral - first to this contract
         uint256 receivedCollateral = mct.redeem(collateralAsset, nUSDAmount, address(this));
 
-        // Calculate redeem fee
-        uint256 feeAmount = 0;
+        // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
+        uint256 receivedCollateral18 = _convertToNUSDAmount(collateralAsset, receivedCollateral);
+        uint256 feeAmount18 = _calculateRedeemFee(receivedCollateral18);
         uint256 collateralAfterFee = receivedCollateral;
 
-        if (redeemFeeBps > 0 && feeTreasury != address(0)) {
-            feeAmount = (receivedCollateral * redeemFeeBps) / BPS_DENOMINATOR;
-            collateralAfterFee = receivedCollateral - feeAmount;
+        if (feeAmount18 > 0) {
+            // Convert fee from 18 decimals back to collateral decimals
+            uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
+            collateralAfterFee = receivedCollateral - feeAmountCollateral;
 
-            // Transfer fee to treasury
-            IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmount);
-            emit FeeCollected(feeTreasury, feeAmount, false);
+            // Transfer fee in collateral to treasury
+            IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmountCollateral);
+            emit FeeCollected(feeTreasury, feeAmountCollateral, false);
         }
 
-        // Transfer collateral to user (after fee deduction)
+        // Transfer remaining collateral to user
         IERC20(collateralAsset).safeTransfer(msg.sender, collateralAfterFee);
 
         emit RedemptionCompleted(msg.sender, nUSDAmount, collateralAsset, collateralAfterFee);
@@ -568,6 +575,26 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     }
 
     /**
+     * @notice Set minimum mint fee amount
+     * @param _minMintFeeAmount New minimum mint fee amount (18 decimals)
+     */
+    function setMinMintFeeAmount(uint256 _minMintFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 oldAmount = minMintFeeAmount;
+        minMintFeeAmount = _minMintFeeAmount;
+        emit MinMintFeeAmountUpdated(oldAmount, _minMintFeeAmount);
+    }
+
+    /**
+     * @notice Set minimum redeem fee amount
+     * @param _minRedeemFeeAmount New minimum redeem fee amount (18 decimals)
+     */
+    function setMinRedeemFeeAmount(uint256 _minRedeemFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 oldAmount = minRedeemFeeAmount;
+        minRedeemFeeAmount = _minRedeemFeeAmount;
+        emit MinRedeemFeeAmountUpdated(oldAmount, _minRedeemFeeAmount);
+    }
+
+    /**
      * @notice Set Keyring contract address and policy ID
      * @param _keyringAddress Address of the Keyring contract (set to address(0) to disable)
      * @param _policyId The policy ID to check credentials against
@@ -680,6 +707,40 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /* --------------- INTERNAL --------------- */
 
     /**
+     * @notice Calculate mint fee amount
+     * @param amount The amount to calculate fee on (18 decimals)
+     * @return feeAmount The fee amount (18 decimals)
+     */
+    function _calculateMintFee(uint256 amount) internal view returns (uint256 feeAmount) {
+        if (feeTreasury == address(0)) {
+            return 0;
+        }
+
+        uint256 percentageFee = 0;
+        if (mintFeeBps > 0) {
+            percentageFee = (amount * mintFeeBps) / BPS_DENOMINATOR;
+        }
+        feeAmount = percentageFee > minMintFeeAmount ? percentageFee : minMintFeeAmount;
+    }
+
+    /**
+     * @notice Calculate redeem fee amount
+     * @param amount The amount to calculate fee on (18 decimals)
+     * @return feeAmount The fee amount (18 decimals)
+     */
+    function _calculateRedeemFee(uint256 amount) internal view returns (uint256 feeAmount) {
+        if (feeTreasury == address(0)) {
+            return 0;
+        }
+
+        uint256 percentageFee = 0;
+        if (redeemFeeBps > 0) {
+            percentageFee = (amount * redeemFeeBps) / BPS_DENOMINATOR;
+        }
+        feeAmount = percentageFee > minRedeemFeeAmount ? percentageFee : minRedeemFeeAmount;
+    }
+
+    /**
      * @notice Internal mint logic with collateral
      * @param collateralAsset The collateral asset
      * @param collateralAmount The amount of collateral
@@ -717,32 +778,36 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Transfer collateral from user to this contract
         IERC20(collateralAsset).safeTransferFrom(beneficiary, address(this), collateralAmount);
 
-        // Approve MCT to spend collateral
-        IERC20(collateralAsset).safeIncreaseAllowance(address(mct), collateralAmount);
+        // Calculate mint fee on collateral amount (convert to 18 decimals for fee calculation)
+        uint256 collateralAmount18 = _convertToNUSDAmount(collateralAsset, collateralAmount);
+        uint256 feeAmount18 = _calculateMintFee(collateralAmount18);
+        uint256 collateralAfterFee = collateralAmount;
+        uint256 collateralForMinting = collateralAmount;
 
-        // Mint MCT by depositing collateral
-        uint256 mctAmount = mct.mint(collateralAsset, collateralAmount, address(this));
+        if (feeAmount18 > 0) {
+            // Convert fee from 18 decimals back to collateral decimals
+            uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
+            collateralAfterFee = collateralAmount - feeAmountCollateral;
+            collateralForMinting = collateralAfterFee;
 
-        // Calculate mint fee
-        uint256 feeAmount = 0;
-        uint256 amountAfterFee = mctAmount;
-
-        if (mintFeeBps > 0 && feeTreasury != address(0)) {
-            feeAmount = (mctAmount * mintFeeBps) / BPS_DENOMINATOR;
-            amountAfterFee = mctAmount - feeAmount;
-
-            // Mint fee to treasury
-            _mint(feeTreasury, feeAmount);
-            emit FeeCollected(feeTreasury, feeAmount, true);
+            // Transfer fee in collateral to treasury
+            IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmountCollateral);
+            emit FeeCollected(feeTreasury, feeAmountCollateral, true);
         }
 
-        // Mint nUSD shares to beneficiary (after fee deduction)
-        _mint(beneficiary, amountAfterFee);
+        // Approve MCT to spend remaining collateral
+        IERC20(collateralAsset).safeIncreaseAllowance(address(mct), collateralForMinting);
 
-        emit Mint(beneficiary, collateralAsset, collateralAmount, amountAfterFee);
+        // Mint MCT by depositing remaining collateral
+        uint256 mctAmount = mct.mint(collateralAsset, collateralForMinting, address(this));
+
+        // Mint nUSD shares to beneficiary (1:1 with MCT)
+        _mint(beneficiary, mctAmount);
+
+        emit Mint(beneficiary, collateralAsset, collateralAmount, mctAmount);
 
         // Return the actual amount minted to beneficiary (after fees)
-        return amountAfterFee;
+        return mctAmount;
     }
 
     /**
@@ -840,15 +905,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         uint256 baseShares = _convertToShares(assets, Math.Rounding.Floor);
 
         // Apply mint fee if configured
-        if (mintFeeBps > 0 && feeTreasury != address(0)) {
-            // Fee is calculated on the MCT amount (assets)
-            // The beneficiary receives shares = assets * (1 - mintFeeBps / BPS_DENOMINATOR)
-            // But we need to apply this to the baseShares result
-            // Since baseShares ≈ assets (1:1 ratio), we apply fee to baseShares
-            shares = (baseShares * (BPS_DENOMINATOR - mintFeeBps)) / BPS_DENOMINATOR;
-        } else {
-            shares = baseShares;
-        }
+        uint256 feeAmount = _calculateMintFee(baseShares);
+        shares = baseShares > feeAmount ? baseShares - feeAmount : 0;
 
         return shares;
     }
@@ -863,11 +921,23 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     function previewMint(uint256 shares) public view override returns (uint256 assets) {
         // Calculate how many shares we need before fee to get 'shares' after fee
         uint256 sharesBeforeFee = shares;
-        if (mintFeeBps > 0 && feeTreasury != address(0)) {
-            // sharesAfterFee = sharesBeforeFee * (1 - fee)
-            // So: sharesBeforeFee = shares / (1 - fee)
-            uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
-            sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
+        if (feeTreasury != address(0)) {
+            if (mintFeeBps > 0) {
+                // Calculate assuming percentage fee only
+                uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
+                sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
+
+                // Check if minimum fee would apply
+                uint256 estimatedFee = _calculateMintFee(sharesBeforeFee);
+                uint256 estimatedPercentageFee = (sharesBeforeFee * mintFeeBps) / BPS_DENOMINATOR;
+                if (estimatedFee > estimatedPercentageFee) {
+                    // Minimum fee applies, so: shares = sharesBeforeFee - minMintFeeAmount
+                    sharesBeforeFee = shares + minMintFeeAmount;
+                }
+            } else if (minMintFeeAmount > 0) {
+                // Only minimum fee applies (no percentage)
+                sharesBeforeFee = shares + minMintFeeAmount;
+            }
         }
 
         // Convert sharesBeforeFee to assets using base conversion
@@ -888,13 +958,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         uint256 baseAssets = _convertToAssets(shares, Math.Rounding.Floor);
 
         // Apply redeem fee if configured
-        if (redeemFeeBps > 0 && feeTreasury != address(0)) {
-            // Fee is calculated on the MCT/collateral amount received
-            // The user receives assets = baseAssets * (1 - redeemFeeBps / BPS_DENOMINATOR)
-            assets = (baseAssets * (BPS_DENOMINATOR - redeemFeeBps)) / BPS_DENOMINATOR;
-        } else {
-            assets = baseAssets;
-        }
+        uint256 feeAmount = _calculateRedeemFee(baseAssets);
+        assets = baseAssets > feeAmount ? baseAssets - feeAmount : 0;
 
         return assets;
     }
@@ -909,11 +974,23 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
         // Calculate how many assets we need before fee to get 'assets' after fee
         uint256 assetsBeforeFee = assets;
-        if (redeemFeeBps > 0 && feeTreasury != address(0)) {
-            // assetsAfterFee = assetsBeforeFee * (1 - fee)
-            // So: assetsBeforeFee = assets / (1 - fee)
-            uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
-            assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
+        if (feeTreasury != address(0)) {
+            if (redeemFeeBps > 0) {
+                // Calculate assuming percentage fee only
+                uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
+                assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
+
+                // Check if minimum fee would apply
+                uint256 estimatedFee = _calculateRedeemFee(assetsBeforeFee);
+                uint256 estimatedPercentageFee = (assetsBeforeFee * redeemFeeBps) / BPS_DENOMINATOR;
+                if (estimatedFee > estimatedPercentageFee) {
+                    // Minimum fee applies, so: assets = assetsBeforeFee - minRedeemFeeAmount
+                    assetsBeforeFee = assets + minRedeemFeeAmount;
+                }
+            } else if (minRedeemFeeAmount > 0) {
+                // Only minimum fee applies (no percentage)
+                assetsBeforeFee = assets + minRedeemFeeAmount;
+            }
         }
 
         // Convert assetsBeforeFee to shares using base conversion

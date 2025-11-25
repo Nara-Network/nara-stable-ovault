@@ -196,6 +196,18 @@ interface InUSD is IERC4626, IERC20Permit {
     function setMinRedeemAmount(uint256 _minRedeemAmount) external;
 
     /**
+     * @notice Set minimum mint fee amount
+     * @param _minMintFeeAmount New minimum mint fee amount (18 decimals)
+     */
+    function setMinMintFeeAmount(uint256 _minMintFeeAmount) external;
+
+    /**
+     * @notice Set minimum redeem fee amount
+     * @param _minRedeemFeeAmount New minimum redeem fee amount (18 decimals)
+     */
+    function setMinRedeemFeeAmount(uint256 _minRedeemFeeAmount) external;
+
+    /**
      * @notice Set Keyring contract address and policy ID
      * @param _keyringAddress Address of the Keyring contract (set to address(0) to disable)
      * @param _policyId The policy ID to check credentials against
@@ -349,6 +361,18 @@ interface InUSD is IERC4626, IERC20Permit {
      * @return uint256 The minimum redeem amount (18 decimals)
      */
     function minRedeemAmount() external view returns (uint256);
+
+    /**
+     * @notice Get minimum mint fee amount
+     * @return uint256 The minimum mint fee amount (18 decimals)
+     */
+    function minMintFeeAmount() external view returns (uint256);
+
+    /**
+     * @notice Get minimum redeem fee amount
+     * @return uint256 The minimum redeem fee amount (18 decimals)
+     */
+    function minRedeemFeeAmount() external view returns (uint256);
 
     /**
      * @notice Get Keyring contract address
