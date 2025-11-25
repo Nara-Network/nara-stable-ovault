@@ -55,9 +55,6 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /// @notice Role that can blacklist and un-blacklist addresses
     bytes32 public constant BLACKLIST_MANAGER_ROLE = keccak256("BLACKLIST_MANAGER_ROLE");
 
-    /// @notice Role that prevents an address from minting
-    bytes32 public constant SOFT_RESTRICTED_ROLE = keccak256("SOFT_RESTRICTED_ROLE");
-
     /// @notice Role that prevents an address from transferring, minting, or redeeming
     bytes32 public constant FULL_RESTRICTED_ROLE = keccak256("FULL_RESTRICTED_ROLE");
 
@@ -595,24 +592,17 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /**
      * @notice Add an address to blacklist
      * @param target The address to blacklist
-     * @param isFullBlacklisting Soft or full blacklisting level
      */
-    function addToBlacklist(
-        address target,
-        bool isFullBlacklisting
-    ) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
-        bytes32 role = isFullBlacklisting ? FULL_RESTRICTED_ROLE : SOFT_RESTRICTED_ROLE;
-        _grantRole(role, target);
+    function addToBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
+        _grantRole(FULL_RESTRICTED_ROLE, target);
     }
 
     /**
      * @notice Remove an address from blacklist
      * @param target The address to un-blacklist
-     * @param isFullBlacklisting Soft or full blacklisting level
      */
-    function removeFromBlacklist(address target, bool isFullBlacklisting) external onlyRole(BLACKLIST_MANAGER_ROLE) {
-        bytes32 role = isFullBlacklisting ? FULL_RESTRICTED_ROLE : SOFT_RESTRICTED_ROLE;
-        _revokeRole(role, target);
+    function removeFromBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) {
+        _revokeRole(FULL_RESTRICTED_ROLE, target);
     }
 
     /**
@@ -705,8 +695,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (beneficiary == address(0)) revert ZeroAddressException();
 
-        // Check blacklist restrictions (soft restriction prevents minting)
-        if (hasRole(SOFT_RESTRICTED_ROLE, msg.sender) || hasRole(SOFT_RESTRICTED_ROLE, beneficiary)) {
+        // Check blacklist restrictions (full restriction prevents minting)
+        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender) || hasRole(FULL_RESTRICTED_ROLE, beneficiary)) {
             revert OperationNotAllowed();
         }
 
@@ -939,7 +929,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
      */
     function _update(address from, address to, uint256 value) internal virtual override {
         // Check blacklist restrictions only
-        if (hasRole(FULL_RESTRICTED_ROLE, from) && to != address(0)) {
+        if (hasRole(FULL_RESTRICTED_ROLE, from)) {
             revert OperationNotAllowed();
         }
         if (hasRole(FULL_RESTRICTED_ROLE, to)) {

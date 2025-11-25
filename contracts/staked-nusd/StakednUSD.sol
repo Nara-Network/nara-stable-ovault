@@ -35,9 +35,6 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
     /// @notice Role that can blacklist and un-blacklist addresses
     bytes32 public constant BLACKLIST_MANAGER_ROLE = keccak256("BLACKLIST_MANAGER_ROLE");
 
-    /// @notice Role that prevents an address from staking
-    bytes32 public constant SOFT_RESTRICTED_STAKER_ROLE = keccak256("SOFT_RESTRICTED_STAKER_ROLE");
-
     /// @notice Role that prevents an address from transferring, staking, or unstaking
     bytes32 public constant FULL_RESTRICTED_STAKER_ROLE = keccak256("FULL_RESTRICTED_STAKER_ROLE");
 
@@ -162,24 +159,17 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
     /**
      * @notice Add an address to blacklist
      * @param target The address to blacklist
-     * @param isFullBlacklisting Soft or full blacklisting level
      */
-    function addToBlacklist(
-        address target,
-        bool isFullBlacklisting
-    ) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
-        bytes32 role = isFullBlacklisting ? FULL_RESTRICTED_STAKER_ROLE : SOFT_RESTRICTED_STAKER_ROLE;
-        _grantRole(role, target);
+    function addToBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
+        _grantRole(FULL_RESTRICTED_STAKER_ROLE, target);
     }
 
     /**
      * @notice Remove an address from blacklist
      * @param target The address to un-blacklist
-     * @param isFullBlacklisting Soft or full blacklisting level
      */
-    function removeFromBlacklist(address target, bool isFullBlacklisting) external onlyRole(BLACKLIST_MANAGER_ROLE) {
-        bytes32 role = isFullBlacklisting ? FULL_RESTRICTED_STAKER_ROLE : SOFT_RESTRICTED_STAKER_ROLE;
-        _revokeRole(role, target);
+    function removeFromBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) {
+        _revokeRole(FULL_RESTRICTED_STAKER_ROLE, target);
     }
 
     /**
@@ -383,7 +373,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         uint256 assets,
         uint256 shares
     ) internal override nonReentrant whenNotPaused notZero(assets) notZero(shares) {
-        if (hasRole(SOFT_RESTRICTED_STAKER_ROLE, caller) || hasRole(SOFT_RESTRICTED_STAKER_ROLE, receiver)) {
+        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, caller) || hasRole(FULL_RESTRICTED_STAKER_ROLE, receiver)) {
             revert OperationNotAllowed();
         }
         super._deposit(caller, receiver, assets, shares);
@@ -428,7 +418,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @dev Disables transfers from or to addresses with FULL_RESTRICTED_STAKER_ROLE
      */
     function _update(address from, address to, uint256 value) internal virtual override {
-        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, from) && to != address(0)) {
+        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, from)) {
             revert OperationNotAllowed();
         }
         if (hasRole(FULL_RESTRICTED_STAKER_ROLE, to)) {
