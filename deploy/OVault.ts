@@ -240,19 +240,6 @@ const deploy: DeployFunction = async (hre) => {
             )
         }
 
-        // Get MCT OFT Adapter address (should have been deployed above)
-        let mctAdapterAddress: string
-        if (deployedContracts.mctAdapter) {
-            mctAdapterAddress = deployedContracts.mctAdapter
-        } else {
-            try {
-                const adapter = await hre.deployments.get('MCTOFTAdapter')
-                mctAdapterAddress = adapter.address
-            } catch (error) {
-                throw new Error('MCTOFTAdapter not found. This should have been deployed in the Asset OFT step.')
-            }
-        }
-
         // Deploy nUSDOFTAdapter (lockbox for nUSD shares)
         console.log('   → Deploying nUSDOFTAdapter (lockbox)...')
         const nusdAdapter = await deployments.deploy('nUSDOFTAdapter', {
