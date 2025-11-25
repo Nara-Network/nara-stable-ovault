@@ -924,8 +924,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (feeTreasury != address(0)) {
             if (mintFeeBps > 0) {
                 // Calculate assuming percentage fee only
-                uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
-                sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
+            uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
+            sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
 
                 // Check if minimum fee would apply
                 uint256 estimatedFee = _calculateMintFee(sharesBeforeFee);
@@ -977,8 +977,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (feeTreasury != address(0)) {
             if (redeemFeeBps > 0) {
                 // Calculate assuming percentage fee only
-                uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
-                assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
+            uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
+            assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
 
                 // Check if minimum fee would apply
                 uint256 estimatedFee = _calculateRedeemFee(assetsBeforeFee);

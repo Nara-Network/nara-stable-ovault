@@ -293,11 +293,11 @@ const isBlacklisted = await nusdOFT.hasRole(
 
 ### Roles
 
-| Role | Description |
-|------|-------------|
-| `DEFAULT_ADMIN_ROLE` | Full admin access, can manage all roles |
+| Role                     | Description                             |
+| ------------------------ | --------------------------------------- |
+| `DEFAULT_ADMIN_ROLE`     | Full admin access, can manage all roles |
 | `BLACKLIST_MANAGER_ROLE` | Can add/remove addresses from blacklist |
-| `FULL_RESTRICTED_ROLE` | Prevents all transfers (blacklisted) |
+| `FULL_RESTRICTED_ROLE`   | Prevents all transfers (blacklisted)    |
 
 **Note**: The deployer address automatically receives `DEFAULT_ADMIN_ROLE` and `BLACKLIST_MANAGER_ROLE` during deployment.
 
@@ -439,7 +439,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ## 📚 Related Documentation
 
 - [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - General deployment guide
-- [QUICK_START_ARBITRUM_SEPOLIA.md](./QUICK_START_ARBITRUM_SEPOLIA.md) - Quick start for Arbitrum Sepolia
+- [DEPLOYMENT_QUICK_START.md](../DEPLOYMENT_QUICK_START.md) - Quick start deployment guide
 - [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - Technical OVault details
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - System architecture
 

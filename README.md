@@ -18,7 +18,7 @@
 npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 ```
 
-📘 **[Full Quick Start Guide](./QUICK_START_ARBITRUM_SEPOLIA.md)**
+📘 **[Full Quick Start Guide](./DEPLOYMENT_QUICK_START.md)**
 
 ---
 
@@ -26,10 +26,10 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 
 | Document                                                        | Description                                                 |
 | --------------------------------------------------------------- | ----------------------------------------------------------- |
-| **[Quick Start](./QUICK_START_ARBITRUM_SEPOLIA.md)**            | 🎯 Deploy complete system on Arbitrum Sepolia (recommended) |
+| **[Quick Start](./DEPLOYMENT_QUICK_START.md)**                  | 🎯 Deploy complete system on Arbitrum Sepolia (recommended) |
 | **[Cross-Chain Deployment](./docs/CROSS_CHAIN_DEPLOYMENT.md)**  | 🌐 Deploy OFT infrastructure for omnichain functionality    |
-| **[nUSD Integration](./docs/NUSD_INTEGRATION.md)** | 🏦 nUSD + MCT vault architecture and admin flows |
-| **[StakednUSD Integration](./docs/STAKED_NUSD_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns |
+| **[nUSD Integration](./docs/NUSD_INTEGRATION.md)**              | 🏦 nUSD + MCT vault architecture and admin flows            |
+| **[StakednUSD Integration](./docs/STAKED_NUSD_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns                |
 | **[Project Structure](./docs/PROJECT_STRUCTURE.md)**            | 📁 System architecture and contract overview                |
 | **[LayerZero OVault Guide](./docs/LAYERZERO_OVAULT_GUIDE.md)**  | 🔧 Advanced LayerZero integration details                   |
 
@@ -87,7 +87,7 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 │ StakednUSDComposer      │          │                      │
 └─────────────────────────┘          └──────────────────────┘
        LayerZero V2 Messaging
-       
+
        * MCTOFTAdapter exists for validation only
          (see MCT Architecture note below)
 ```
@@ -101,12 +101,14 @@ Hub Chain (Arbitrum Sepolia)          Spoke Chains (Base, OP, etc.)
 - **Cross-chain flow**: Users send collateral → Hub mints nUSD → nUSD goes cross-chain
 
 **Why MCTOFTAdapter exists:**
+
 - MCTOFTAdapter exists on hub chain but is **validation only**
 - It satisfies `VaultComposerSync` constructor validation (requires `ASSET_OFT.token() == VAULT.asset()`)
 - It is **NEVER wired to spoke chains** and **NEVER used for cross-chain operations**
 - See `contracts/mct/MCTOFTAdapter.sol` for detailed explanation
 
 **What actually goes cross-chain:**
+
 - ✅ **nUSD** - Via nUSDOFTAdapter (hub) ↔ nUSDOFT (spoke)
 - ✅ **StakednUSD** - Via StakednUSDOFTAdapter (hub) ↔ StakednUSDOFT (spoke)
 - ✅ **Collateral (USDC/USDT)** - Via Stargate or other collateral OFTs
@@ -155,7 +157,7 @@ await stargateUSDC.send(
   hubChainId,
   composerAddress,
   amount,
-  composeMessage // includes destination for nUSD
+  composeMessage, // includes destination for nUSD
 );
 ```
 
@@ -243,12 +245,12 @@ For detailed technical information, see:
 
 ### Core Contracts
 
-| Contract                    | Description                       | Location                 |
-| --------------------------- | --------------------------------- | ------------------------ |
-| `MultiCollateralToken`      | Multi-collateral backing          | `contracts/mct/`         |
-| `nUSD`                      | Stablecoin vault with minting     | `contracts/nusd/`        |
-| `StakednUSD`                | Staking vault with cooldowns | `contracts/staked-nusd/` |
-| `StakingRewardsDistributor` | Automated rewards                 | `contracts/staked-nusd/` |
+| Contract                    | Description                   | Location                 |
+| --------------------------- | ----------------------------- | ------------------------ |
+| `MultiCollateralToken`      | Multi-collateral backing      | `contracts/mct/`         |
+| `nUSD`                      | Stablecoin vault with minting | `contracts/nusd/`        |
+| `StakednUSD`                | Staking vault with cooldowns  | `contracts/staked-nusd/` |
+| `StakingRewardsDistributor` | Automated rewards             | `contracts/staked-nusd/` |
 
 ### OFT Infrastructure
 
@@ -285,7 +287,7 @@ For detailed technical information, see:
 
 **Need Help?**
 
-1. Check the [Quick Start Guide](./QUICK_START_ARBITRUM_SEPOLIA.md)
+1. Check the [Quick Start Guide](./DEPLOYMENT_QUICK_START.md)
 2. Review [Documentation](#-documentation)
 3. See [LayerZero Docs](https://docs.layerzero.network/)
 
@@ -300,6 +302,7 @@ GPL-3.0
 ## 📖 Additional Documentation
 
 For detailed technical information:
+
 - **MCT Architecture**: See `MCT_ARCHITECTURE.md` for why MCT stays on hub and why MCTOFTAdapter exists but isn't used for cross-chain
 - **Contract Documentation**: See `contracts/mct/MCTOFTAdapter.sol` and `contracts/nusd/nUSDComposer.sol` for detailed NatSpec documentation
 

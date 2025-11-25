@@ -1,69 +1,32 @@
-import { EndpointId } from '@layerzerolabs/lz-definitions'
-import { ExecutorOptionType } from '@layerzerolabs/lz-v2-utilities'
-import { TwoWayConfig, generateConnectionsConfig } from '@layerzerolabs/metadata-tools'
-import { OAppEnforcedOption } from '@layerzerolabs/toolbox-hardhat'
+/**
+ * LayerZero snUSD Configuration Selector
+ *
+ * This file exports the appropriate LayerZero configuration based on the DEPLOY_ENV environment variable.
+ *
+ * Usage:
+ * - Testnet: DEPLOY_ENV=testnet npx hardhat oapp-config
+ * - Mainnet: DEPLOY_ENV=mainnet npx hardhat oapp-config
+ *
+ * Default: testnet (if DEPLOY_ENV is not set)
+ *
+ * Note: The environment variable is checked at module load time, so make sure to set it before running hardhat commands.
+ */
 
-import type { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
+import mainnetConfig from './layerzero-configs/layerzero.snusd.config.mainnet'
+import testnetConfig from './layerzero-configs/layerzero.snusd.config.testnet'
 
-// Arbitrum Sepolia - Hub Chain (uses Adapter/lockbox)
-const arbitrumContract: OmniPointHardhat = {
-    eid: EndpointId.ARBSEP_V2_TESTNET, // 40231
-    contractName: 'StakednUSDOFTAdapter',
-    address: '0x6fe214431A633AEc321D59756730e15F335c11b4',
+// Determine which config to use based on environment variable
+const deployEnv = (process.env.DEPLOY_ENV || 'testnet').toLowerCase()
+
+if (deployEnv !== 'testnet' && deployEnv !== 'mainnet') {
+    throw new Error(
+        `Invalid DEPLOY_ENV: ${deployEnv}. Must be either 'testnet' or 'mainnet'. ` +
+            `Current value: ${process.env.DEPLOY_ENV || 'undefined (defaulting to testnet)'}`
+    )
 }
 
-// Base Sepolia - Spoke Chain (uses OFT/mint-burn)
-const baseContract: OmniPointHardhat = {
-    eid: EndpointId.BASESEP_V2_TESTNET, // 40245
-    contractName: 'StakednUSDOFT',
-    address: '0x41ff3eCEf8b4180175df5FF0B67a3522C808594E',
-}
+// Select the appropriate configuration
+const selectedConfig = deployEnv === 'mainnet' ? mainnetConfig : testnetConfig
 
-// Sepolia - Spoke Chain (uses OFT/mint-burn)
-const sepoliaContract: OmniPointHardhat = {
-    eid: EndpointId.SEPOLIA_V2_TESTNET, // 40161
-    contractName: 'StakednUSDOFT',
-    address: '0x163936e32fbC04eE0c69A8d08a0B626E1BEb7631',
-}
-
-// Gas settings for cross-chain messages
-const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
-    {
-        msgType: 1, // Standard send
-        optionType: ExecutorOptionType.LZ_RECEIVE,
-        gas: 200_000,
-        value: 0,
-    },
-    {
-        msgType: 2, // Compose message
-        optionType: ExecutorOptionType.LZ_RECEIVE,
-        gas: 200_000,
-        value: 0,
-    },
-]
-
-// Define the pathway between Arbitrum (hub) and Base (spoke)
-const pathways: TwoWayConfig[] = [
-    [
-        arbitrumContract, // Hub
-        baseContract, // Spoke
-        [['LayerZero Labs'], []], // DVN config
-        [1, 1], // Confirmations
-        [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Enforced options
-    ],
-    [
-        arbitrumContract, // Hub
-        sepoliaContract, // Spoke
-        [['LayerZero Labs'], []],
-        [1, 1],
-        [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS],
-    ],
-]
-
-export default async function () {
-    const connections = await generateConnectionsConfig(pathways)
-    return {
-        contracts: [{ contract: arbitrumContract }, { contract: baseContract }, { contract: sepoliaContract }],
-        connections,
-    }
-}
+// Re-export the default function
+export default selectedConfig
