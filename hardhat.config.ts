@@ -109,6 +109,22 @@ const config: HardhatUserConfig = {
         },
         customChains: [
             {
+                network: 'arbitrum',
+                chainId: 42161,
+                urls: {
+                    apiURL: 'https://api.etherscan.io/v2/api?chainid=42161',
+                    browserURL: 'https://arbiscan.io',
+                },
+            },
+            {
+                network: 'base',
+                chainId: 8453,
+                urls: {
+                    apiURL: 'https://api.etherscan.io/v2/api?chainid=8453',
+                    browserURL: 'https://basescan.org',
+                },
+            },
+            {
                 network: 'arbitrumSepolia',
                 chainId: 421614,
                 urls: {
