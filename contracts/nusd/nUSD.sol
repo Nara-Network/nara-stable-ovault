@@ -372,7 +372,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         }
 
         // Check blacklist restrictions (full restriction prevents redeeming)
-        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
+        if (_isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
 
@@ -402,7 +402,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (block.timestamp < request.cooldownEnd) revert CooldownNotFinished();
 
         // Check blacklist restrictions (full restriction prevents redeeming)
-        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
+        if (_isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
 
@@ -655,6 +655,24 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     }
 
     /**
+     * @notice Internal helper to check if an address is fully restricted (blacklisted)
+     * @param account The address to check
+     * @return bool True if account has FULL_RESTRICTED_ROLE
+     */
+    function _isBlacklisted(address account) internal view returns (bool) {
+        return hasRole(FULL_RESTRICTED_ROLE, account);
+    }
+
+    /**
+     * @notice Public view helper to check if an address is blacklisted
+     * @param account The address to check
+     * @return bool True if account has FULL_RESTRICTED_ROLE
+     */
+    function isBlacklisted(address account) external view returns (bool) {
+        return _isBlacklisted(account);
+    }
+
+    /**
      * @notice Burn nUSD tokens and underlying MCT without withdrawing collateral
      * @dev This creates a deflationary effect: burns both nUSD and MCT while keeping collateral in MCT
      * @dev Burns tokens from msg.sender only (caller must own the tokens)
@@ -757,7 +775,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (beneficiary == address(0)) revert ZeroAddressException();
 
         // Check blacklist restrictions (full restriction prevents minting)
-        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender) || hasRole(FULL_RESTRICTED_ROLE, beneficiary)) {
+        if (_isBlacklisted(msg.sender) || _isBlacklisted(beneficiary)) {
             revert OperationNotAllowed();
         }
 
@@ -924,8 +942,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (feeTreasury != address(0)) {
             if (mintFeeBps > 0) {
                 // Calculate assuming percentage fee only
-            uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
-            sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
+                uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
+                sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
 
                 // Check if minimum fee would apply
                 uint256 estimatedFee = _calculateMintFee(sharesBeforeFee);
@@ -977,8 +995,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (feeTreasury != address(0)) {
             if (redeemFeeBps > 0) {
                 // Calculate assuming percentage fee only
-            uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
-            assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
+                uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
+                assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
 
                 // Check if minimum fee would apply
                 uint256 estimatedFee = _calculateRedeemFee(assetsBeforeFee);
@@ -1006,10 +1024,10 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
      */
     function _update(address from, address to, uint256 value) internal virtual override {
         // Check blacklist restrictions only
-        if (hasRole(FULL_RESTRICTED_ROLE, from)) {
+        if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
-        if (hasRole(FULL_RESTRICTED_ROLE, to)) {
+        if (_isBlacklisted(to)) {
             revert OperationNotAllowed();
         }
 
