@@ -5,16 +5,16 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/InUSDSiloDefinitions.sol";
 
 /**
- * @title NUSDSilo
- * @notice The Silo allows to store nUSD during the stake cooldown process.
+ * @title StakednUSDSilo
+ * @notice The Silo allows to store staking vault tokens (snUSD) during the stake cooldown process.
  */
-contract nUSDSilo is InUSDSiloDefinitions {
+contract StakednUSDSilo is InUSDSiloDefinitions {
     address immutable STAKING_VAULT;
-    IERC20 immutable NUSD;
+    IERC20 immutable TOKEN;
 
-    constructor(address stakingVault, address nusd) {
+    constructor(address stakingVault, address token) {
         STAKING_VAULT = stakingVault;
-        NUSD = IERC20(nusd);
+        TOKEN = IERC20(token);
     }
 
     modifier onlyStakingVault() {
@@ -23,7 +23,6 @@ contract nUSDSilo is InUSDSiloDefinitions {
     }
 
     function withdraw(address to, uint256 amount) external onlyStakingVault {
-        NUSD.transfer(to, amount);
+        TOKEN.transfer(to, amount);
     }
 }
-

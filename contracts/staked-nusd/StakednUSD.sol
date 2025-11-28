@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./interfaces/IStakednUSDCooldown.sol";
-import "./nUSDSilo.sol";
+import "./StakednUSDSilo.sol";
 import "../interfaces/nusd/InUSD.sol";
 
 /**
@@ -61,8 +61,8 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
     /// @notice Mapping of user addresses to their cooldown data
     mapping(address => UserCooldown) public cooldowns;
 
-    /// @notice Silo contract for holding assets during cooldown
-    nUSDSilo public immutable silo;
+    /// @notice Silo contract for holding snUSD during cooldown
+    StakednUSDSilo public immutable silo;
 
     /* --------------- MODIFIERS --------------- */
 
@@ -111,7 +111,8 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         _grantRole(REWARDER_ROLE, _initialRewarder);
         _grantRole(BLACKLIST_MANAGER_ROLE, _admin);
 
-        silo = new nUSDSilo(address(this), address(_asset));
+        // Silo now holds snUSD (this token) during cooldown, which is later redeemed for nUSD
+        silo = new StakednUSDSilo(address(this), address(this));
         cooldownDuration = MAX_COOLDOWN_DURATION;
     }
 
@@ -239,21 +240,29 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
 
     /**
      * @notice Claim the staking amount after the cooldown has finished
-     * @dev unstake can be called after cooldown have been set to 0, to let accounts claim remaining assets locked at Silo
-     * @param receiver Address to send the assets by the staker
+     * @dev When cooldown is on, snUSD is locked in the Silo. After cooldown, snUSD is redeemed for nUSD.
+     *      If cooldown duration is later set to 0, this function can still be used to claim remaining
+     *      snUSD locked in the Silo and redeem it for nUSD.
+     * @param receiver Address to receive the redeemed nUSD
      */
     function unstake(address receiver) external {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
-        uint256 assets = userCooldown.underlyingAmount;
+        uint256 shares = userCooldown.underlyingAmount; // stores locked snUSD shares
 
-        if (block.timestamp >= userCooldown.cooldownEnd || cooldownDuration == 0) {
-            userCooldown.cooldownEnd = 0;
-            userCooldown.underlyingAmount = 0;
-
-            silo.withdraw(receiver, assets);
-        } else {
+        // Allow claim after cooldown ends, or if cooldown has been globally disabled
+        if (shares == 0 || (block.timestamp < userCooldown.cooldownEnd && cooldownDuration != 0)) {
             revert InvalidCooldown();
         }
+
+        userCooldown.cooldownEnd = 0;
+        userCooldown.underlyingAmount = 0;
+
+        // Retrieve locked snUSD from the silo back to this contract
+        silo.withdraw(address(this), shares);
+
+        // Redeem snUSD shares held by this contract into nUSD for the receiver
+        uint256 assets = previewRedeem(shares);
+        _withdraw(address(this), receiver, address(this), assets, shares);
     }
 
     /**
@@ -265,10 +274,12 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
 
         shares = previewWithdraw(assets);
 
+        // Lock snUSD shares in the silo and record them for the caller
         cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
-        cooldowns[msg.sender].underlyingAmount += uint152(assets);
+        cooldowns[msg.sender].underlyingAmount += uint152(shares);
 
-        _withdraw(msg.sender, address(silo), msg.sender, assets, shares);
+        // Transfer snUSD from user to silo (locks it)
+        _transfer(msg.sender, address(silo), shares);
     }
 
     /**
@@ -280,10 +291,30 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
 
         assets = previewRedeem(shares);
 
+        // Lock snUSD shares in the silo and record them for the caller
         cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
-        cooldowns[msg.sender].underlyingAmount += uint152(assets);
+        cooldowns[msg.sender].underlyingAmount += uint152(shares);
 
-        _withdraw(msg.sender, address(silo), msg.sender, assets, shares);
+        // Transfer snUSD from user to silo (locks it)
+        _transfer(msg.sender, address(silo), shares);
+    }
+
+    /**
+     * @notice Cancel an active cooldown and return locked snUSD to the user
+     */
+    function cancelCooldown() external nonReentrant {
+        UserCooldown storage userCooldown = cooldowns[msg.sender];
+        uint256 shares = userCooldown.underlyingAmount; // locked snUSD shares
+
+        if (shares == 0) {
+            revert InvalidCooldown();
+        }
+
+        userCooldown.cooldownEnd = 0;
+        userCooldown.underlyingAmount = 0;
+
+        // Return locked snUSD from the silo back to the user
+        silo.withdraw(msg.sender, shares);
     }
 
     /**

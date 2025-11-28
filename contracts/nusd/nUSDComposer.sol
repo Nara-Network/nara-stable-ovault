@@ -15,6 +15,8 @@ interface InUSD {
     ) external returns (uint256 nUSDAmount);
 
     function hasValidCredentials(address account) external view returns (bool);
+
+    function isBlacklisted(address account) external view returns (bool);
 }
 
 /// @notice Error thrown when sender does not have valid Keyring credentials
@@ -162,6 +164,9 @@ contract nUSDComposer is VaultComposerSync {
         // Check if original sender has valid Keyring credentials
         address originalSender = address(uint160(uint256(_depositor)));
         if (!InUSD(address(VAULT)).hasValidCredentials(originalSender)) {
+            revert UnauthorizedSender(originalSender);
+        }
+        if (InUSD(address(VAULT)).isBlacklisted(originalSender)) {
             revert UnauthorizedSender(originalSender);
         }
 

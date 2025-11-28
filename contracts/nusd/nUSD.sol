@@ -71,7 +71,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
 
     /// @notice Redemption request structure
     struct RedemptionRequest {
-        uint104 cooldownEnd; // Timestamp when cooldown ends
+        uint104 deadline; // Expiry timestamp after which the request is invalid
         uint152 nUSDAmount; // Amount of nUSD locked for redemption
         address collateralAsset; // Collateral asset to receive
     }
@@ -167,7 +167,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         address indexed user,
         uint256 nUSDAmount,
         address indexed collateralAsset,
-        uint256 cooldownEnd
+        uint256 deadline
     );
     event RedemptionCompleted(
         address indexed user,
@@ -354,17 +354,25 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         mct.mintWithoutCollateral(address(this), amount);
     }
 
-    /* --------------- COOLDOWN REDEMPTION --------------- */
+    /* --------------- REDEMPTION (ESCROW + BULK SOLVER WITH EXPIRY) --------------- */
 
     /**
-     * @notice Request redemption with cooldown - locks nUSD and starts cooldown timer
-     * @param collateralAsset The collateral asset to receive after cooldown
+     * @notice Request redemption - locks nUSD in the redeem silo with an expiry deadline
+     * @param collateralAsset The collateral asset to receive when redemption is executed
      * @param nUSDAmount The amount of nUSD to lock for redemption
+     * @param deadline Unix timestamp after which this redemption request becomes invalid
      */
-    function cooldownRedeem(address collateralAsset, uint256 nUSDAmount) external nonReentrant whenNotPaused {
+    function cooldownRedeem(
+        address collateralAsset,
+        uint256 nUSDAmount,
+        uint64 deadline
+    ) external nonReentrant whenNotPaused {
         if (nUSDAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (redemptionRequests[msg.sender].nUSDAmount > 0) revert ExistingRedemptionRequest();
+
+        // Deadline must be in the future (and non-zero) to be valid
+        if (deadline <= block.timestamp) revert InvalidCooldown();
 
         // Check minimum redeem amount
         if (minRedeemAmount > 0 && nUSDAmount < minRedeemAmount) {
@@ -372,7 +380,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         }
 
         // Check blacklist restrictions (full restriction prevents redeeming)
-        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
+        if (_isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
 
@@ -382,70 +390,38 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Transfer nUSD from user to silo (locks it)
         _transfer(msg.sender, address(redeemSilo), nUSDAmount);
 
-        // Record redemption request
+        // Record redemption request, using deadline as an expiry timestamp
         redemptionRequests[msg.sender] = RedemptionRequest({
-            cooldownEnd: uint104(block.timestamp + cooldownDuration),
+            deadline: uint104(deadline),
             nUSDAmount: uint152(nUSDAmount),
             collateralAsset: collateralAsset
         });
 
-        emit RedemptionRequested(msg.sender, nUSDAmount, collateralAsset, block.timestamp + cooldownDuration);
+        emit RedemptionRequested(msg.sender, nUSDAmount, collateralAsset, deadline);
     }
 
     /**
      * @notice Complete redemption after cooldown period - redeems nUSD for collateral
      */
     function completeRedeem() external nonReentrant whenNotPaused returns (uint256 collateralAmount) {
-        RedemptionRequest memory request = redemptionRequests[msg.sender];
+        return _completeRedemption(msg.sender);
+    }
 
-        if (request.nUSDAmount == 0) revert NoRedemptionRequest();
-        if (block.timestamp < request.cooldownEnd) revert CooldownNotFinished();
-
-        // Check blacklist restrictions (full restriction prevents redeeming)
-        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
-            revert OperationNotAllowed();
+    /**
+     * @notice Bulk-complete redemptions for multiple users after cooldown
+     * @dev Callable by collateral manager to act as a "bulk solver" for escrowed redemption requests
+     * @param users Array of user addresses whose redemptions should be completed
+     */
+    function bulkCompleteRedeem(
+        address[] calldata users
+    ) external nonReentrant whenNotPaused onlyRole(COLLATERAL_MANAGER_ROLE) {
+        uint256 length = users.length;
+        for (uint256 i = 0; i < length; ) {
+            _completeRedemption(users[i]);
+            unchecked {
+                ++i;
+            }
         }
-
-        // Check Keyring credentials
-        _checkKeyringCredential(msg.sender);
-
-        uint256 nUSDAmount = request.nUSDAmount;
-        address collateralAsset = request.collateralAsset;
-
-        // Clear redemption request
-        delete redemptionRequests[msg.sender];
-
-        // Withdraw nUSD from silo back to this contract
-        redeemSilo.withdraw(address(this), nUSDAmount);
-
-        // Burn nUSD
-        _burn(address(this), nUSDAmount);
-
-        // Redeem MCT for collateral - first to this contract
-        uint256 receivedCollateral = mct.redeem(collateralAsset, nUSDAmount, address(this));
-
-        // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
-        uint256 receivedCollateral18 = _convertToNUSDAmount(collateralAsset, receivedCollateral);
-        uint256 feeAmount18 = _calculateRedeemFee(receivedCollateral18);
-        uint256 collateralAfterFee = receivedCollateral;
-
-        if (feeAmount18 > 0) {
-            // Convert fee from 18 decimals back to collateral decimals
-            uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
-            collateralAfterFee = receivedCollateral - feeAmountCollateral;
-
-            // Transfer fee in collateral to treasury
-            IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmountCollateral);
-            emit FeeCollected(feeTreasury, feeAmountCollateral, false);
-        }
-
-        // Transfer remaining collateral to user
-        IERC20(collateralAsset).safeTransfer(msg.sender, collateralAfterFee);
-
-        emit RedemptionCompleted(msg.sender, nUSDAmount, collateralAsset, collateralAfterFee);
-
-        // Return the actual collateral amount received by user (after fees)
-        return collateralAfterFee;
     }
 
     /**
@@ -655,6 +631,24 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     }
 
     /**
+     * @notice Internal helper to check if an address is fully restricted (blacklisted)
+     * @param account The address to check
+     * @return bool True if account has FULL_RESTRICTED_ROLE
+     */
+    function _isBlacklisted(address account) internal view returns (bool) {
+        return hasRole(FULL_RESTRICTED_ROLE, account);
+    }
+
+    /**
+     * @notice Public view helper to check if an address is blacklisted
+     * @param account The address to check
+     * @return bool True if account has FULL_RESTRICTED_ROLE
+     */
+    function isBlacklisted(address account) external view returns (bool) {
+        return _isBlacklisted(account);
+    }
+
+    /**
      * @notice Burn nUSD tokens and underlying MCT without withdrawing collateral
      * @dev This creates a deflationary effect: burns both nUSD and MCT while keeping collateral in MCT
      * @dev Burns tokens from msg.sender only (caller must own the tokens)
@@ -757,7 +751,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (beneficiary == address(0)) revert ZeroAddressException();
 
         // Check blacklist restrictions (full restriction prevents minting)
-        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender) || hasRole(FULL_RESTRICTED_ROLE, beneficiary)) {
+        if (_isBlacklisted(msg.sender) || _isBlacklisted(beneficiary)) {
             revert OperationNotAllowed();
         }
 
@@ -924,8 +918,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (feeTreasury != address(0)) {
             if (mintFeeBps > 0) {
                 // Calculate assuming percentage fee only
-            uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
-            sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
+                uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
+                sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
 
                 // Check if minimum fee would apply
                 uint256 estimatedFee = _calculateMintFee(sharesBeforeFee);
@@ -977,8 +971,8 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         if (feeTreasury != address(0)) {
             if (redeemFeeBps > 0) {
                 // Calculate assuming percentage fee only
-            uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
-            assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
+                uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
+                assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
 
                 // Check if minimum fee would apply
                 uint256 estimatedFee = _calculateRedeemFee(assetsBeforeFee);
@@ -1000,16 +994,75 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     }
 
     /**
+     * @notice Internal helper to complete a single redemption
+     * @dev Reverts if the request does not exist or has expired
+     * @param user The address whose redemption request should be completed
+     * @return collateralAmount The amount of collateral sent to the user (after fees)
+     */
+    function _completeRedemption(address user) internal returns (uint256 collateralAmount) {
+        RedemptionRequest memory request = redemptionRequests[user];
+
+        if (request.nUSDAmount == 0) revert NoRedemptionRequest();
+        // Enforce that the request has not expired, if a deadline was set
+        if (request.deadline != 0 && block.timestamp > request.deadline) revert InvalidCooldown();
+
+        // Check blacklist restrictions (full restriction prevents redeeming)
+        if (_isBlacklisted(user)) {
+            revert OperationNotAllowed();
+        }
+
+        // Check Keyring credentials
+        _checkKeyringCredential(user);
+
+        uint256 nUSDAmount = request.nUSDAmount;
+        address collateralAsset = request.collateralAsset;
+
+        // Clear redemption request
+        delete redemptionRequests[user];
+
+        // Withdraw nUSD from silo back to this contract
+        redeemSilo.withdraw(address(this), nUSDAmount);
+
+        // Burn nUSD
+        _burn(address(this), nUSDAmount);
+
+        // Redeem MCT for collateral - first to this contract
+        uint256 receivedCollateral = mct.redeem(collateralAsset, nUSDAmount, address(this));
+
+        // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
+        uint256 receivedCollateral18 = _convertToNUSDAmount(collateralAsset, receivedCollateral);
+        uint256 feeAmount18 = _calculateRedeemFee(receivedCollateral18);
+        uint256 collateralAfterFee = receivedCollateral;
+
+        if (feeAmount18 > 0) {
+            // Convert fee from 18 decimals back to collateral decimals
+            uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
+            collateralAfterFee = receivedCollateral - feeAmountCollateral;
+
+            // Transfer fee in collateral to treasury
+            IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmountCollateral);
+            emit FeeCollected(feeTreasury, feeAmountCollateral, false);
+        }
+
+        // Transfer remaining collateral to user
+        IERC20(collateralAsset).safeTransfer(user, collateralAfterFee);
+
+        emit RedemptionCompleted(user, nUSDAmount, collateralAsset, collateralAfterFee);
+
+        return collateralAfterFee;
+    }
+
+    /**
      * @dev Hook that is called before any transfer of tokens
      * @dev Disables transfers from or to addresses with FULL_RESTRICTED_ROLE
      * @dev Note: Keyring checks are NOT applied to transfers - nUSD is freely transferrable
      */
     function _update(address from, address to, uint256 value) internal virtual override {
         // Check blacklist restrictions only
-        if (hasRole(FULL_RESTRICTED_ROLE, from)) {
+        if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
-        if (hasRole(FULL_RESTRICTED_ROLE, to)) {
+        if (_isBlacklisted(to)) {
             revert OperationNotAllowed();
         }
 
