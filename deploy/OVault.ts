@@ -310,6 +310,21 @@ const deploy: DeployFunction = async (hre) => {
             )
             deployedContracts.composer = composer.address
             console.log(`   ✓ NaraUSDComposer deployed at: ${composer.address}`)
+
+            // Whitelist the composer in naraUSD for Keyring bypass
+            try {
+                console.log('   → Whitelisting NaraUSDComposer in naraUSD...')
+                const naraUSDContract = await hre.ethers.getContractAt(
+                    'contracts/narausd/NaraUSD.sol:NaraUSD',
+                    naraUSDAddress
+                )
+                const tx = await naraUSDContract.setKeyringWhitelist(composer.address, true)
+                await tx.wait()
+                console.log(`   ✓ NaraUSDComposer whitelisted in naraUSD`)
+            } catch (error) {
+                console.log('   ⚠️  Could not whitelist composer automatically')
+                console.log(`   ℹ️  Manually run: naraUSD.setKeyringWhitelist("${composer.address}", true)`)
+            }
         } else {
             console.log('   ⏭️  Skipping NaraUSDComposer (set vault.collateralAssetAddress to deploy).')
         }
@@ -357,6 +372,21 @@ const deploy: DeployFunction = async (hre) => {
         )
         deployedContracts.stakedComposer = stakedComposer.address
         console.log(`   ✓ StakedNaraUSDComposer deployed at: ${stakedComposer.address}`)
+
+        // Whitelist the composer in naraUSD (it handles naraUSD deposits for cross-chain staking)
+        try {
+            console.log('   → Whitelisting StakedNaraUSDComposer in naraUSD...')
+            const naraUSDContract = await hre.ethers.getContractAt(
+                'contracts/narausd/NaraUSD.sol:NaraUSD',
+                naraUSDAddress
+            )
+            const tx = await naraUSDContract.setKeyringWhitelist(stakedComposer.address, true)
+            await tx.wait()
+            console.log(`   ✓ StakedNaraUSDComposer whitelisted in naraUSD`)
+        } catch (error) {
+            console.log('   ⚠️  Could not whitelist StakedNaraUSDComposer automatically')
+            console.log(`   ℹ️  Manually run: naraUSD.setKeyringWhitelist("${stakedComposer.address}", true)`)
+        }
     }
 
     // ========================================
