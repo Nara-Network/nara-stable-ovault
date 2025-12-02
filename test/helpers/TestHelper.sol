@@ -48,13 +48,13 @@ abstract contract TestHelper is TestHelperOz5 {
     // Hub chain contracts (Arbitrum)
     MCTOFTAdapter public mctAdapter; // Note: MCT doesn't go cross-chain, but adapter needed for composer validation
     NaraUSDOFTAdapter public naraUSDAdapter;
-    StakedNaraUSDOFTAdapter public stakedNusdAdapter;
-    NaraUSDComposer public nusdComposer;
-    StakedNaraUSDComposer public stakedNusdComposer;
+    StakedNaraUSDOFTAdapter public stakedNaraUSDAdapter;
+    NaraUSDComposer public naraUSDComposer;
+    StakedNaraUSDComposer public stakedNaraUSDComposer;
 
     // Spoke chain contracts (Base, OP, etc.)
     NaraUSDOFT public naraUSDOFT;
-    StakedNaraUSDOFT public stakedNusdOFT;
+    StakedNaraUSDOFT public stakedNaraUSDOFT;
 
     // Helper variables
     uint256 public constant INITIAL_BALANCE = 1_000_000e6; // 1M USDC
@@ -138,10 +138,10 @@ abstract contract TestHelper is TestHelperOz5 {
 
         naraUSDAdapter = new nUSDOFTAdapter(address(naraUSD), address(endpoints[HUB_EID]), delegate);
 
-        stakedNusdAdapter = new StakednUSDOFTAdapter(address(stakedNaraUSD), address(endpoints[HUB_EID]), delegate);
+        stakedNaraUSDAdapter = new StakednUSDOFTAdapter(address(stakedNaraUSD), address(endpoints[HUB_EID]), delegate);
 
         // Deploy Composers
-        nusdComposer = new nUSDComposer(
+        naraUSDComposer = new nUSDComposer(
             address(naraUSD),
             address(mctAdapter), // ASSET_OFT for validation (MCT is vault's underlying asset)
             address(naraUSDAdapter), // SHARE_OFT (nUSD goes cross-chain)
@@ -149,10 +149,10 @@ abstract contract TestHelper is TestHelperOz5 {
             address(usdc) // Using USDC as both collateral and collateral OFT for simplicity
         );
 
-        stakedNusdComposer = new StakednUSDComposer(
+        stakedNaraUSDComposer = new StakednUSDComposer(
             address(stakedNaraUSD),
             address(naraUSDAdapter),
-            address(stakedNusdAdapter)
+            address(stakedNaraUSDAdapter)
         );
     }
 
@@ -165,7 +165,7 @@ abstract contract TestHelper is TestHelperOz5 {
         // Deploy OFTs on spoke chain
         naraUSDOFT = new nUSDOFT(address(endpoints[SPOKE_EID]), delegate);
 
-        stakedNusdOFT = new StakednUSDOFT(address(endpoints[SPOKE_EID]), delegate);
+        stakedNaraUSDOFT = new StakednUSDOFT(address(endpoints[SPOKE_EID]), delegate);
     }
 
     /**
@@ -180,8 +180,8 @@ abstract contract TestHelper is TestHelperOz5 {
 
         // Wire StakednUSD OFT <-> Adapter
         address[] memory stakedPath = new address[](2);
-        stakedPath[0] = address(stakedNusdAdapter);
-        stakedPath[1] = address(stakedNusdOFT);
+        stakedPath[0] = address(stakedNaraUSDAdapter);
+        stakedPath[1] = address(stakedNaraUSDOFT);
         this.wireOApps(stakedPath);
     }
 

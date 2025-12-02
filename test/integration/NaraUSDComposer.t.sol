@@ -25,10 +25,10 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_Setup() public {
         _switchToHub();
-        assertEq(address(nusdComposer.VAULT()), address(naraUSD));
-        assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter)); // MCT is vault's underlying asset
-        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter)); // naraUSD goes cross-chain
-        assertEq(nusdComposer.collateralAsset(), address(usdc));
+        assertEq(address(naraUSDComposer.VAULT()), address(naraUSD));
+        assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter)); // MCT is vault's underlying asset
+        assertEq(address(naraUSDComposer.SHARE_OFT()), address(naraUSDAdapter)); // naraUSD goes cross-chain
+        assertEq(naraUSDComposer.collateralAsset(), address(usdc));
     }
 
     /**
@@ -48,18 +48,18 @@ contract NaraUSDComposerTest is TestHelper {
         assertEq(nusdReceived, expectedNusd, "Should receive expected naraUSD");
 
         // Step 2: Alice sends naraUSD cross-chain to Bob on spoke
-        naraUSD.approve(address(nusdAdapter), nusdReceived);
+        naraUSD.approve(address(naraUSDAdapter), nusdReceived);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdReceived);
-        MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
-        nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
+        naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at nusdOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
+        // Deliver packet to SPOKE chain at naraUSDOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
         // Check spoke chain - bob should have naraUSD
         _switchToSpoke();
-        assertEq(nusdOFT.balanceOf(bob), nusdReceived, "Bob should have naraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(bob), nusdReceived, "Bob should have naraUSD on spoke");
     }
 
     /**
@@ -92,7 +92,7 @@ contract NaraUSDComposerTest is TestHelper {
         //   a) Approves USDC to naraUSD
         //   b) Calls naraUSD.mintWithCollateral(USDC, amount)
         //   c) Receives naraUSD
-        //   d) Calls nusdAdapter.send() to return naraUSD to spoke
+        //   d) Calls naraUSDAdapter.send() to return naraUSD to spoke
 
         // Step 5: User receives naraUSD on spoke chain
 
@@ -120,19 +120,19 @@ contract NaraUSDComposerTest is TestHelper {
         assertEq(nusdReceived, expectedNusd, "Should receive expected naraUSD");
 
         // Now send naraUSD cross-chain via adapter
-        naraUSD.approve(address(nusdAdapter), nusdReceived);
+        naraUSD.approve(address(naraUSDAdapter), nusdReceived);
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdReceived);
-        MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
+        MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
 
-        nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at nusdOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
+        // Deliver packet to SPOKE chain at naraUSDOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
         _switchToSpoke();
-        assertEq(nusdOFT.balanceOf(bob), nusdReceived, "Bob should have naraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(bob), nusdReceived, "Bob should have naraUSD on spoke");
     }
 
     /**
@@ -162,20 +162,20 @@ contract NaraUSDComposerTest is TestHelper {
         );
 
         // Get fee
-        MessagingFee memory fee = _getMessagingFee(address(nusdOFT), sendParam);
+        MessagingFee memory fee = _getMessagingFee(address(naraUSDOFT), sendParam);
 
         // Build compose message for redeem
         bytes memory composeMsg = abi.encode(sendParam, fee.nativeFee);
 
         // Update send param
         sendParam.composeMsg = composeMsg;
-        sendParam.to = addressToBytes32(address(nusdComposer));
+        sendParam.to = addressToBytes32(address(naraUSDComposer));
 
-        nusdOFT.send{ value: fee.nativeFee * 2 }(sendParam, MessagingFee(fee.nativeFee * 2, 0), bob);
+        naraUSDOFT.send{ value: fee.nativeFee * 2 }(sendParam, MessagingFee(fee.nativeFee * 2, 0), bob);
         vm.stopPrank();
 
-        // Deliver packet to HUB chain at nusdAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(nusdAdapter)));
+        // Deliver packet to HUB chain at naraUSDAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(naraUSDAdapter)));
 
         // Check hub chain - alice should have received MCT
         _switchToHub();
@@ -189,7 +189,7 @@ contract NaraUSDComposerTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        mct.approve(address(nusdAdapter), 500e18);
+        mct.approve(address(naraUSDAdapter), 500e18);
 
         for (uint256 i = 1; i <= 5; i++) {
             uint256 amount = i * 10e18;
@@ -199,18 +199,18 @@ contract NaraUSDComposerTest is TestHelper {
             uint256 nusdAmount = naraUSD.deposit(amount, alice);
 
             // Send to spoke
-            naraUSD.approve(address(nusdAdapter), nusdAmount);
+            naraUSD.approve(address(naraUSDAdapter), nusdAmount);
             SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdAmount);
-            MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
+            MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
 
-            nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
-            verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
+            naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+            verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
         }
         vm.stopPrank();
 
         _switchToSpoke();
         uint256 expectedTotal = 10e18 + 20e18 + 30e18 + 40e18 + 50e18;
-        assertEq(nusdOFT.balanceOf(bob), expectedTotal, "Bob should have all naraUSD");
+        assertEq(naraUSDOFT.balanceOf(bob), expectedTotal, "Bob should have all naraUSD");
     }
 
     /**
@@ -226,7 +226,7 @@ contract NaraUSDComposerTest is TestHelper {
         mct.approve(address(naraUSD), mctAmount);
         uint256 nusdAmount = naraUSD.deposit(mctAmount, alice);
 
-        naraUSD.approve(address(nusdAdapter), nusdAmount);
+        naraUSD.approve(address(naraUSDAdapter), nusdAmount);
 
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,
@@ -238,15 +238,15 @@ contract NaraUSDComposerTest is TestHelper {
             ""
         );
 
-        MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
-        nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
+        naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at nusdOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
+        // Deliver packet to SPOKE chain at naraUSDOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
         _switchToSpoke();
-        assertGe(nusdOFT.balanceOf(bob), minNusd, "Bob should have at least min amount");
+        assertGe(naraUSDOFT.balanceOf(bob), minNusd, "Bob should have at least min amount");
     }
 
     /**
@@ -355,7 +355,7 @@ contract NaraUSDComposerTest is TestHelper {
         _switchToHub();
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, mctAmount);
-        MessagingFee memory fee = nusdAdapter.quoteSend(sendParam, false);
+        MessagingFee memory fee = naraUSDAdapter.quoteSend(sendParam, false);
         uint256 nativeFee = fee.nativeFee;
         uint256 lzTokenFee = fee.lzTokenFee;
 
@@ -408,7 +408,7 @@ contract NaraUSDComposerTest is TestHelper {
         mct.approve(address(naraUSD), mctAmount);
         uint256 nusdAmount = naraUSD.deposit(mctAmount, alice);
 
-        naraUSD.approve(address(nusdAdapter), nusdAmount);
+        naraUSD.approve(address(naraUSDAdapter), nusdAmount);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,
@@ -419,18 +419,18 @@ contract NaraUSDComposerTest is TestHelper {
             "",
             ""
         );
-        MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
+        MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
 
-        nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at nusdOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
+        // Deliver packet to SPOKE chain at naraUSDOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
         _switchToSpoke();
         // Use approximate equality for fuzz tests due to potential rounding in mock OFT (0.1% tolerance)
         assertApproxEqAbs(
-            nusdOFT.balanceOf(bob),
+            naraUSDOFT.balanceOf(bob),
             nusdAmount,
             nusdAmount / 1000,
             "Bob should have ~correct naraUSD amount"
@@ -453,29 +453,29 @@ contract NaraUSDComposerTest is TestHelper {
         assertEq(nusdAmount, expectedNusd, "Should mint expected naraUSD");
 
         // Step 2: Alice sends naraUSD to Bob on spoke chain
-        naraUSD.approve(address(nusdAdapter), nusdAmount);
+        naraUSD.approve(address(naraUSDAdapter), nusdAmount);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdAmount);
-        MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
-        nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
+        naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at nusdOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
+        // Deliver packet to SPOKE chain at naraUSDOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
         // Step 3: Verify Bob has naraUSD on spoke
         _switchToSpoke();
-        assertEq(nusdOFT.balanceOf(bob), nusdAmount, "Bob should have naraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(bob), nusdAmount, "Bob should have naraUSD on spoke");
 
         // Step 4: Bob sends half back to alice on hub
         uint256 sendBackAmount = nusdAmount / 2;
         vm.startPrank(bob);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, sendBackAmount);
-        MessagingFee memory fee2 = _getMessagingFee(address(nusdOFT), sendParam2);
-        nusdOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
+        MessagingFee memory fee2 = _getMessagingFee(address(naraUSDOFT), sendParam2);
+        naraUSDOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
-        // Deliver packet to HUB chain at nusdAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(nusdAdapter)));
+        // Deliver packet to HUB chain at naraUSDAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(naraUSDAdapter)));
 
         // Step 5: Verify Alice received naraUSD back on hub
         _switchToHub();

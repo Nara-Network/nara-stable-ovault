@@ -17,19 +17,19 @@ contract NaraUSDComposerTest is TestHelper {
      * @notice Verify constructor sets up immutables correctly
      */
     function test_Constructor() public view {
-        assertEq(address(nusdComposer.VAULT()), address(naraUSD), "Vault should be naraUSD");
-        assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
-        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be NaraUSDOFTAdapter");
-        assertEq(nusdComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
-        assertEq(nusdComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
-        assertEq(address(nusdComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
+        assertEq(address(naraUSDComposer.VAULT()), address(naraUSD), "Vault should be naraUSD");
+        assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
+        assertEq(address(naraUSDComposer.SHARE_OFT()), address(naraUSDAdapter), "SHARE_OFT should be NaraUSDOFTAdapter");
+        assertEq(naraUSDComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
+        assertEq(naraUSDComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
+        assertEq(address(naraUSDComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
     }
 
     /**
      * @notice Verify constructor approves collateral to its OFT
      */
     function test_Constructor_ApprovesCollateral() public view {
-        uint256 allowance = usdc.allowance(address(nusdComposer), address(usdc));
+        uint256 allowance = usdc.allowance(address(naraUSDComposer), address(usdc));
         assertEq(allowance, type(uint256).max, "Should approve max allowance for collateral refunds");
     }
 
@@ -43,32 +43,32 @@ contract NaraUSDComposerTest is TestHelper {
         uint256 depositAmount = 100e6; // 100 USDC
 
         // Grant composer MINTER_ROLE
-        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(nusdComposer));
+        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(naraUSDComposer));
 
         // Fund the composer with USDC (simulating cross-chain arrival)
-        usdc.mint(address(nusdComposer), depositAmount);
+        usdc.mint(address(naraUSDComposer), depositAmount);
 
         // Track balances
-        uint256 composerUsdcBefore = usdc.balanceOf(address(nusdComposer));
-        uint256 composerNusdBefore = naraUSD.balanceOf(address(nusdComposer));
+        uint256 composerUsdcBefore = usdc.balanceOf(address(naraUSDComposer));
+        uint256 composerNusdBefore = naraUSD.balanceOf(address(naraUSDComposer));
 
         // Approve naraUSD to pull USDC from composer
-        vm.prank(address(nusdComposer));
+        vm.prank(address(naraUSDComposer));
         usdc.approve(address(naraUSD), depositAmount);
 
         // Mint naraUSD with collateral (simulating what _depositCollateralAndSend does)
-        vm.prank(address(nusdComposer));
+        vm.prank(address(naraUSDComposer));
         uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), depositAmount);
 
         // Verify the flow
         assertEq(
-            usdc.balanceOf(address(nusdComposer)),
+            usdc.balanceOf(address(naraUSDComposer)),
             composerUsdcBefore - depositAmount,
             "Composer should transfer USDC"
         );
         assertGt(nusdAmount, 0, "Should mint naraUSD");
         assertEq(
-            naraUSD.balanceOf(address(nusdComposer)),
+            naraUSD.balanceOf(address(naraUSDComposer)),
             composerNusdBefore + nusdAmount,
             "Composer should receive naraUSD"
         );
@@ -87,7 +87,7 @@ contract NaraUSDComposerTest is TestHelper {
 
         vm.prank(alice);
         vm.expectRevert(); // Will revert with OnlyEndpoint
-        nusdComposer.lzCompose(address(usdc), bytes32(0), message, address(0), "");
+        naraUSDComposer.lzCompose(address(usdc), bytes32(0), message, address(0), "");
     }
 
     /**
@@ -105,7 +105,7 @@ contract NaraUSDComposerTest is TestHelper {
 
         vm.prank(address(endpoints[HUB_EID]));
         vm.expectRevert(); // Will revert with OnlyValidComposeCaller
-        nusdComposer.lzCompose(address(invalidToken), bytes32(0), message, address(0), "");
+        naraUSDComposer.lzCompose(address(invalidToken), bytes32(0), message, address(0), "");
     }
 
     /**
@@ -113,7 +113,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsAssetOFT() public view {
         // ASSET_OFT should be in the valid senders list
-        assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
+        assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
     }
 
     /**
@@ -121,7 +121,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsShareOFT() public view {
         // SHARE_OFT should be in the valid senders list
-        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be NaraUSDOFTAdapter");
+        assertEq(address(naraUSDComposer.SHARE_OFT()), address(naraUSDAdapter), "SHARE_OFT should be NaraUSDOFTAdapter");
     }
 
     /**
@@ -129,7 +129,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsCollateralAssetOFT() public view {
         // collateralAssetOFT should be in the valid senders list
-        assertEq(nusdComposer.collateralAssetOFT(), address(usdc), "collateralAssetOFT should be USDC");
+        assertEq(naraUSDComposer.collateralAssetOFT(), address(usdc), "collateralAssetOFT should be USDC");
     }
 
     /**
@@ -143,7 +143,7 @@ contract NaraUSDComposerTest is TestHelper {
 
         vm.prank(alice);
         vm.expectRevert(); // Will revert with OnlySelf
-        nusdComposer._handleComposeInternal(address(usdc), bytes32(0), composeMsg, 100e6);
+        naraUSDComposer._handleComposeInternal(address(usdc), bytes32(0), composeMsg, 100e6);
     }
 
     /**
@@ -154,11 +154,11 @@ contract NaraUSDComposerTest is TestHelper {
         // All constructor params should be non-zero
         // This is implicitly tested by the setUp not reverting,
         // but we can verify the values are set correctly
-        assertTrue(address(nusdComposer.VAULT()) != address(0), "Vault should not be zero");
-        assertTrue(address(nusdComposer.ASSET_OFT()) != address(0), "ASSET_OFT should not be zero");
-        assertTrue(address(nusdComposer.SHARE_OFT()) != address(0), "SHARE_OFT should not be zero");
-        assertTrue(nusdComposer.collateralAsset() != address(0), "collateralAsset should not be zero");
-        assertTrue(nusdComposer.collateralAssetOFT() != address(0), "collateralAssetOFT should not be zero");
+        assertTrue(address(naraUSDComposer.VAULT()) != address(0), "Vault should not be zero");
+        assertTrue(address(naraUSDComposer.ASSET_OFT()) != address(0), "ASSET_OFT should not be zero");
+        assertTrue(address(naraUSDComposer.SHARE_OFT()) != address(0), "SHARE_OFT should not be zero");
+        assertTrue(naraUSDComposer.collateralAsset() != address(0), "collateralAsset should not be zero");
+        assertTrue(naraUSDComposer.collateralAssetOFT() != address(0), "collateralAssetOFT should not be zero");
     }
 
     /**
@@ -168,7 +168,7 @@ contract NaraUSDComposerTest is TestHelper {
         // Composer should have approval set for USDC -> naraUSD
         // This is set during _depositCollateralAndSend via forceApprove
         // We can't directly test internal function, but we verify the pattern in integration tests
-        assertTrue(address(nusdComposer.collateralAsset()) == address(usdc), "Collateral should be USDC");
+        assertTrue(address(naraUSDComposer.collateralAsset()) == address(usdc), "Collateral should be USDC");
     }
 
     /**
@@ -180,13 +180,13 @@ contract NaraUSDComposerTest is TestHelper {
         amount = bound(amount, 1e6, 1_000_000e6); // 1 USDC to 1M USDC
 
         // Grant composer MINTER_ROLE
-        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(nusdComposer));
+        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(naraUSDComposer));
 
         // Fund composer with USDC
-        usdc.mint(address(nusdComposer), amount);
+        usdc.mint(address(naraUSDComposer), amount);
 
         // Simulate deposit flow
-        vm.startPrank(address(nusdComposer));
+        vm.startPrank(address(naraUSDComposer));
         usdc.approve(address(naraUSD), amount);
         uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), amount);
         vm.stopPrank();
@@ -205,13 +205,13 @@ contract NaraUSDComposerTest is TestHelper {
         uint256 depositAmount = 100e6; // 100 USDT
 
         // Grant composer MINTER_ROLE
-        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(nusdComposer));
+        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(naraUSDComposer));
 
         // Fund composer with USDT
-        usdt.mint(address(nusdComposer), depositAmount);
+        usdt.mint(address(naraUSDComposer), depositAmount);
 
         // Simulate deposit flow
-        vm.startPrank(address(nusdComposer));
+        vm.startPrank(address(naraUSDComposer));
         usdt.approve(address(naraUSD), depositAmount);
         uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdt), depositAmount);
         vm.stopPrank();
@@ -224,11 +224,11 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_MCT_NeverDirectlyUsed() public view {
         // MCT should never have approval from composer
-        uint256 mctAllowance = mct.allowance(address(nusdComposer), address(mct));
+        uint256 mctAllowance = mct.allowance(address(naraUSDComposer), address(mct));
         assertEq(mctAllowance, 0, "Composer should never approve MCT");
 
         // MCT balance should always be 0
-        uint256 mctBalance = mct.balanceOf(address(nusdComposer));
+        uint256 mctBalance = mct.balanceOf(address(naraUSDComposer));
         assertEq(mctBalance, 0, "Composer should never hold MCT");
     }
 
@@ -237,18 +237,18 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_AssetOFT_ValidationOnly() public view {
         // ASSET_OFT points to MCTOFTAdapter but is never used operationally
-        assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT is MCTOFTAdapter");
+        assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT is MCTOFTAdapter");
 
         // The actual deposit flow uses collateralAsset (USDC), not ASSET_OFT
-        assertEq(nusdComposer.collateralAsset(), address(usdc), "Collateral is USDC");
-        assertTrue(address(nusdComposer.ASSET_OFT()) != nusdComposer.collateralAsset(), "ASSET_OFT != collateral");
+        assertEq(naraUSDComposer.collateralAsset(), address(usdc), "Collateral is USDC");
+        assertTrue(address(naraUSDComposer.ASSET_OFT()) != naraUSDComposer.collateralAsset(), "ASSET_OFT != collateral");
     }
 
     /**
      * @notice Test endpoint is correctly set
      */
     function test_Endpoint() public view {
-        assertEq(address(nusdComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
+        assertEq(address(naraUSDComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
     }
 
     /**
