@@ -15,6 +15,8 @@ interface InUSD {
     ) external returns (uint256 nUSDAmount);
 
     function hasValidCredentials(address account) external view returns (bool);
+
+    function isBlacklisted(address account) external view returns (bool);
 }
 
 /// @notice Error thrown when sender does not have valid Keyring credentials
@@ -70,34 +72,7 @@ contract nUSDComposer is VaultComposerSync {
     /// @notice OFT contract for the collateral asset (e.g., Stargate USDC OFT)
     address public immutable collateralAssetOFT;
 
-    // Debug events
-    event DebugLzComposeStart(address composeSender, bytes32 guid, uint256 msgValue);
-    event DebugValidationPassed();
-    event DebugMessageDecoded(bytes32 composeFrom, uint256 amount, uint256 composeMsgLength);
-    event DebugHandleComposeStart(address oftIn, bytes32 composeFrom, uint256 amount);
-    event DebugSendParamDecoded(uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD);
-    event DebugMsgValueCheck(uint256 minMsgValue, uint256 actualMsgValue);
-    event DebugProcessingAssetOFT();
-    event DebugProcessingShareOFT();
-    event DebugProcessingCollateralAsset();
-    event DebugDepositCollateralAndSendStart(uint256 assetAmount);
-    event DebugDepositCollateralAndSendComplete(uint256 shareAmount);
-    event DebugHandleComposeComplete();
-    event DebugLzComposeComplete();
-    event DebugError(bytes errorData);
-    event DepositednUSD(
-        address share,
-        address recipient,
-        uint32 dstEid,
-        bytes32 to,
-        uint256 amountLD,
-        uint256 minAmountLD,
-        bytes extraOptions,
-        bytes composeMsg,
-        bytes oftCmd
-    );
-    event DebugRefund(address oft, uint32 dstEid, bytes32 to, uint256 amount, address refundAddress);
-    event DebugSlippage(uint256 amountLD, uint256 minAmountLD);
+    event Error(bytes errorData);
 
     /**
      * @notice Creates a new nUSDComposer for cross-chain nUSD minting
@@ -157,11 +132,12 @@ contract nUSDComposer is VaultComposerSync {
         SendParam memory _sendParam,
         address _refundAddress
     ) internal {
-        emit DebugDepositCollateralAndSendStart(_assetAmount);
-
         // Check if original sender has valid Keyring credentials
         address originalSender = address(uint160(uint256(_depositor)));
         if (!InUSD(address(VAULT)).hasValidCredentials(originalSender)) {
+            revert UnauthorizedSender(originalSender);
+        }
+        if (InUSD(address(VAULT)).isBlacklisted(originalSender)) {
             revert UnauthorizedSender(originalSender);
         }
 
@@ -169,26 +145,12 @@ contract nUSDComposer is VaultComposerSync {
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);
         // Mint nUSD to this contract
         uint256 shareAmount = InUSD(address(VAULT)).mintWithCollateral(collateralAsset, _assetAmount);
-        emit DebugSlippage(shareAmount, _sendParam.minAmountLD);
         _assertSlippage(shareAmount, _sendParam.minAmountLD);
 
         _sendParam.amountLD = shareAmount;
         _sendParam.minAmountLD = 0;
 
         _send(SHARE_OFT, _sendParam, _refundAddress);
-        emit DepositednUSD(
-            SHARE_OFT,
-            _refundAddress,
-            _sendParam.dstEid,
-            _sendParam.to,
-            _sendParam.amountLD,
-            _sendParam.minAmountLD,
-            _sendParam.extraOptions,
-            _sendParam.composeMsg,
-            _sendParam.oftCmd
-        );
-
-        emit DebugDepositCollateralAndSendComplete(shareAmount);
     }
 
     /**
@@ -205,8 +167,6 @@ contract nUSDComposer is VaultComposerSync {
         address /*_executor*/,
         bytes calldata /*_extraData*/
     ) external payable override {
-        emit DebugLzComposeStart(_composeSender, _guid, msg.value);
-
         if (msg.sender != ENDPOINT) revert OnlyEndpoint(msg.sender);
         if (
             _composeSender != ASSET_OFT &&
@@ -217,20 +177,15 @@ contract nUSDComposer is VaultComposerSync {
             revert OnlyValidComposeCaller(_composeSender);
         }
 
-        emit DebugValidationPassed();
-
         bytes32 composeFrom = _message.composeFrom();
         uint256 amount = _message.amountLD();
         bytes memory composeMsg = _message.composeMsg();
 
-        emit DebugMessageDecoded(composeFrom, amount, composeMsg.length);
-
         /// @dev try...catch to handle the compose operation. if it fails we refund the user
         try this._handleComposeInternal{ value: msg.value }(_composeSender, composeFrom, composeMsg, amount) {
             emit Sent(_guid);
-            emit DebugLzComposeComplete();
         } catch (bytes memory _err) {
-            emit DebugError(_err);
+            emit Error(_err);
 
             /// @dev A revert where the msg.value passed is lower than the min expected msg.value is handled separately
             /// This is because it is possible to re-trigger from the endpoint the compose operation with the right msg.value
@@ -255,8 +210,6 @@ contract nUSDComposer is VaultComposerSync {
         bytes memory _composeMsg,
         uint256 _amount
     ) external payable {
-        emit DebugHandleComposeStart(_oftIn, _composeFrom, _amount);
-
         /// @dev Can only be called by self
         if (msg.sender != address(this)) revert OnlySelf(msg.sender);
 
@@ -264,25 +217,17 @@ contract nUSDComposer is VaultComposerSync {
         /// @dev The minMsgValue is the minimum amount of msg.value that must be sent, failing to do so will revert and the transaction will be retained in the endpoint for future retries
         (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
 
-        emit DebugSendParamDecoded(sendParam.dstEid, sendParam.to, sendParam.amountLD, sendParam.minAmountLD);
-        emit DebugMsgValueCheck(minMsgValue, msg.value);
-
         if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
 
         if (_oftIn == ASSET_OFT) {
-            emit DebugProcessingAssetOFT();
             super._depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else if (_oftIn == SHARE_OFT) {
-            emit DebugProcessingShareOFT();
             super._redeemAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else if (_oftIn == collateralAssetOFT) {
-            emit DebugProcessingCollateralAsset();
             _depositCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else {
             revert OnlyValidComposeCaller(_oftIn);
         }
-
-        emit DebugHandleComposeComplete();
     }
 
     /**
@@ -295,7 +240,6 @@ contract nUSDComposer is VaultComposerSync {
             refundSendParam.to = OFTComposeMsgCodec.composeFrom(_message);
             refundSendParam.amountLD = _amount;
 
-            emit DebugRefund(_oft, refundSendParam.dstEid, refundSendParam.to, _amount, _refundAddress);
             IOFT(collateralAssetOFT).send{ value: msg.value }(
                 refundSendParam,
                 MessagingFee(msg.value, 0),
