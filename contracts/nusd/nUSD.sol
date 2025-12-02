@@ -864,19 +864,20 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     /* --------------- OVERRIDES --------------- */
 
     /**
-     * @notice Override ERC4626 withdraw to enforce cooldown - disabled
-     * @dev Use cooldownRedeem/completeRedeem instead
+     * @notice Override ERC4626 withdraw - disabled in favor of custom redeem flow
+     * @dev Use redeem() with instant/queue logic instead
      */
     function withdraw(uint256, address, address) public pure override returns (uint256) {
-        revert("Use cooldownRedeem");
+        revert("Use redeem()");
     }
 
     /**
-     * @notice Override ERC4626 redeem to enforce cooldown - disabled
-     * @dev Use cooldownRedeem/completeRedeem instead
+     * @notice Override ERC4626 redeem - disabled in favor of custom redeem flow
+     * @dev The ERC4626 redeem(shares, receiver, owner) is replaced by our custom
+     *      redeem(collateralAsset, nUSDAmount, allowQueue) function
      */
     function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert("Use cooldownRedeem");
+        revert("Use redeem(collateralAsset, nUSDAmount, allowQueue)");
     }
 
     /// @dev Override decimals to ensure 18 decimals
