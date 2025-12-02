@@ -71,7 +71,6 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
 
     /// @notice Redemption request structure
     struct RedemptionRequest {
-        uint104 deadline; // Expiry timestamp after which the request is invalid
         uint152 nUSDAmount; // Amount of nUSD locked for redemption
         address collateralAsset; // Collateral asset to receive
     }
@@ -163,12 +162,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
     event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
-    event RedemptionRequested(
-        address indexed user,
-        uint256 nUSDAmount,
-        address indexed collateralAsset,
-        uint256 deadline
-    );
+    event RedemptionRequested(address indexed user, uint256 nUSDAmount, address indexed collateralAsset);
     event RedemptionCompleted(
         address indexed user,
         uint256 nUSDAmount,
@@ -1034,14 +1028,13 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Transfer nUSD from user to silo (escrow)
         _transfer(user, address(redeemSilo), nUSDAmount);
 
-        // Record redemption request (no deadline - valid until completed or cancelled)
+        // Record redemption request (valid until completed or cancelled)
         redemptionRequests[user] = RedemptionRequest({
-            deadline: 0,
             nUSDAmount: uint152(nUSDAmount),
             collateralAsset: collateralAsset
         });
 
-        emit RedemptionRequested(user, nUSDAmount, collateralAsset, 0);
+        emit RedemptionRequested(user, nUSDAmount, collateralAsset);
     }
 
     /**
