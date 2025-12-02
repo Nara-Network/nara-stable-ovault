@@ -1,14 +1,14 @@
-# 📁 Project Structure - nUSD OVault System
+# 📁 Project Structure - naraUSD OVault System
 
-Complete omnichain vault system for nUSD and StakednUSD with cross-chain functionality powered by LayerZero.
+Complete omnichain vault system for naraUSD and StakedNaraUSD with cross-chain functionality powered by LayerZero.
 
 ## 📊 Overview
 
 This project contains three main modules:
 
-1. **MCT (MultiCollateralToken)**: Multi-collateral backing for nUSD
-2. **nUSD**: Omnichain stablecoin vault with minting/redeeming
-3. **StakednUSD**: Staking vault for earning rewards on nUSD
+1. **MCT (MultiCollateralToken)**: Multi-collateral backing for naraUSD
+2. **naraUSD**: Omnichain stablecoin vault with minting/redeeming
+3. **StakedNaraUSD**: Staking vault for earning rewards on naraUSD
 
 ---
 
@@ -21,25 +21,25 @@ contracts/
 │   ├── MCTOFTAdapter.sol             # Hub chain OFT adapter (lockbox)
 │   └── MCTOFT.sol                    # Spoke chain OFT (mint/burn)
 │
-├── nusd/                             # nUSD Module
-│   ├── nUSD.sol                      # ERC4626 vault with minting
-│   ├── nUSDOFTAdapter.sol            # Hub chain OFT adapter (lockbox)
-│   ├── nUSDOFT.sol                   # Spoke chain OFT (mint/burn)
-│   └── nUSDComposer.sol              # Cross-chain composer
+├── narausd/                             # naraUSD Module
+│   ├── naraUSD.sol                      # ERC4626 vault with minting
+│   ├── NaraUSDOFTAdapter.sol            # Hub chain OFT adapter (lockbox)
+│   ├── NaraUSDOFT.sol                   # Spoke chain OFT (mint/burn)
+│   └── NaraUSDComposer.sol              # Cross-chain composer
 │
-├── staked-nusd/                      # StakednUSD Module
-│   ├── StakednUSD.sol                # ERC4626 staking vault
+├── staked-narausd/                      # StakedNaraUSD Module
+│   ├── StakedNaraUSD.sol                # ERC4626 staking vault
 │   ├── StakingRewardsDistributor.sol # Automated rewards distribution
-│   ├── StakednUSDOFTAdapter.sol      # Hub chain OFT adapter (lockbox)
-│   └── StakednUSDOFT.sol             # Spoke chain OFT (mint/burn)
+│   ├── StakedNaraUSDOFTAdapter.sol      # Hub chain OFT adapter (lockbox)
+│   └── StakedNaraUSDOFT.sol             # Spoke chain OFT (mint/burn)
 │
 └── interfaces/                       # Interfaces
     ├── mct/
     │   └── IMultiCollateralToken.sol
-    ├── nusd/
-    │   └── InUSD.sol
-    └── staked-nusd/
-        ├── IStakednUSD.sol
+    ├── narausd/
+    │   └── InaraUSD.sol
+    └── staked-narausd/
+        ├── IStakedNaraUSD.sol
         └── IStakingRewardsDistributor.sol
 ```
 
@@ -49,7 +49,7 @@ contracts/
 
 ### 1️⃣ MCT (MultiCollateralToken) Module
 
-**Purpose**: Holds various stablecoins (USDC, USDT, DAI, etc.) as collateral for nUSD.
+**Purpose**: Holds various stablecoins (USDC, USDT, DAI, etc.) as collateral for naraUSD.
 
 **Contracts**:
 
@@ -72,21 +72,21 @@ contracts/
 
 ---
 
-### 2️⃣ nUSD Module
+### 2️⃣ naraUSD Module
 
 **Purpose**: Omnichain stablecoin with integrated minting/redeeming functionality.
 
 **Contracts**:
 
-- `nUSD.sol`: Main ERC4626 vault (1:1 with MCT)
-- `nUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `nUSDOFT.sol`: Spoke chain representation (mint/burn model)
-- `nUSDComposer.sol`: Cross-chain operations orchestrator
+- `naraUSD.sol`: Main ERC4626 vault (1:1 with MCT)
+- `NaraUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
+- `NaraUSDOFT.sol`: Spoke chain representation (mint/burn model)
+- `NaraUSDComposer.sol`: Cross-chain operations orchestrator
 
 **Key Features**:
 
 - ERC4626 standard vault
-- Direct collateral minting (USDC → MCT → nUSD)
+- Direct collateral minting (USDC → MCT → naraUSD)
 - Rate limiting (maxMintPerBlock, maxRedeemPerBlock)
 - Delegated signers for smart contracts
 - Cross-chain transfers
@@ -99,22 +99,22 @@ contracts/
 **User Flow**:
 
 ```
-Deposit USDC → Mint MCT → Receive nUSD → Transfer cross-chain
+Deposit USDC → Mint MCT → Receive naraUSD → Transfer cross-chain
 ```
 
 ---
 
-### 3️⃣ StakednUSD Module
+### 3️⃣ StakedNaraUSD Module
 
-**Purpose**: Staking vault for nUSD to earn protocol rewards.
+**Purpose**: Staking vault for naraUSD to earn protocol rewards.
 
 **Contracts**:
 
-- `StakednUSD.sol`: Main ERC4626 staking vault
+- `StakedNaraUSD.sol`: Main ERC4626 staking vault
 - `StakingRewardsDistributor.sol`: Automated rewards helper
-- `StakednUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `StakednUSDOFT.sol`: Spoke chain representation (mint/burn model)
-- `StakednUSDComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
+- `StakedNaraUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
+- `StakedNaraUSDOFT.sol`: Spoke chain representation (mint/burn model)
+- `StakedNaraUSDComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
 
 **Key Features**:
 
@@ -122,7 +122,7 @@ Deposit USDC → Mint MCT → Receive nUSD → Transfer cross-chain
 - 8-hour reward vesting (prevents MEV)
 - Blacklist system (full restriction)
 - Minimum shares protection (1 ether)
-- Cross-chain snUSD transfers
+- Cross-chain snaraUSD transfers
 - **Cross-chain staking from any spoke chain** ⭐ NEW (mirrors Ethena)
 - Automated rewards distribution
 
@@ -136,39 +136,39 @@ Deposit USDC → Mint MCT → Receive nUSD → Transfer cross-chain
 **User Flow**:
 
 ```
-Stake nUSD → Receive snUSD → Earn rewards → Transfer cross-chain
+Stake naraUSD → Receive snaraUSD → Earn rewards → Transfer cross-chain
 ```
 
 ---
 
 ## 🔄 Complete User Flows
 
-### Flow 1: Mint nUSD with Collateral (Hub Chain)
+### Flow 1: Mint naraUSD with Collateral (Hub Chain)
 
 ```solidity
-// 1. Approve USDC to nUSD contract
-usdc.approve(nusd, amount);
+// 1. Approve USDC to naraUSD contract
+usdc.approve(narausd, amount);
 
-// 2. Mint nUSD
-nusd.mintWithCollateral(usdcAddress, amount);
-// Result: USDC → MCT → nUSD
+// 2. Mint naraUSD
+narausd.mintWithCollateral(usdcAddress, amount);
+// Result: USDC → MCT → naraUSD
 ```
 
-### Flow 2: Stake nUSD for snUSD (Hub Chain)
+### Flow 2: Stake naraUSD for snaraUSD (Hub Chain)
 
 ```solidity
-// 1. Approve nUSD to StakednUSD contract
-nusd.approve(stakednUSD, amount);
+// 1. Approve naraUSD to StakedNaraUSD contract
+narausd.approve(stakedNaraUSD, amount);
 
-// 2. Deposit to receive snUSD
-stakednUSD.deposit(amount, userAddress);
-// Result: nUSD → snUSD (earning rewards)
+// 2. Deposit to receive snaraUSD
+stakedNaraUSD.deposit(amount, userAddress);
+// Result: naraUSD → snaraUSD (earning rewards)
 ```
 
-### Flow 3: Transfer snUSD Cross-Chain
+### Flow 3: Transfer snaraUSD Cross-Chain
 
 ```solidity
-// Transfer snUSD from Hub to Spoke Chain
+// Transfer snaraUSD from Hub to Spoke Chain
 const sendParam = {
     dstEid: SPOKE_EID,
     to: addressToBytes32(receiver),
@@ -179,7 +179,7 @@ const sendParam = {
     oftCmd: '0x'
 };
 
-await stakedNusdOFTAdapter.send(sendParam, { value: nativeFee });
+await stakedNaraUSDOFTAdapter.send(sendParam, { value: nativeFee });
 ```
 
 ### Flow 4: Complete Omnichain Flow
@@ -188,12 +188,12 @@ await stakedNusdOFTAdapter.send(sendParam, { value: nativeFee });
 User on Chain A (Spoke)
     ↓ Deposit USDC
 Bridge to Hub Chain
-    ↓ Mint nUSD
-    ↓ Stake for snUSD
-Bridge snUSD to Chain B (Spoke)
+    ↓ Mint naraUSD
+    ↓ Stake for snaraUSD
+Bridge snaraUSD to Chain B (Spoke)
     ↓ Hold & Earn Rewards
 Bridge back to Hub
-    ↓ Unstake for nUSD
+    ↓ Unstake for naraUSD
     ↓ Redeem for USDC
 ```
 
@@ -209,10 +209,10 @@ Bridge back to Hub
    MultiCollateralToken mct = new MultiCollateralToken(admin, [usdc, usdt, dai]);
    ```
 
-2. **Deploy nUSD**
+2. **Deploy naraUSD**
 
    ```solidity
-   nUSD nusd = new nUSD(
+   naraUSD narausd = new naraUSD(
        mct,
        admin,
        maxMintPerBlock,
@@ -220,17 +220,17 @@ Bridge back to Hub
    );
    ```
 
-3. **Grant MINTER_ROLE to nUSD**
+3. **Grant MINTER_ROLE to naraUSD**
 
    ```solidity
-   await mct.grantRole(MINTER_ROLE, nusd.address);
+   await mct.grantRole(MINTER_ROLE, narausd.address);
    ```
 
-4. **Deploy StakednUSD**
+4. **Deploy StakedNaraUSD**
 
    ```solidity
-   StakednUSD stakednUSD = new StakednUSD(
-       nusd,
+   StakedNaraUSD stakedNaraUSD = new StakedNaraUSD(
+       narausd,
        rewarder,
        admin
    );
@@ -240,8 +240,8 @@ Bridge back to Hub
 
    ```solidity
    StakingRewardsDistributor distributor = new StakingRewardsDistributor(
-       stakednUSD,
-       nusd,
+       stakedNaraUSD,
+       narausd,
        admin,
        operator
    );
@@ -250,20 +250,20 @@ Bridge back to Hub
 6. **Grant REWARDER_ROLE**
 
    ```solidity
-   await stakednUSD.grantRole(REWARDER_ROLE, distributor.address);
+   await stakedNaraUSD.grantRole(REWARDER_ROLE, distributor.address);
    ```
 
 7. **Deploy OFT Adapters (Lockbox)**
 
    ```solidity
    MCTOFTAdapter mctAdapter = new MCTOFTAdapter(mct, lzEndpoint, admin);
-   nUSDOFTAdapter nusdAdapter = new nUSDOFTAdapter(nusd, lzEndpoint, admin);
-   StakednUSDOFTAdapter stakedNusdAdapter = new StakednUSDOFTAdapter(stakednUSD, lzEndpoint, admin);
+   NaraUSDOFTAdapter narausdAdapter = new NaraUSDOFTAdapter(narausd, lzEndpoint, admin);
+   StakedNaraUSDOFTAdapter stakedNaraUSDAdapter = new StakedNaraUSDOFTAdapter(stakedNaraUSD, lzEndpoint, admin);
    ```
 
 8. **Deploy Composer**
    ```solidity
-   nUSDComposer composer = new nUSDComposer(nusd, mctAdapter, nusdAdapter);
+   NaraUSDComposer composer = new NaraUSDComposer(narausd, mctAdapter, narausdAdapter);
    ```
 
 ### Spoke Chain Deployment
@@ -273,31 +273,31 @@ For each spoke chain:
 ```solidity
 // 1. Deploy OFTs (Mint/Burn)
 MCTOFT mctOFT = new MCTOFT(lzEndpoint, admin);
-nUSDOFT nusdOFT = new nUSDOFT(lzEndpoint, admin);
-StakednUSDOFT stakedNusdOFT = new StakednUSDOFT(lzEndpoint, admin);
+NaraUSDOFT narausdOFT = new NaraUSDOFT(lzEndpoint, admin);
+StakedNaraUSDOFT stakedNaraUSDOFT = new StakedNaraUSDOFT(lzEndpoint, admin);
 
 // 2. Set peers to hub adapters
 await mctOFT.setPeer(HUB_EID, addressToBytes32(mctAdapter.address));
-await nusdOFT.setPeer(HUB_EID, addressToBytes32(nusdAdapter.address));
-await stakedNusdOFT.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.address));
+await narausdOFT.setPeer(HUB_EID, addressToBytes32(narausdAdapter.address));
+await stakedNaraUSDOFT.setPeer(HUB_EID, addressToBytes32(stakedNaraUSDAdapter.address));
 
 // 3. Set peers on hub to spoke OFTs
 await mctAdapter.setPeer(SPOKE_EID, addressToBytes32(mctOFT.address));
-await nusdAdapter.setPeer(SPOKE_EID, addressToBytes32(nusdOFT.address));
-await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT.address));
+await narausdAdapter.setPeer(SPOKE_EID, addressToBytes32(narausdOFT.address));
+await stakedNaraUSDAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNaraUSDOFT.address));
 ```
 
 ---
 
 ## 🔐 Security Features
 
-### 1. Rate Limiting (nUSD)
+### 1. Rate Limiting (naraUSD)
 
 - `maxMintPerBlock`: Limits minting per block
 - `maxRedeemPerBlock`: Limits redeeming per block
 - Emergency disable via `GATEKEEPER_ROLE`
 
-### 2. Reward Vesting (StakednUSD)
+### 2. Reward Vesting (StakedNaraUSD)
 
 - 8-hour vesting period prevents MEV attacks
 - Cannot add new rewards while vesting
@@ -305,15 +305,15 @@ await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT.addres
 
 ### 3. Blacklist System
 
-- **nUSD**: Full restriction prevents all transfers, minting, and redemptions
-- **StakednUSD**: Full restriction prevents all transfers, staking, and unstaking
-- **OFT Contracts**: Full restriction prevents transfers on spoke chains (nUSDOFT, StakednUSDOFT)
+- **naraUSD**: Full restriction prevents all transfers, minting, and redemptions
+- **StakedNaraUSD**: Full restriction prevents all transfers, staking, and unstaking
+- **OFT Contracts**: Full restriction prevents transfers on spoke chains (NaraUSDOFT, StakedNaraUSDOFT)
 - Admin can redistribute locked funds
 
 ### 4. Minimum Shares Protection
 
-- nUSD: Prevents donation attacks
-- StakednUSD: 1 ether minimum
+- naraUSD: Prevents donation attacks
+- StakedNaraUSD: 1 ether minimum
 
 ### 5. Access Control
 
@@ -332,21 +332,21 @@ All contracts compile successfully with Solidity ^0.8.22:
 | MultiCollateralToken      | MCT        | Core Token    |
 | MCTOFTAdapter             | MCT        | Hub Bridge    |
 | MCTOFT                    | MCT        | Spoke Token   |
-| nUSD                      | nUSD       | Core Vault    |
-| nUSDOFTAdapter            | nUSD       | Hub Bridge    |
-| nUSDOFT                   | nUSD       | Spoke Token   |
-| nUSDComposer              | nUSD       | Composer      |
-| StakednUSD                | StakednUSD | Staking Vault |
-| StakingRewardsDistributor | StakednUSD | Helper        |
-| StakednUSDOFTAdapter      | StakednUSD | Hub Bridge    |
-| StakednUSDOFT             | StakednUSD | Spoke Token   |
+| naraUSD                      | naraUSD       | Core Vault    |
+| NaraUSDOFTAdapter            | naraUSD       | Hub Bridge    |
+| NaraUSDOFT                   | naraUSD       | Spoke Token   |
+| NaraUSDComposer              | naraUSD       | Composer      |
+| StakedNaraUSD                | StakedNaraUSD | Staking Vault |
+| StakingRewardsDistributor | StakedNaraUSD | Helper        |
+| StakedNaraUSDOFTAdapter      | StakedNaraUSD | Hub Bridge    |
+| StakedNaraUSDOFT             | StakedNaraUSD | Spoke Token   |
 
 ---
 
 ## 📖 Documentation
 
-- **nUSD Integration**: See `OVAULT_INTEGRATION.md`
-- **StakednUSD Details**: See `STAKED_NUSD_INTEGRATION.md`
+- **naraUSD Integration**: See `OVAULT_INTEGRATION.md`
+- **StakedNaraUSD Details**: See `STAKED_NARAUSD_INTEGRATION.md`
 - **Deployment Summary**: See `DEPLOYMENT_SUMMARY.md`
 
 ---
@@ -355,10 +355,10 @@ All contracts compile successfully with Solidity ^0.8.22:
 
 | Feature      | Original             | OVault Version         |
 | ------------ | -------------------- | ---------------------- |
-| Contracts    | nUSD + EthenaMinting | nUSD (merged)          |
+| Contracts    | naraUSD + EthenaMinting | naraUSD (merged)          |
 | Cross-chain  | No                   | Full LayerZero support |
 | Architecture | Single chain         | Hub-and-spoke          |
-| Staking      | StakednUSD only      | + Cross-chain snUSD    |
+| Staking      | StakedNaraUSD only      | + Cross-chain snaraUSD    |
 | Collateral   | Single in minting    | Multi-collateral (MCT) |
 | Solidity     | 0.8.20               | ^0.8.22                |
 | OpenZeppelin | 4.x                  | 5.x                    |
@@ -370,17 +370,17 @@ All contracts compile successfully with Solidity ^0.8.22:
 - [ ] MCT: Add/remove supported assets
 - [ ] MCT: Mint/burn with different collaterals
 - [ ] MCT: Withdraw/deposit collateral
-- [ ] nUSD: Mint with collateral (USDC, USDT, DAI)
-- [ ] nUSD: Redeem for collateral
-- [ ] nUSD: Rate limiting
-- [ ] nUSD: Delegated signers
-- [ ] nUSD: Cross-chain transfers
-- [ ] StakednUSD: Stake/unstake
-- [ ] StakednUSD: Reward vesting
-- [ ] StakednUSD: Blacklist functionality
-- [ ] StakednUSD: Cross-chain snUSD
+- [ ] naraUSD: Mint with collateral (USDC, USDT, DAI)
+- [ ] naraUSD: Redeem for collateral
+- [ ] naraUSD: Rate limiting
+- [ ] naraUSD: Delegated signers
+- [ ] naraUSD: Cross-chain transfers
+- [ ] StakedNaraUSD: Stake/unstake
+- [ ] StakedNaraUSD: Reward vesting
+- [ ] StakedNaraUSD: Blacklist functionality
+- [ ] StakedNaraUSD: Cross-chain snaraUSD
 - [ ] StakingRewardsDistributor: Transfer rewards
-- [ ] nUSDComposer: Cross-chain deposit
+- [ ] NaraUSDComposer: Cross-chain deposit
 - [ ] All: Emergency functions
 
 ---

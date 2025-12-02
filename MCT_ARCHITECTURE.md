@@ -8,10 +8,10 @@
 
 ## Overview
 
-MCT is an internal backing token that serves as the underlying asset for the nUSD vault. It is:
+MCT is an internal backing token that serves as the underlying asset for the naraUSD vault. It is:
 - ✅ **Hub-only** - Never deployed on spoke chains
 - ✅ **Invisible to users** - Users deposit collateral (USDC/USDT), not MCT
-- ✅ **Internal accounting** - Created and managed by nUSD contract
+- ✅ **Internal accounting** - Created and managed by naraUSD contract
 
 ---
 
@@ -21,26 +21,26 @@ MCT is an internal backing token that serves as the underlying asset for the nUS
 ```
 User deposits USDC
     ↓
-nUSD.mintWithCollateral(USDC, 1000)
+naraUSD.mintWithCollateral(USDC, 1000)
     ↓
 Internal: MCT created (user never sees this)
     ↓
-User receives 1000 nUSD
+User receives 1000 naraUSD
 ```
 
 ### Cross-Chain (Via Composer)
 ```
 Spoke: User sends USDC (via Stargate)
     ↓
-Hub: nUSDComposer receives USDC
+Hub: NaraUSDComposer receives USDC
     ↓
-Hub: Calls nUSD.mintWithCollateral(USDC, amount)
+Hub: Calls naraUSD.mintWithCollateral(USDC, amount)
     ↓
 Hub: MCT created internally (invisible)
     ↓
-Hub: Sends nUSD cross-chain (via nUSDOFTAdapter)
+Hub: Sends naraUSD cross-chain (via NaraUSDOFTAdapter)
     ↓
-Spoke: User receives nUSD
+Spoke: User receives naraUSD
 ```
 
 **Key Point:** MCT never leaves hub chain in either flow!
@@ -52,15 +52,15 @@ Spoke: User receives nUSD
 | Token | Cross-Chain? | Via |
 |-------|-------------|-----|
 | MCT | ❌ No - Hub only | N/A |
-| nUSD | ✅ Yes | nUSDOFTAdapter (hub) ↔ nUSDOFT (spoke) |
-| StakednUSD | ✅ Yes | StakednUSDOFTAdapter (hub) ↔ StakednUSDOFT (spoke) |
+| naraUSD | ✅ Yes | NaraUSDOFTAdapter (hub) ↔ NaraUSDOFT (spoke) |
+| StakedNaraUSD | ✅ Yes | StakedNaraUSDOFTAdapter (hub) ↔ StakedNaraUSDOFT (spoke) |
 | USDC/USDT | ✅ Yes | Stargate or other collateral OFTs |
 
 ---
 
 ## Why MCTOFTAdapter Exists
 
-**Problem:** nUSDComposer inherits from LayerZero's `VaultComposerSync`, which validates:
+**Problem:** NaraUSDComposer inherits from LayerZero's `VaultComposerSync`, which validates:
 ```solidity
 if (ASSET_OFT.token() != address(VAULT.asset())) {
     revert AssetTokenNotVaultAsset();
@@ -77,7 +77,7 @@ if (ASSET_OFT.token() != address(VAULT.asset())) {
 
 See detailed explanation in:
 - `contracts/mct/MCTOFTAdapter.sol` (contract documentation)
-- `contracts/nusd/nUSDComposer.sol` (constructor documentation)
+- `contracts/narausd/NaraUSDComposer.sol` (constructor documentation)
 - `WHY_MCTOFT_ADAPTER_EXISTS.md` (technical deep-dive)
 
 ---
@@ -89,15 +89,15 @@ Hub Chain (Arbitrum):
 ┌─────────────────────────────────────┐
 │ MultiCollateralToken (MCT)          │ ← Hub only, invisible to users
 │   ↓                                  │
-│ nUSD (ERC4626 Vault)                │ ← Vault with MCT as underlying
+│ naraUSD (ERC4626 Vault)                │ ← Vault with MCT as underlying
 │   ↓                                  │
-│ nUSDOFTAdapter (lockbox)            │ ← Sends nUSD cross-chain
+│ NaraUSDOFTAdapter (lockbox)            │ ← Sends naraUSD cross-chain
 └─────────────────────────────────────┘
             │ LayerZero
             ↓
 Spoke Chains (Base, OP, etc.):
 ┌─────────────────────────────────────┐
-│ nUSDOFT (mint/burn)                 │ ← Mints nUSD on spoke
+│ NaraUSDOFT (mint/burn)                 │ ← Mints naraUSD on spoke
 │                                      │
 │ (No MCT - it stays on hub!)         │
 └─────────────────────────────────────┘
@@ -109,16 +109,16 @@ Spoke Chains (Base, OP, etc.):
 
 ### Hub Chain ✅
 - [x] Deploy MultiCollateralToken
-- [x] Deploy nUSD (with MCT as underlying)
-- [x] Deploy nUSDOFTAdapter
+- [x] Deploy naraUSD (with MCT as underlying)
+- [x] Deploy NaraUSDOFTAdapter
 - [x] Deploy MCTOFTAdapter (validation only - document clearly!)
-- [x] Deploy nUSDComposer (uses mctAdapter for validation)
+- [x] Deploy NaraUSDComposer (uses mctAdapter for validation)
 - [ ] **DO NOT** wire mctAdapter to spoke chains
 
 ### Spoke Chains ✅
-- [x] Deploy nUSDOFT
+- [x] Deploy NaraUSDOFT
 - [ ] **DO NOT** deploy MCTOFT (MCT doesn't go cross-chain!)
-- [x] Wire nUSDOFT ↔ nUSDOFTAdapter
+- [x] Wire NaraUSDOFT ↔ NaraUSDOFTAdapter
 
 ---
 
@@ -131,7 +131,7 @@ Spoke Chains (Base, OP, etc.):
 
 ### 2. Better UX
 - Users deposit familiar tokens (USDC/USDT)
-- Users receive and hold nUSD (what they care about)
+- Users receive and hold naraUSD (what they care about)
 - MCT is abstracted away (internal implementation detail)
 
 ### 3. Enhanced Security
@@ -152,7 +152,7 @@ Spoke Chains (Base, OP, etc.):
 A: VaultComposerSync requires it for constructor validation. Alternative is to write a custom composer from scratch.
 
 **Q: Can users ever interact with MCT?**
-A: No. Users call `mintWithCollateral(USDC)` directly. MCT is created internally by the nUSD contract.
+A: No. Users call `mintWithCollateral(USDC)` directly. MCT is created internally by the naraUSD contract.
 
 **Q: What if I want to send MCT cross-chain in the future?**
 A: You would need to:
@@ -169,7 +169,7 @@ A: No. It's deployed but never configured for cross-chain use. It cannot send/re
 ## Summary
 
 - **MCT = Internal backing token** (hub-only)
-- **Users interact with nUSD** (goes cross-chain)
+- **Users interact with naraUSD** (goes cross-chain)
 - **MCTOFTAdapter = Validation only** (never used for operations)
 - **Simpler, safer, cheaper** than cross-chain MCT
 
@@ -177,4 +177,4 @@ For detailed technical documentation, see:
 - `WHY_MCTOFT_ADAPTER_EXISTS.md`
 - `FINAL_ARCHITECTURE_SUMMARY.md`
 - `contracts/mct/MCTOFTAdapter.sol`
-- `contracts/nusd/nUSDComposer.sol`
+- `contracts/narausd/NaraUSDComposer.sol`

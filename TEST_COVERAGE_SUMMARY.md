@@ -45,9 +45,9 @@ Complete unit test coverage for MCT:
 
 ---
 
-### 2. **nUSD.t.sol** (NEW - 25+ tests)
+### 2. **naraUSD.t.sol** (NEW - 25+ tests)
 
-Complete unit test coverage for nUSD:
+Complete unit test coverage for naraUSD:
 
 **Minting:**
 
@@ -70,7 +70,7 @@ Complete unit test coverage for nUSD:
 
 **Other Functionality:**
 
-- ✅ Burning nUSD (deflationary)
+- ✅ Burning naraUSD (deflationary)
 - ✅ Pause/unpause
 - ✅ Delegated signer flow
 - ✅ Remove delegated signer
@@ -89,14 +89,14 @@ Complete unit test coverage for nUSD:
 
 ---
 
-### 3. **StakednUSD.t.sol** (NEW - 30+ tests)
+### 3. **StakedNaraUSD.t.sol** (NEW - 30+ tests)
 
-Complete unit test coverage for StakednUSD:
+Complete unit test coverage for StakedNaraUSD:
 
 **Basic Staking (Cooldown OFF):**
 
-- ✅ Deposit nUSD
-- ✅ Redeem snUSD for nUSD
+- ✅ Deposit naraUSD
+- ✅ Redeem snaraUSD for naraUSD
 
 **Cooldown Flow (Critical - Was NOT Tested):**
 
@@ -146,20 +146,20 @@ Complete unit test coverage for StakednUSD:
 
 ### 4. **Updated Integration Tests**
 
-**StakednUSDComposer.t.sol:**
+**StakedNaraUSDComposer.t.sol:**
 
 - ✅ **FIXED:** `test_CrossChainStaking()` - Now properly verifies:
   - Compose message execution
-  - nUSD staked on hub
-  - snUSD sent back to spoke
-  - User receives snUSD on spoke
+  - naraUSD staked on hub
+  - snaraUSD sent back to spoke
+  - User receives snaraUSD on spoke
 - ✅ **FIXED:** `test_CrossChainUnstaking()` - Now properly verifies:
   - Compose message execution
-  - snUSD redeemed on hub
-  - nUSD sent back to spoke
-  - User receives nUSD on spoke
+  - snaraUSD redeemed on hub
+  - naraUSD sent back to spoke
+  - User receives naraUSD on spoke
 
-**nUSDComposer.t.sol:**
+**NaraUSDComposer.t.sol:**
 
 - ✅ **DOCUMENTED:** `test_CrossChainMintWithCollateral_Explanation()`
   - Explains the expected flow
@@ -175,8 +175,8 @@ Complete unit test coverage for StakednUSD:
 | Component           | Tests        | Coverage    |
 | ------------------- | ------------ | ----------- |
 | MCT                 | 0            | 0%          |
-| nUSD                | 0            | 0%          |
-| StakednUSD          | 0            | 0%          |
+| naraUSD                | 0            | 0%          |
+| StakedNaraUSD          | 0            | 0%          |
 | Cross-chain compose | 2 incomplete | ~20%        |
 | **Overall**         | **~50**      | **~40-50%** |
 
@@ -185,8 +185,8 @@ Complete unit test coverage for StakednUSD:
 | Component           | Tests                     | Coverage    |
 | ------------------- | ------------------------- | ----------- |
 | MCT                 | 30+                       | ~95%        |
-| nUSD                | 25+                       | ~90%        |
-| StakednUSD          | 30+                       | ~90%        |
+| naraUSD                | 25+                       | ~90%        |
+| StakedNaraUSD          | 30+                       | ~90%        |
 | Cross-chain compose | 2 complete + 1 documented | ~80%        |
 | Cross-chain OFT     | 50+                       | ~95%        |
 | **Overall**         | **~135+**                 | **~85-90%** |
@@ -220,7 +220,7 @@ Foundation of the entire system now tested:
 - Multi-collateral support
 - Redeem mechanics
 
-### 3. **StakednUSD Rewards & Cooldown** ✅
+### 3. **StakedNaraUSD Rewards & Cooldown** ✅
 
 **Before:** NO TESTS  
 **After:** 15+ tests
@@ -257,7 +257,7 @@ The code is correct, but testing requires:
 
 - `test_LocalDepositThenCrossChain()` - Tests mint + send separately
 - `test_MintWithCollateral()` - Tests minting mechanics
-- Unit tests verify nUSD and MCT work correctly
+- Unit tests verify naraUSD and MCT work correctly
 
 **Recommendation:** Test on testnet before mainnet deployment.
 
@@ -276,17 +276,17 @@ forge test
 ```bash
 # Unit tests
 forge test --match-path test/unit/MultiCollateralToken.t.sol
-forge test --match-path test/unit/nUSD.t.sol
-forge test --match-path test/unit/StakednUSD.t.sol
+forge test --match-path test/unit/naraUSD.t.sol
+forge test --match-path test/unit/StakedNaraUSD.t.sol
 
 # Integration tests
-forge test --match-path test/integration/nUSDComposer.t.sol
-forge test --match-path test/integration/StakednUSDComposer.t.sol
+forge test --match-path test/integration/NaraUSDComposer.t.sol
+forge test --match-path test/integration/StakedNaraUSDComposer.t.sol
 forge test --match-path test/integration/EndToEnd.t.sol
 
 # OFT tests
-forge test --match-path test/unit/nUSDOFT.t.sol
-forge test --match-path test/unit/StakednUSDOFT.t.sol
+forge test --match-path test/unit/NaraUSDOFT.t.sol
+forge test --match-path test/unit/StakedNaraUSDOFT.t.sol
 ```
 
 ### Run with Coverage:
@@ -321,14 +321,14 @@ forge test --fuzz-runs 10000
 test/
 ├── unit/                        # NEW: Core contract unit tests
 │   ├── MultiCollateralToken.t.sol   # 30+ tests
-│   ├── nUSD.t.sol                    # 25+ tests
-│   ├── StakednUSD.t.sol              # 30+ tests
-│   ├── nUSDOFT.t.sol                 # 27 tests (existing)
-│   └── StakednUSDOFT.t.sol           # 25 tests (existing)
+│   ├── naraUSD.t.sol                    # 25+ tests
+│   ├── StakedNaraUSD.t.sol              # 30+ tests
+│   ├── NaraUSDOFT.t.sol                 # 27 tests (existing)
+│   └── StakedNaraUSDOFT.t.sol           # 25 tests (existing)
 │
 ├── integration/                 # Cross-chain integration tests
-│   ├── nUSDComposer.t.sol           # Updated with explanations
-│   ├── StakednUSDComposer.t.sol     # Fixed compose tests
+│   ├── NaraUSDComposer.t.sol           # Updated with explanations
+│   ├── StakedNaraUSDComposer.t.sol     # Fixed compose tests
 │   └── EndToEnd.t.sol                # 14 end-to-end tests (existing)
 │
 ├── helpers/
@@ -349,28 +349,28 @@ test/
 - [x] MultiCollateralToken - Decimal normalization
 - [x] MultiCollateralToken - Collateral withdrawal/deposit
 - [x] MultiCollateralToken - Access control
-- [x] nUSD - Mint with collateral
-- [x] nUSD - Cooldown redemption (full flow)
-- [x] nUSD - Cancel redemption
-- [x] nUSD - Rate limiting
-- [x] nUSD - Burn functionality
-- [x] nUSD - Delegated signers
-- [x] StakednUSD - Deposit/redeem
-- [x] StakednUSD - Cooldown flow (shares)
-- [x] StakednUSD - Cooldown flow (assets)
-- [x] StakednUSD - Rewards distribution
-- [x] StakednUSD - Reward vesting
-- [x] StakednUSD - Blacklist functionality
-- [x] StakednUSD - Burn assets
+- [x] naraUSD - Mint with collateral
+- [x] naraUSD - Cooldown redemption (full flow)
+- [x] naraUSD - Cancel redemption
+- [x] naraUSD - Rate limiting
+- [x] naraUSD - Burn functionality
+- [x] naraUSD - Delegated signers
+- [x] StakedNaraUSD - Deposit/redeem
+- [x] StakedNaraUSD - Cooldown flow (shares)
+- [x] StakedNaraUSD - Cooldown flow (assets)
+- [x] StakedNaraUSD - Rewards distribution
+- [x] StakedNaraUSD - Reward vesting
+- [x] StakedNaraUSD - Blacklist functionality
+- [x] StakedNaraUSD - Burn assets
 
 ### Cross-Chain
 
-- [x] nUSD OFT - Hub to spoke transfers
-- [x] nUSD OFT - Spoke to hub transfers
-- [x] nUSD OFT - Round trips
-- [x] StakednUSD OFT - Hub to spoke transfers
-- [x] StakednUSD OFT - Spoke to hub transfers
-- [x] StakednUSD OFT - Exchange rate preservation
+- [x] naraUSD OFT - Hub to spoke transfers
+- [x] naraUSD OFT - Spoke to hub transfers
+- [x] naraUSD OFT - Round trips
+- [x] StakedNaraUSD OFT - Hub to spoke transfers
+- [x] StakedNaraUSD OFT - Spoke to hub transfers
+- [x] StakedNaraUSD OFT - Exchange rate preservation
 - [x] Cross-chain staking (compose)
 - [x] Cross-chain unstaking (compose)
 - [⚠️] Cross-chain minting (requires Stargate)
@@ -466,8 +466,8 @@ test/
 **Critical Flows Now Tested:**
 
 - ✅ MCT minting and redemption
-- ✅ nUSD cooldown redemption
-- ✅ StakednUSD cooldown unstaking
+- ✅ naraUSD cooldown redemption
+- ✅ StakedNaraUSD cooldown unstaking
 - ✅ Rewards distribution and vesting
 - ✅ Cross-chain staking/unstaking via compose
 - ✅ Blacklist functionality
