@@ -280,7 +280,12 @@ contract StakedNaraUSDComposerTest is TestHelper {
 
         _switchToSpoke();
         // Use approximate equality due to potential rounding in mock OFT with rewards (0.1% tolerance)
-        assertApproxEqAbs(stakedNaraUSDOFT.balanceOf(bob), totalShares, totalShares / 1000, "Bob should have ~all shares");
+        assertApproxEqAbs(
+            stakedNaraUSDOFT.balanceOf(bob),
+            totalShares,
+            totalShares / 1000,
+            "Bob should have ~all shares"
+        );
     }
 
     /**
@@ -576,8 +581,8 @@ contract StakedNaraUSDComposerTest is TestHelper {
 
         // Step 7: Alice redeems snaraUSD for naraUSD
         vm.startPrank(alice);
-        uint256 aliceSNusd = stakedNaraUSD.balanceOf(alice);
-        uint256 naraUSDRedeemed = stakedNaraUSD.redeem(aliceSNusd, alice, alice);
+        uint256 aliceSNarausd = stakedNaraUSD.balanceOf(alice);
+        uint256 naraUSDRedeemed = stakedNaraUSD.redeem(aliceSNarausd, alice, alice);
         assertGt(naraUSDRedeemed, 0, "Should redeem naraUSD");
         vm.stopPrank();
     }

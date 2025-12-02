@@ -8,21 +8,21 @@ import type { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 // Arbitrum - Hub Chain (uses Adapter/lockbox)
 const arbitrumContract: OmniPointHardhat = {
     eid: EndpointId.ARBITRUM_V2_MAINNET, // 30110
-    contractName: 'nUSDOFTAdapter',
+    contractName: 'NaraUSDOFTAdapter',
     address: '0xefa59EF9501B3699Da6C5a7326FCf422705d9FE8',
 }
 
 // Base - Spoke Chain (uses OFT/mint-burn)
 const baseContract: OmniPointHardhat = {
     eid: EndpointId.BASE_V2_MAINNET, // 30184
-    contractName: 'nUSDOFT',
+    contractName: 'NaraUSDOFT',
     address: '0x9E98a76aCe0BE6bA3aFF1a230931cdCd0bf544dc',
 }
 
 // Ethereum - Spoke Chain (uses OFT/mint-burn)
 const ethereumContract: OmniPointHardhat = {
     eid: EndpointId.ETHEREUM_V2_MAINNET, // 30101
-    contractName: 'nUSDOFT',
+    contractName: 'NaraUSDOFT',
     address: '0xB95412e521d4A7aa5074878E3AADF8D9b09A141f', // TODO: Update with deployed address
 }
 

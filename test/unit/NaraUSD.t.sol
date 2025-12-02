@@ -1350,13 +1350,13 @@ contract NaraUSDTest is TestHelper {
 
         naraUSD.setMinMintAmount(minAmount);
 
-        uint256 expectedNUSD = mintAmount * 1e12; // Convert USDC to naraUSD
+        uint256 expectedNaraUSD = mintAmount * 1e12; // Convert USDC to naraUSD
 
         vm.startPrank(alice);
         usdc.mint(alice, mintAmount);
         usdc.approve(address(naraUSD), mintAmount);
 
-        if (expectedNUSD < minAmount) {
+        if (expectedNaraUSD < minAmount) {
             vm.expectRevert(NaraUSD.BelowMinimumAmount.selector);
             naraUSD.mintWithCollateral(address(usdc), mintAmount);
         } else {

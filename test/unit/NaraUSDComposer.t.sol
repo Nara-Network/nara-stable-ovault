@@ -19,7 +19,11 @@ contract NaraUSDComposerTest is TestHelper {
     function test_Constructor() public view {
         assertEq(address(naraUSDComposer.VAULT()), address(naraUSD), "Vault should be naraUSD");
         assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
-        assertEq(address(naraUSDComposer.SHARE_OFT()), address(naraUSDAdapter), "SHARE_OFT should be NaraUSDOFTAdapter");
+        assertEq(
+            address(naraUSDComposer.SHARE_OFT()),
+            address(naraUSDAdapter),
+            "SHARE_OFT should be NaraUSDOFTAdapter"
+        );
         assertEq(naraUSDComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
         assertEq(naraUSDComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
         assertEq(address(naraUSDComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
@@ -50,7 +54,7 @@ contract NaraUSDComposerTest is TestHelper {
 
         // Track balances
         uint256 composerUsdcBefore = usdc.balanceOf(address(naraUSDComposer));
-        uint256 composerNusdBefore = naraUSD.balanceOf(address(naraUSDComposer));
+        uint256 composerNarausdBefore = naraUSD.balanceOf(address(naraUSDComposer));
 
         // Approve naraUSD to pull USDC from composer
         vm.prank(address(naraUSDComposer));
@@ -69,7 +73,7 @@ contract NaraUSDComposerTest is TestHelper {
         assertGt(naraUSDAmount, 0, "Should mint naraUSD");
         assertEq(
             naraUSD.balanceOf(address(naraUSDComposer)),
-            composerNusdBefore + naraUSDAmount,
+            composerNarausdBefore + naraUSDAmount,
             "Composer should receive naraUSD"
         );
     }
@@ -121,7 +125,11 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsShareOFT() public view {
         // SHARE_OFT should be in the valid senders list
-        assertEq(address(naraUSDComposer.SHARE_OFT()), address(naraUSDAdapter), "SHARE_OFT should be NaraUSDOFTAdapter");
+        assertEq(
+            address(naraUSDComposer.SHARE_OFT()),
+            address(naraUSDAdapter),
+            "SHARE_OFT should be NaraUSDOFTAdapter"
+        );
     }
 
     /**
@@ -241,7 +249,10 @@ contract NaraUSDComposerTest is TestHelper {
 
         // The actual deposit flow uses collateralAsset (USDC), not ASSET_OFT
         assertEq(naraUSDComposer.collateralAsset(), address(usdc), "Collateral is USDC");
-        assertTrue(address(naraUSDComposer.ASSET_OFT()) != naraUSDComposer.collateralAsset(), "ASSET_OFT != collateral");
+        assertTrue(
+            address(naraUSDComposer.ASSET_OFT()) != naraUSDComposer.collateralAsset(),
+            "ASSET_OFT != collateral"
+        );
     }
 
     /**

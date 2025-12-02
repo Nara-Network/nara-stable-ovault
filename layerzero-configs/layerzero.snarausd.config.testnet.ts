@@ -8,21 +8,21 @@ import type { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 // Arbitrum Sepolia - Hub Chain (uses Adapter/lockbox)
 const arbitrumContract: OmniPointHardhat = {
     eid: EndpointId.ARBSEP_V2_TESTNET, // 40231
-    contractName: 'StakednUSDOFTAdapter',
+    contractName: 'StakedNaraUSDOFTAdapter',
     address: '0x6fe214431A633AEc321D59756730e15F335c11b4',
 }
 
 // Base Sepolia - Spoke Chain (uses OFT/mint-burn)
 const baseContract: OmniPointHardhat = {
     eid: EndpointId.BASESEP_V2_TESTNET, // 40245
-    contractName: 'StakednUSDOFT',
+    contractName: 'StakedNaraUSDOFT',
     address: '0x41ff3eCEf8b4180175df5FF0B67a3522C808594E',
 }
 
 // Sepolia - Spoke Chain (uses OFT/mint-burn)
 const sepoliaContract: OmniPointHardhat = {
     eid: EndpointId.SEPOLIA_V2_TESTNET, // 40161
-    contractName: 'StakednUSDOFT',
+    contractName: 'StakedNaraUSDOFT',
     address: '0x163936e32fbC04eE0c69A8d08a0B626E1BEb7631',
 }
 

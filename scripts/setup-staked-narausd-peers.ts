@@ -23,8 +23,8 @@ async function main() {
     const ARBITRUM_SEPOLIA_EID = 40231
     const BASE_SEPOLIA_EID = 40245
 
-    const HUB_STAKED_NUSD_ADAPTER = '0x8142B39540011f449B452DCBFeF2e9934c7375cE'
-    const SPOKE_STAKED_NUSD_OFT = '0x7376085BE2BdCaCA1B3Fb296Db55c14636b960a2'
+    const HUB_STAKED_NARAUSD_ADAPTER = '0x8142B39540011f449B452DCBFeF2e9934c7375cE'
+    const SPOKE_STAKED_NARAUSD_OFT = '0x7376085BE2BdCaCA1B3Fb296Db55c14636b960a2'
 
     // Helper to convert address to bytes32
     const addressToBytes32 = (address: string): string => {
@@ -35,15 +35,15 @@ async function main() {
     if (Number(chainId) === 421614) {
         // Arbitrum Sepolia (Hub) - Set peer to Base
         console.log(`\n🔗 Setting peer on HUB (Arbitrum → Base)...`)
-        console.log(`   Contract: ${HUB_STAKED_NUSD_ADAPTER}`)
+        console.log(`   Contract: ${HUB_STAKED_NARAUSD_ADAPTER}`)
         console.log(`   Peer EID: ${BASE_SEPOLIA_EID}`)
-        console.log(`   Peer Address: ${SPOKE_STAKED_NUSD_OFT}`)
+        console.log(`   Peer Address: ${SPOKE_STAKED_NARAUSD_OFT}`)
 
-        const adapter = await ethers.getContractAt('StakedNaraUSDOFTAdapter', HUB_STAKED_NUSD_ADAPTER)
+        const adapter = await ethers.getContractAt('StakedNaraUSDOFTAdapter', HUB_STAKED_NARAUSD_ADAPTER)
 
         // Check current peer
         const currentPeer = await adapter.peers(BASE_SEPOLIA_EID)
-        const expectedPeer = addressToBytes32(SPOKE_STAKED_NUSD_OFT)
+        const expectedPeer = addressToBytes32(SPOKE_STAKED_NARAUSD_OFT)
         console.log(`   Current peer: ${currentPeer}`)
         console.log(`   Expected peer: ${expectedPeer}`)
 
@@ -62,15 +62,15 @@ async function main() {
     } else if (Number(chainId) === 84532) {
         // Base Sepolia (Spoke) - Set peer to Arbitrum
         console.log(`\n🔗 Setting peer on SPOKE (Base → Arbitrum)...`)
-        console.log(`   Contract: ${SPOKE_STAKED_NUSD_OFT}`)
+        console.log(`   Contract: ${SPOKE_STAKED_NARAUSD_OFT}`)
         console.log(`   Peer EID: ${ARBITRUM_SEPOLIA_EID}`)
-        console.log(`   Peer Address: ${HUB_STAKED_NUSD_ADAPTER}`)
+        console.log(`   Peer Address: ${HUB_STAKED_NARAUSD_ADAPTER}`)
 
-        const oft = await ethers.getContractAt('StakedNaraUSDOFT', SPOKE_STAKED_NUSD_OFT)
+        const oft = await ethers.getContractAt('StakedNaraUSDOFT', SPOKE_STAKED_NARAUSD_OFT)
 
         // Check current peer
         const currentPeer = await oft.peers(ARBITRUM_SEPOLIA_EID)
-        const expectedPeer = addressToBytes32(HUB_STAKED_NUSD_ADAPTER)
+        const expectedPeer = addressToBytes32(HUB_STAKED_NARAUSD_ADAPTER)
         console.log(`   Current peer: ${currentPeer}`)
         console.log(`   Expected peer: ${expectedPeer}`)
 

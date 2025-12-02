@@ -218,7 +218,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_DepositWithSlippage() public {
         uint256 mctAmount = 100e18;
-        uint256 minNusd = 99e18; // 1% slippage tolerance
+        uint256 minNarausd = 99e18; // 1% slippage tolerance
 
         _switchToHub();
 
@@ -232,7 +232,7 @@ contract NaraUSDComposerTest is TestHelper {
             SPOKE_EID,
             bob,
             naraUSDAmount,
-            minNusd,
+            minNarausd,
             OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0),
             "",
             ""
@@ -246,7 +246,7 @@ contract NaraUSDComposerTest is TestHelper {
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
         _switchToSpoke();
-        assertGe(naraUSDOFT.balanceOf(bob), minNusd, "Bob should have at least min amount");
+        assertGe(naraUSDOFT.balanceOf(bob), minNarausd, "Bob should have at least min amount");
     }
 
     /**
@@ -267,7 +267,11 @@ contract NaraUSDComposerTest is TestHelper {
 
         assertEq(aliceMctBefore - aliceMctAfter, mctAmount, "MCT should be transferred");
         assertEq(naraUSDReceived, mctAmount, "Should receive 1:1 naraUSD for MCT");
-        assertEq(naraUSD.balanceOf(alice) - aliceNaraUSDBefore, naraUSDReceived, "Alice should have additional naraUSD");
+        assertEq(
+            naraUSD.balanceOf(alice) - aliceNaraUSDBefore,
+            naraUSDReceived,
+            "Alice should have additional naraUSD"
+        );
         vm.stopPrank();
     }
 
@@ -287,7 +291,7 @@ contract NaraUSDComposerTest is TestHelper {
         // Instant redeem (liquidity available)
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         bool wasQueued = naraUSD.redeem(address(usdc), naraUSDReceived, false);
-        
+
         assertEq(wasQueued, false, "Should be instant");
         assertGt(usdc.balanceOf(alice) - aliceUsdcBefore, 0, "Should receive collateral");
         vm.stopPrank();
@@ -312,7 +316,11 @@ contract NaraUSDComposerTest is TestHelper {
 
         assertEq(aliceUsdcBefore - aliceUsdcAfter, usdcAmount, "USDC should be transferred");
         assertEq(naraUSDReceived, expectedNaraUSD, "Should mint expected naraUSD");
-        assertEq(naraUSD.balanceOf(alice) - aliceNaraUSDBefore, expectedNaraUSD, "Alice should have additional naraUSD");
+        assertEq(
+            naraUSD.balanceOf(alice) - aliceNaraUSDBefore,
+            expectedNaraUSD,
+            "Alice should have additional naraUSD"
+        );
         vm.stopPrank();
     }
 

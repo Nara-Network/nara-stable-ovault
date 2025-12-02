@@ -56,10 +56,10 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 4: User transfers snaraUSD to another chain ===
         vm.startPrank(alice);
-        uint256 aliceSNusd = stakedNaraUSD.balanceOf(alice);
-        stakedNaraUSD.approve(address(stakedNaraUSDAdapter), aliceSNusd);
+        uint256 aliceSNaraUSD = stakedNaraUSD.balanceOf(alice);
+        stakedNaraUSD.approve(address(stakedNaraUSDAdapter), aliceSNaraUSD);
 
-        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSNusd);
+        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSNaraUSD);
         MessagingFee memory fee = _getMessagingFee(address(stakedNaraUSDAdapter), sendParam);
 
         stakedNaraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -70,11 +70,11 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 5: Verify Bob received snaraUSD on spoke chain ===
         _switchToSpoke();
-        assertEq(stakedNaraUSDOFT.balanceOf(bob), aliceSNusd, "Step 5: Bob should have snaraUSD on spoke");
+        assertEq(stakedNaraUSDOFT.balanceOf(bob), aliceSNaraUSD, "Step 5: Bob should have snaraUSD on spoke");
 
         // === STEP 6: Bob sends snaraUSD back to hub ===
         vm.startPrank(bob);
-        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSNusd);
+        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSNaraUSD);
         MessagingFee memory fee2 = _getMessagingFee(address(stakedNaraUSDOFT), sendParam2);
 
         stakedNaraUSDOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
@@ -85,11 +85,11 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 7: Bob unstakes on hub to get naraUSD back ===
         _switchToHub();
-        uint256 bobSNusd = stakedNaraUSD.balanceOf(bob);
-        assertEq(bobSNusd, aliceSNusd, "Step 7: Bob should have snaraUSD on hub");
+        uint256 bobSNaraUSD = stakedNaraUSD.balanceOf(bob);
+        assertEq(bobSNaraUSD, aliceSNaraUSD, "Step 7: Bob should have snaraUSD on hub");
 
         vm.startPrank(bob);
-        uint256 naraUSDRedeemed = stakedNaraUSD.redeem(bobSNusd, bob, bob);
+        uint256 naraUSDRedeemed = stakedNaraUSD.redeem(bobSNaraUSD, bob, bob);
         assertGt(naraUSDRedeemed, naraUSDAmount, "Step 7: Should redeem more naraUSD due to rewards");
         assertEq(naraUSD.balanceOf(bob), naraUSDRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have naraUSD");
         vm.stopPrank();
@@ -286,15 +286,15 @@ contract EndToEndTest is TestHelper {
 
         // === Verify total supply consistency ===
         _switchToHub();
-        uint256 hubNusdSupply = naraUSD.totalSupply();
+        uint256 hubNaraUSDSupply = naraUSD.totalSupply();
 
         _switchToSpoke();
-        uint256 spokeNusdSupply = naraUSDOFT.totalSupply();
+        uint256 spokeNaraUSDSupply = naraUSDOFT.totalSupply();
 
         _switchToHub();
         uint256 lockedInAdapter = naraUSD.balanceOf(address(naraUSDAdapter));
 
-        assertEq(spokeNusdSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
+        assertEq(spokeNaraUSDSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
     }
 
     /**
