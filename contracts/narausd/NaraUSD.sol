@@ -202,6 +202,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     error BelowMinimumAmount();
     error KeyringCredentialInvalid(address account);
     error InsufficientCollateral();
+    error InvalidToken();
 
     /* --------------- MODIFIERS --------------- */
 
@@ -603,6 +604,23 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      */
     function removeFromBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) {
         _revokeRole(FULL_RESTRICTED_ROLE, target);
+    }
+
+    /**
+     * @notice Rescue tokens accidentally sent to the contract
+     * @dev Cannot rescue MCT (the underlying asset) to prevent breaking the vault
+     * @param token The token to be rescued
+     * @param amount The amount of tokens to be rescued
+     * @param to Where to send rescued tokens
+     */
+    function rescueTokens(
+        address token,
+        uint256 amount,
+        address to
+    ) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (address(token) == asset()) revert InvalidToken();
+        if (address(token) == address(mct)) revert InvalidToken();
+        IERC20(token).safeTransfer(to, amount);
     }
 
     /**

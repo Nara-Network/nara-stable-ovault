@@ -60,6 +60,7 @@ contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, Reentrancy
     error UnsupportedAsset();
     error InvalidAssetAddress();
     error InsufficientCollateral();
+    error InvalidToken();
 
     /* --------------- CONSTRUCTOR --------------- */
 
@@ -229,6 +230,23 @@ contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, Reentrancy
             assets[i] = _supportedAssets.at(i);
         }
         return assets;
+    }
+
+    /**
+     * @notice Rescue tokens accidentally sent to the contract
+     * @dev Cannot rescue MCT itself to prevent breaking the token's accounting
+     * @param token The token to be rescued
+     * @param amount The amount of tokens to be rescued
+     * @param to Where to send rescued tokens
+     */
+    function rescueTokens(
+        address token,
+        uint256 amount,
+        address to
+    ) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (token == address(this)) revert InvalidToken();
+        if (isSupportedAsset(token)) revert InvalidToken();
+        IERC20(token).safeTransfer(to, amount);
     }
 
     /* --------------- INTERNAL --------------- */
