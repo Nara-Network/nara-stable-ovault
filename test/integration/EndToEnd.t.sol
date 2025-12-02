@@ -31,7 +31,11 @@ contract EndToEndTest is TestHelper {
         usdc.approve(address(naraUSD), usdcAmount);
         uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
         assertEq(naraUSDAmount, expectedNaraUSD, "Step 1: Should mint correct naraUSD");
-        assertEq(naraUSD.balanceOf(alice) - aliceNaraUSDBefore, expectedNaraUSD, "Step 1: Alice should have additional naraUSD");
+        assertEq(
+            naraUSD.balanceOf(alice) - aliceNaraUSDBefore,
+            expectedNaraUSD,
+            "Step 1: Alice should have additional naraUSD"
+        );
 
         // === STEP 2: User stakes naraUSD to earn yield ===
         naraUSD.approve(address(stakedNaraUSD), naraUSDAmount);
@@ -170,22 +174,15 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to HUB chain at naraUSDAdapter
         verifyPackets(HUB_EID, addressToBytes32(address(naraUSDAdapter)));
 
-        // Back on hub, use cooldown-based redemption
+        // Back on hub, redeem naraUSD
         _switchToHub();
         vm.startPrank(alice);
 
-        // Start cooldown (naraUSD uses cooldown, not direct redeem)
-        naraUSD.cooldownRedeem(address(usdc), naraUSDAmount);
-
-        // Get cooldown info
-        (uint104 cooldownEnd, , ) = naraUSD.redemptionRequests(alice);
-
-        // Warp past cooldown
-        vm.warp(cooldownEnd);
-
-        // Complete redemption
-        uint256 collateralReceived = naraUSD.completeRedeem();
-        assertGt(collateralReceived, 0, "Should receive collateral");
+        // Instant redeem (liquidity available)
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, false);
+        assertEq(wasQueued, false, "Should be instant redemption");
+        assertGt(usdc.balanceOf(alice) - aliceUsdcBefore, 0, "Should receive collateral");
         vm.stopPrank();
     }
 

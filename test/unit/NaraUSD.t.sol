@@ -93,9 +93,37 @@ contract NaraUSDTest is TestHelper {
     }
 
     /**
-     * @notice Test cooldown redemption flow
+     * @notice Test instant redemption when liquidity is available
      */
-    function test_CooldownRedemption_Complete() public {
+    function test_InstantRedemption() public {
+        // Setup: Mint naraUSD
+        uint256 naraUSDAmount = 1000e18;
+        vm.startPrank(alice);
+        usdc.approve(address(naraUSD), 1000e6);
+        naraUSD.mintWithCollateral(address(usdc), 1000e6);
+
+        // Redeem instantly (MCT has liquidity)
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
+
+        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, false);
+
+        // Verify instant redemption
+        assertEq(wasQueued, false, "Should be instant redemption");
+        assertEq(usdc.balanceOf(alice) - aliceUsdcBefore, 1000e6, "Should receive USDC instantly");
+        assertEq(naraUSD.balanceOf(alice), aliceNaraUSDBefore - naraUSDAmount, "naraUSD burned");
+
+        // Verify no redemption request exists
+        (uint152 amount, ) = naraUSD.redemptionRequests(alice);
+        assertEq(amount, 0, "No redemption request");
+
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test queued redemption when liquidity is insufficient
+     */
+    function test_QueuedRedemption_Complete() public {
         // Setup: Mint naraUSD
         uint256 naraUSDAmount = 1000e18;
         vm.startPrank(alice);
@@ -103,28 +131,37 @@ contract NaraUSDTest is TestHelper {
         usdc.approve(address(naraUSD), 1000e6);
         naraUSD.mintWithCollateral(address(usdc), 1000e6);
 
-        // Step 1: Request redemption
-        naraUSD.cooldownRedeem(address(usdc), naraUSDAmount);
+        // Withdraw all USDC from MCT to simulate insufficient liquidity
+        vm.stopPrank();
+        vm.startPrank(owner);
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
+        vm.stopPrank();
+
+        // Step 1: Request redemption (will be queued due to no liquidity)
+        vm.startPrank(alice);
+        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, true);
+
+        // Verify it was queued
+        assertEq(wasQueued, true, "Should be queued");
 
         // Verify redemption request
-        (uint104 cooldownEnd, uint152 lockedAmount, address collateral) = naraUSD.redemptionRequests(alice);
-
+        (uint152 lockedAmount, address collateral) = naraUSD.redemptionRequests(alice);
         assertEq(lockedAmount, naraUSDAmount, "Amount should be locked");
         assertEq(collateral, address(usdc), "Collateral should be USDC");
-        assertEq(cooldownEnd, block.timestamp + 7 days, "Cooldown should be 7 days");
 
-        // Verify naraUSD is in silo (alice balance should be same as before mint)
+        // Verify naraUSD is in silo
         assertEq(naraUSD.balanceOf(alice), aliceNaraUSDBefore, "Alice naraUSD should be in silo");
         assertEq(naraUSD.balanceOf(address(naraUSD.redeemSilo())), naraUSDAmount, "naraUSD in silo");
 
-        // Step 2: Try to complete too early (should fail)
-        vm.expectRevert(naraUSD.CooldownNotFinished.selector);
-        naraUSD.completeRedeem();
+        // Step 2: Restore liquidity
+        vm.stopPrank();
+        vm.startPrank(owner);
+        usdc.approve(address(mct), 1000e6);
+        mct.depositCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
 
-        // Step 3: Fast forward time
-        vm.warp(cooldownEnd);
-
-        // Step 4: Complete redemption
+        // Step 3: Complete redemption
+        vm.startPrank(alice);
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         uint256 collateralReceived = naraUSD.completeRedeem();
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
@@ -135,25 +172,58 @@ contract NaraUSDTest is TestHelper {
         assertEq(naraUSD.balanceOf(alice), aliceNaraUSDBefore, "naraUSD burned, balance back to initial");
 
         // Verify request cleared
-        (uint104 endAfter, uint152 amountAfter, ) = naraUSD.redemptionRequests(alice);
-        assertEq(endAfter, 0, "Request cleared");
+        (uint152 amountAfter, ) = naraUSD.redemptionRequests(alice);
         assertEq(amountAfter, 0, "Amount cleared");
 
         vm.stopPrank();
     }
 
     /**
-     * @notice Test cancelling redemption request
+     * @notice Test redemption reverts when no liquidity and allowQueue is false
+     */
+    function test_RedemptionRevertsWithoutLiquidity() public {
+        // Setup: Mint naraUSD
+        uint256 naraUSDAmount = 1000e18;
+        vm.startPrank(alice);
+        usdc.approve(address(naraUSD), 1000e6);
+        naraUSD.mintWithCollateral(address(usdc), 1000e6);
+
+        // Withdraw all USDC from MCT
+        vm.stopPrank();
+        vm.startPrank(owner);
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
+        vm.stopPrank();
+
+        // Try instant redemption (should revert due to no liquidity)
+        vm.startPrank(alice);
+        vm.expectRevert(NaraUSD.InsufficientCollateral.selector);
+        naraUSD.redeem(address(usdc), naraUSDAmount, false);
+
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test cancelling queued redemption request
      */
     function test_CancelRedemption() public {
-        // Setup: Mint and request redemption
+        // Setup: Mint and queue redemption
         uint256 naraUSDAmount = 1000e18;
         vm.startPrank(alice);
         uint256 aliceBalanceBefore = naraUSD.balanceOf(alice);
 
         usdc.approve(address(naraUSD), 1000e6);
         naraUSD.mintWithCollateral(address(usdc), 1000e6);
-        naraUSD.cooldownRedeem(address(usdc), naraUSDAmount);
+
+        // Withdraw liquidity to force queueing
+        vm.stopPrank();
+        vm.startPrank(owner);
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
+        vm.stopPrank();
+
+        // Queue redemption
+        vm.startPrank(alice);
+        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, true);
+        assertEq(wasQueued, true, "Should be queued");
 
         uint256 aliceBalanceAfterRedeem = naraUSD.balanceOf(alice);
         assertEq(aliceBalanceAfterRedeem, aliceBalanceBefore, "naraUSD locked in silo");
@@ -166,27 +236,33 @@ contract NaraUSDTest is TestHelper {
         assertEq(naraUSD.balanceOf(address(naraUSD.redeemSilo())), 0, "Silo empty");
 
         // Verify request cleared
-        (uint104 cooldownEnd, uint152 amount, ) = naraUSD.redemptionRequests(alice);
-        assertEq(cooldownEnd, 0, "Request cleared");
+        (uint152 amount, ) = naraUSD.redemptionRequests(alice);
         assertEq(amount, 0, "Amount cleared");
 
         vm.stopPrank();
     }
 
     /**
-     * @notice Test multiple redemption requests fail
+     * @notice Test multiple queued redemption requests fail
      */
     function test_RevertIf_ExistingRedemptionRequest() public {
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), 2000e6);
         naraUSD.mintWithCollateral(address(usdc), 2000e6);
 
-        // First request
-        naraUSD.cooldownRedeem(address(usdc), 1000e18);
+        // Withdraw liquidity to force queueing
+        vm.stopPrank();
+        vm.startPrank(owner);
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
+        vm.stopPrank();
+
+        // First queued request
+        vm.startPrank(alice);
+        naraUSD.redeem(address(usdc), 1000e18, true);
 
         // Second request should fail
-        vm.expectRevert(naraUSD.ExistingRedemptionRequest.selector);
-        naraUSD.cooldownRedeem(address(usdc), 500e18);
+        vm.expectRevert(NaraUSD.ExistingRedemptionRequest.selector);
+        naraUSD.redeem(address(usdc), 500e18, true);
 
         vm.stopPrank();
     }
@@ -197,7 +273,7 @@ contract NaraUSDTest is TestHelper {
     function test_RevertIf_NoRedemptionRequest() public {
         vm.startPrank(alice);
 
-        vm.expectRevert(naraUSD.NoRedemptionRequest.selector);
+        vm.expectRevert(NaraUSD.NoRedemptionRequest.selector);
         naraUSD.completeRedeem();
 
         vm.stopPrank();
@@ -209,28 +285,75 @@ contract NaraUSDTest is TestHelper {
     function test_RevertIf_CancelWithoutRequest() public {
         vm.startPrank(alice);
 
-        vm.expectRevert(naraUSD.NoRedemptionRequest.selector);
+        vm.expectRevert(NaraUSD.NoRedemptionRequest.selector);
         naraUSD.cancelRedeem();
 
         vm.stopPrank();
     }
 
     /**
-     * @notice Test setting cooldown duration
+     * @notice Test bulk complete redeem by collateral manager
      */
-    function test_SetCooldownDuration() public {
-        assertEq(naraUSD.cooldownDuration(), 7 days, "Initial cooldown");
+    function test_BulkCompleteRedeem() public {
+        // Setup: Multiple users queue redemptions
+        address[] memory users = new address[](2);
+        users[0] = alice;
+        users[1] = bob;
 
-        naraUSD.setCooldownDuration(14 days);
+        // Mint for both users
+        vm.startPrank(alice);
+        usdc.approve(address(naraUSD), 1000e6);
+        naraUSD.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
 
-        assertEq(naraUSD.cooldownDuration(), 14 days, "Updated cooldown");
+        vm.startPrank(bob);
+        usdc.approve(address(naraUSD), 500e6);
+        naraUSD.mintWithCollateral(address(usdc), 500e6);
+        vm.stopPrank();
+
+        // Withdraw liquidity to force queueing
+        vm.startPrank(owner);
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
+        vm.stopPrank();
+
+        // Queue redemptions
+        vm.startPrank(alice);
+        naraUSD.redeem(address(usdc), 1000e18, true);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        naraUSD.redeem(address(usdc), 500e18, true);
+        vm.stopPrank();
+
+        // Restore liquidity
+        vm.startPrank(owner);
+        usdc.approve(address(mct), 1500e6);
+        mct.depositCollateral(address(usdc), 1500e6);
+
+        // Bulk complete as collateral manager
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        uint256 bobUsdcBefore = usdc.balanceOf(bob);
+
+        naraUSD.bulkCompleteRedeem(users);
+
+        // Verify both received collateral
+        assertEq(usdc.balanceOf(alice) - aliceUsdcBefore, 1000e6, "Alice should receive USDC");
+        assertEq(usdc.balanceOf(bob) - bobUsdcBefore, 500e6, "Bob should receive USDC");
+
+        // Verify requests cleared
+        (uint152 aliceAmount, ) = naraUSD.redemptionRequests(alice);
+        (uint152 bobAmount, ) = naraUSD.redemptionRequests(bob);
+        assertEq(aliceAmount, 0, "Alice request cleared");
+        assertEq(bobAmount, 0, "Bob request cleared");
+
+        vm.stopPrank();
     }
 
     /**
      * @notice Test setting cooldown duration above max fails
      */
     function test_RevertIf_CooldownTooLong() public {
-        vm.expectRevert(naraUSD.InvalidCooldown.selector);
+        vm.expectRevert(NaraUSD.InvalidCooldown.selector);
         naraUSD.setCooldownDuration(91 days); // Max is 90 days
     }
 
@@ -251,7 +374,7 @@ contract NaraUSDTest is TestHelper {
         naraUSD.mintWithCollateral(address(usdc), 500e6); // 500 naraUSD
 
         // Third mint should fail (total would be 1500, exceeds 1000 limit)
-        vm.expectRevert(naraUSD.MaxMintPerBlockExceeded.selector);
+        vm.expectRevert(NaraUSD.MaxMintPerBlockExceeded.selector);
         naraUSD.mintWithCollateral(address(usdc), 500e6);
 
         vm.stopPrank();
@@ -349,7 +472,7 @@ contract NaraUSDTest is TestHelper {
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), 1000e6);
 
-        vm.expectRevert(naraUSD.MaxMintPerBlockExceeded.selector);
+        vm.expectRevert(NaraUSD.MaxMintPerBlockExceeded.selector);
         naraUSD.mintWithCollateral(address(usdc), 1000e6);
 
         vm.stopPrank();
@@ -366,7 +489,7 @@ contract NaraUSDTest is TestHelper {
         // Verify pending status
         assertEq(
             uint(naraUSD.delegatedSigner(bob, alice)),
-            uint(naraUSD.DelegatedSignerStatus.PENDING),
+            uint(NaraUSD.DelegatedSignerStatus.PENDING),
             "Should be pending"
         );
 
@@ -377,7 +500,7 @@ contract NaraUSDTest is TestHelper {
         // Verify accepted status
         assertEq(
             uint(naraUSD.delegatedSigner(bob, alice)),
-            uint(naraUSD.DelegatedSignerStatus.ACCEPTED),
+            uint(NaraUSD.DelegatedSignerStatus.ACCEPTED),
             "Should be accepted"
         );
 
@@ -416,7 +539,7 @@ contract NaraUSDTest is TestHelper {
 
         assertEq(
             uint(naraUSD.delegatedSigner(bob, alice)),
-            uint(naraUSD.DelegatedSignerStatus.REJECTED),
+            uint(NaraUSD.DelegatedSignerStatus.REJECTED),
             "Should be rejected"
         );
 
@@ -425,7 +548,7 @@ contract NaraUSDTest is TestHelper {
         usdc.mint(bob, 1000e6);
         usdc.approve(address(naraUSD), 1000e6);
 
-        vm.expectRevert(naraUSD.InvalidSignature.selector);
+        vm.expectRevert(NaraUSD.InvalidSignature.selector);
         naraUSD.mintWithCollateralFor(address(usdc), 1000e6, alice);
 
         vm.stopPrank();
@@ -441,7 +564,7 @@ contract NaraUSDTest is TestHelper {
         vm.startPrank(alice);
         unsupported.approve(address(naraUSD), 1000e6);
 
-        vm.expectRevert(naraUSD.UnsupportedAsset.selector);
+        vm.expectRevert(NaraUSD.UnsupportedAsset.selector);
         naraUSD.mintWithCollateral(address(unsupported), 1000e6);
 
         vm.stopPrank();
@@ -454,7 +577,7 @@ contract NaraUSDTest is TestHelper {
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), 1000e6);
 
-        vm.expectRevert(naraUSD.InvalidAmount.selector);
+        vm.expectRevert(NaraUSD.InvalidAmount.selector);
         naraUSD.mintWithCollateral(address(usdc), 0);
 
         vm.stopPrank();
@@ -466,8 +589,8 @@ contract NaraUSDTest is TestHelper {
     function test_RevertIf_RedeemZeroAmount() public {
         vm.startPrank(alice);
 
-        vm.expectRevert(naraUSD.InvalidAmount.selector);
-        naraUSD.cooldownRedeem(address(usdc), 0);
+        vm.expectRevert(NaraUSD.InvalidAmount.selector);
+        naraUSD.redeem(address(usdc), 0, false);
 
         vm.stopPrank();
     }
@@ -482,20 +605,20 @@ contract NaraUSDTest is TestHelper {
         naraUSD.mintWithCollateral(address(usdc), 1000e6);
 
         // Standard withdraw should revert
-        vm.expectRevert("Use cooldownRedeem");
+        vm.expectRevert("Use redeem()");
         naraUSD.withdraw(100e18, alice, alice);
 
-        // Standard redeem should revert
-        vm.expectRevert("Use cooldownRedeem");
+        // Standard ERC4626 redeem should revert
+        vm.expectRevert("Use redeem(collateralAsset, naraUSDAmount, allowQueue)");
         naraUSD.redeem(100e18, alice, alice);
 
         vm.stopPrank();
     }
 
     /**
-     * @notice Test full redemption cycle with different collateral
+     * @notice Test instant redemption with USDT collateral
      */
-    function test_RedemptionCycle_USDT() public {
+    function test_InstantRedemption_USDT() public {
         // Mint with USDT
         vm.startPrank(alice);
         uint256 aliceUsdtBefore = usdt.balanceOf(alice);
@@ -503,18 +626,10 @@ contract NaraUSDTest is TestHelper {
         usdt.approve(address(naraUSD), 1000e6);
         naraUSD.mintWithCollateral(address(usdt), 1000e6);
 
-        // Redeem
-        naraUSD.cooldownRedeem(address(usdt), 1000e18);
+        // Instant redeem (MCT has liquidity)
+        bool wasQueued = naraUSD.redeem(address(usdt), 1000e18, false);
 
-        // Verify correct collateral tracked
-        (, , address collateral) = naraUSD.redemptionRequests(alice);
-        assertEq(collateral, address(usdt), "Should be USDT");
-
-        // Complete
-        vm.warp(block.timestamp + 7 days);
-        uint256 collateralReceived = naraUSD.completeRedeem();
-
-        assertEq(collateralReceived, 1000e6, "Should receive 1000 USDT");
+        assertEq(wasQueued, false, "Should be instant");
         assertEq(usdt.balanceOf(alice), aliceUsdtBefore, "USDT balance restored");
 
         vm.stopPrank();
@@ -552,14 +667,12 @@ contract NaraUSDTest is TestHelper {
         usdc.approve(address(naraUSD), amount);
         uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), amount);
 
-        // Redeem
-        naraUSD.cooldownRedeem(address(usdc), naraUSDAmount);
+        // Instant redeem (liquidity available)
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, false);
 
-        vm.warp(block.timestamp + 7 days);
-
-        uint256 collateralReceived = naraUSD.completeRedeem();
-
-        assertEq(collateralReceived, amount, "Should receive same amount back");
+        assertEq(wasQueued, false, "Should be instant");
+        assertEq(usdc.balanceOf(alice) - aliceUsdcBefore, amount, "Should receive same amount back");
 
         vm.stopPrank();
     }
@@ -574,7 +687,7 @@ contract NaraUSDTest is TestHelper {
 
         // Set 0.5% mint fee (50 bps)
         vm.expectEmit(true, true, true, true);
-        emit naraUSD.MintFeeUpdated(0, 50);
+        emit NaraUSD.MintFeeUpdated(0, 50);
         naraUSD.setMintFee(50);
 
         assertEq(naraUSD.mintFeeBps(), 50, "Mint fee should be 50 bps");
@@ -588,7 +701,7 @@ contract NaraUSDTest is TestHelper {
 
         // Set 0.3% redeem fee (30 bps)
         vm.expectEmit(true, true, true, true);
-        emit naraUSD.RedeemFeeUpdated(0, 30);
+        emit NaraUSD.RedeemFeeUpdated(0, 30);
         naraUSD.setRedeemFee(30);
 
         assertEq(naraUSD.redeemFeeBps(), 30, "Redeem fee should be 30 bps");
@@ -603,7 +716,7 @@ contract NaraUSDTest is TestHelper {
         // Note: address(this) is the admin in TestHelper setup
 
         vm.expectEmit(true, true, true, true);
-        emit naraUSD.FeeTreasuryUpdated(address(0), treasury);
+        emit NaraUSD.FeeTreasuryUpdated(address(0), treasury);
         naraUSD.setFeeTreasury(treasury);
 
         assertEq(naraUSD.feeTreasury(), treasury, "Treasury should be set");
@@ -618,7 +731,7 @@ contract NaraUSDTest is TestHelper {
         uint256 minFee = 10e18; // 10 naraUSD minimum
 
         vm.expectEmit(true, true, true, true);
-        emit naraUSD.MinMintFeeAmountUpdated(0, minFee);
+        emit NaraUSD.MinMintFeeAmountUpdated(0, minFee);
         naraUSD.setMinMintFeeAmount(minFee);
 
         assertEq(naraUSD.minMintFeeAmount(), minFee, "Min mint fee amount should be set");
@@ -633,7 +746,7 @@ contract NaraUSDTest is TestHelper {
         uint256 minFee = 5e18; // 5 naraUSD minimum
 
         vm.expectEmit(true, true, true, true);
-        emit naraUSD.MinRedeemFeeAmountUpdated(0, minFee);
+        emit NaraUSD.MinRedeemFeeAmountUpdated(0, minFee);
         naraUSD.setMinRedeemFeeAmount(minFee);
 
         assertEq(naraUSD.minRedeemFeeAmount(), minFee, "Min redeem fee amount should be set");
@@ -797,10 +910,10 @@ contract NaraUSDTest is TestHelper {
         // Note: address(this) is the admin in TestHelper setup
 
         // Try to set 11% fee (1100 bps, max is 1000)
-        vm.expectRevert(naraUSD.InvalidFee.selector);
+        vm.expectRevert(NaraUSD.InvalidFee.selector);
         naraUSD.setMintFee(1100);
 
-        vm.expectRevert(naraUSD.InvalidFee.selector);
+        vm.expectRevert(NaraUSD.InvalidFee.selector);
         naraUSD.setRedeemFee(1100);
     }
 
@@ -825,7 +938,7 @@ contract NaraUSDTest is TestHelper {
     function test_RevertIf_SetZeroAddressTreasury() public {
         // Note: address(this) is the admin in TestHelper setup
 
-        vm.expectRevert(naraUSD.ZeroAddressException.selector);
+        vm.expectRevert(NaraUSD.ZeroAddressException.selector);
         naraUSD.setFeeTreasury(address(0));
     }
 
@@ -905,7 +1018,7 @@ contract NaraUSDTest is TestHelper {
 
         // Alice should NOT be able to transfer
         vm.startPrank(alice);
-        vm.expectRevert(naraUSD.OperationNotAllowed.selector);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
         naraUSD.transfer(bob, 100e18);
         vm.stopPrank();
     }
@@ -925,7 +1038,7 @@ contract NaraUSDTest is TestHelper {
 
         // Alice should NOT be able to send to bob
         vm.startPrank(alice);
-        vm.expectRevert(naraUSD.OperationNotAllowed.selector);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
         naraUSD.transfer(bob, 100e18);
         vm.stopPrank();
     }
@@ -943,10 +1056,10 @@ contract NaraUSDTest is TestHelper {
         // Add alice to blacklist
         naraUSD.addToBlacklist(alice);
 
-        // Alice should NOT be able to request redemption
+        // Alice should NOT be able to redeem
         vm.startPrank(alice);
-        vm.expectRevert(naraUSD.OperationNotAllowed.selector);
-        naraUSD.cooldownRedeem(address(usdc), 500e18);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
+        naraUSD.redeem(address(usdc), 500e18, false);
         vm.stopPrank();
     }
 
@@ -965,7 +1078,7 @@ contract NaraUSDTest is TestHelper {
 
         // Verify she can't transfer
         vm.startPrank(alice);
-        vm.expectRevert(naraUSD.OperationNotAllowed.selector);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
         naraUSD.transfer(bob, 100e18);
         vm.stopPrank();
 
@@ -1032,7 +1145,7 @@ contract NaraUSDTest is TestHelper {
     function test_RevertIf_BlacklistAdmin() public {
         address admin = address(this);
 
-        vm.expectRevert(naraUSD.CantBlacklistOwner.selector);
+        vm.expectRevert(NaraUSD.CantBlacklistOwner.selector);
         naraUSD.addToBlacklist(admin);
     }
 
@@ -1062,7 +1175,7 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
 
         // Try to redistribute without full restriction
-        vm.expectRevert(naraUSD.OperationNotAllowed.selector);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
         naraUSD.redistributeLockedAmount(alice, bob);
     }
 
@@ -1075,7 +1188,7 @@ contract NaraUSDTest is TestHelper {
         uint256 minAmount = 100e18; // 100 naraUSD
 
         vm.expectEmit(true, true, true, true);
-        emit naraUSD.MinMintAmountUpdated(0, minAmount);
+        emit NaraUSD.MinMintAmountUpdated(0, minAmount);
         naraUSD.setMinMintAmount(minAmount);
 
         assertEq(naraUSD.minMintAmount(), minAmount, "Min mint amount should be set");
@@ -1088,7 +1201,7 @@ contract NaraUSDTest is TestHelper {
         uint256 minAmount = 100e18; // 100 naraUSD
 
         vm.expectEmit(true, true, true, true);
-        emit naraUSD.MinRedeemAmountUpdated(0, minAmount);
+        emit NaraUSD.MinRedeemAmountUpdated(0, minAmount);
         naraUSD.setMinRedeemAmount(minAmount);
 
         assertEq(naraUSD.minRedeemAmount(), minAmount, "Min redeem amount should be set");
@@ -1104,7 +1217,7 @@ contract NaraUSDTest is TestHelper {
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), 50e6); // 50 USDC = 50 naraUSD, below minimum
 
-        vm.expectRevert(naraUSD.BelowMinimumAmount.selector);
+        vm.expectRevert(NaraUSD.BelowMinimumAmount.selector);
         naraUSD.mintWithCollateral(address(usdc), 50e6);
 
         vm.stopPrank();
@@ -1158,8 +1271,8 @@ contract NaraUSDTest is TestHelper {
 
         // Try to redeem below minimum
         vm.startPrank(alice);
-        vm.expectRevert(naraUSD.BelowMinimumAmount.selector);
-        naraUSD.cooldownRedeem(address(usdc), 50e18); // 50 naraUSD, below minimum
+        vm.expectRevert(NaraUSD.BelowMinimumAmount.selector);
+        naraUSD.redeem(address(usdc), 50e18, false); // 50 naraUSD, below minimum
         vm.stopPrank();
     }
 
@@ -1177,12 +1290,10 @@ contract NaraUSDTest is TestHelper {
         uint256 minAmount = 100e18; // 100 naraUSD
         naraUSD.setMinRedeemAmount(minAmount);
 
-        // Redeem exactly minimum
+        // Instant redeem at minimum
         vm.startPrank(alice);
-        naraUSD.cooldownRedeem(address(usdc), minAmount);
-
-        (uint104 cooldownEnd, uint152 lockedAmount, ) = naraUSD.redemptionRequests(alice);
-        assertEq(lockedAmount, minAmount, "Should lock exactly minimum amount");
+        bool wasQueued = naraUSD.redeem(address(usdc), minAmount, false);
+        assertEq(wasQueued, false, "Should be instant");
         vm.stopPrank();
     }
 
@@ -1200,12 +1311,10 @@ contract NaraUSDTest is TestHelper {
         uint256 minAmount = 100e18; // 100 naraUSD
         naraUSD.setMinRedeemAmount(minAmount);
 
-        // Redeem above minimum
+        // Instant redeem above minimum
         vm.startPrank(alice);
-        naraUSD.cooldownRedeem(address(usdc), 200e18); // 200 naraUSD
-
-        (uint104 cooldownEnd, uint152 lockedAmount, ) = naraUSD.redemptionRequests(alice);
-        assertEq(lockedAmount, 200e18, "Should lock amount above minimum");
+        bool wasQueued = naraUSD.redeem(address(usdc), 200e18, false);
+        assertEq(wasQueued, false, "Should be instant");
         vm.stopPrank();
     }
 
@@ -1254,7 +1363,7 @@ contract NaraUSDTest is TestHelper {
         usdc.approve(address(naraUSD), mintAmount);
 
         if (expectedNUSD < minAmount) {
-            vm.expectRevert(naraUSD.BelowMinimumAmount.selector);
+            vm.expectRevert(NaraUSD.BelowMinimumAmount.selector);
             naraUSD.mintWithCollateral(address(usdc), mintAmount);
         } else {
             naraUSD.mintWithCollateral(address(usdc), mintAmount);
@@ -1273,7 +1382,7 @@ contract NaraUSDTest is TestHelper {
         uint256 policyId = 1;
 
         vm.expectEmit(true, true, false, true);
-        emit naraUSD.KeyringConfigUpdated(address(keyring), policyId);
+        emit NaraUSD.KeyringConfigUpdated(address(keyring), policyId);
 
         naraUSD.setKeyringConfig(address(keyring), policyId);
 
@@ -1288,13 +1397,13 @@ contract NaraUSDTest is TestHelper {
         address testAddr = makeAddr("testAddr");
 
         vm.expectEmit(true, false, false, true);
-        emit naraUSD.KeyringWhitelistUpdated(testAddr, true);
+        emit NaraUSD.KeyringWhitelistUpdated(testAddr, true);
 
         naraUSD.setKeyringWhitelist(testAddr, true);
         assertTrue(naraUSD.keyringWhitelist(testAddr), "Address not whitelisted");
 
         vm.expectEmit(true, false, false, true);
-        emit naraUSD.KeyringWhitelistUpdated(testAddr, false);
+        emit NaraUSD.KeyringWhitelistUpdated(testAddr, false);
 
         naraUSD.setKeyringWhitelist(testAddr, false);
         assertFalse(naraUSD.keyringWhitelist(testAddr), "Address still whitelisted");
@@ -1313,7 +1422,7 @@ contract NaraUSDTest is TestHelper {
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), 1000e6);
 
-        vm.expectRevert(abi.encodeWithSelector(naraUSD.KeyringCredentialInvalid.selector, alice));
+        vm.expectRevert(abi.encodeWithSelector(NaraUSD.KeyringCredentialInvalid.selector, alice));
         naraUSD.mintWithCollateral(address(usdc), 1000e6);
 
         vm.stopPrank();
@@ -1378,8 +1487,8 @@ contract NaraUSDTest is TestHelper {
 
         // Try to redeem without credentials
         vm.startPrank(alice);
-        vm.expectRevert(abi.encodeWithSelector(naraUSD.KeyringCredentialInvalid.selector, alice));
-        naraUSD.cooldownRedeem(address(usdc), 500e18);
+        vm.expectRevert(abi.encodeWithSelector(NaraUSD.KeyringCredentialInvalid.selector, alice));
+        naraUSD.redeem(address(usdc), 500e18, false);
         vm.stopPrank();
     }
 

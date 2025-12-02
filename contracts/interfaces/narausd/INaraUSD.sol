@@ -115,20 +115,32 @@ interface INaraUSD is IERC4626, IERC20Permit {
     ) external returns (uint256 naraUSDAmount);
 
     /**
-     * @notice Request redemption with cooldown - locks naraUSD and starts cooldown timer
-     * @param collateralAsset The collateral asset to receive after cooldown
-     * @param naraUSDAmount The amount of naraUSD to lock for redemption
+     * @notice Redeem naraUSD for collateral - instant if liquidity available, otherwise queued
+     * @param collateralAsset The collateral asset to receive
+     * @param naraUSDAmount The amount of naraUSD to redeem
+     * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
+     * @return wasQueued True if request was queued, false if executed instantly
      */
-    function cooldownRedeem(address collateralAsset, uint256 naraUSDAmount) external;
+    function redeem(
+        address collateralAsset,
+        uint256 naraUSDAmount,
+        bool allowQueue
+    ) external returns (bool wasQueued);
 
     /**
-     * @notice Complete redemption after cooldown period - redeems naraUSD for collateral
+     * @notice Complete queued redemption - redeems naraUSD for collateral
      * @return collateralAmount The amount of collateral received
      */
     function completeRedeem() external returns (uint256 collateralAmount);
 
     /**
-     * @notice Cancel redemption request and return locked naraUSD to user
+     * @notice Bulk-complete redemptions for multiple users
+     * @param users Array of user addresses whose redemptions should be completed
+     */
+    function bulkCompleteRedeem(address[] calldata users) external;
+
+    /**
+     * @notice Cancel queued redemption request and return locked naraUSD to user
      */
     function cancelRedeem() external;
 

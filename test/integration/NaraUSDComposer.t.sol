@@ -284,19 +284,12 @@ contract NaraUSDComposerTest is TestHelper {
         usdc.approve(address(naraUSD), usdcAmount);
         uint256 nusdReceived = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
 
-        // Use cooldown-based redemption
-        naraUSD.cooldownRedeem(address(usdc), nusdReceived);
-
-        // Get cooldown info
-        (uint104 cooldownEnd, , ) = naraUSD.redemptionRequests(alice);
-
-        // Warp past cooldown
-        vm.warp(cooldownEnd);
-
-        // Complete redeem
-        uint256 collateralReceived = naraUSD.completeRedeem();
-
-        assertGt(collateralReceived, 0, "Should receive collateral");
+        // Instant redeem (liquidity available)
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        bool wasQueued = naraUSD.redeem(address(usdc), nusdReceived, false);
+        
+        assertEq(wasQueued, false, "Should be instant");
+        assertGt(usdc.balanceOf(alice) - aliceUsdcBefore, 0, "Should receive collateral");
         vm.stopPrank();
     }
 
