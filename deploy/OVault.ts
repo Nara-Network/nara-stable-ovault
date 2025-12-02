@@ -318,10 +318,10 @@ const deploy: DeployFunction = async (hre) => {
         console.log('   → Deploying StakedNaraUSDComposer...')
 
         // Get StakedNaraUSD address
-        let stakedNusdAddress: string
+        let stakedNaraUSDAddress: string
         try {
             const stakedNaraUSD = await hre.deployments.get('StakedNaraUSD')
-            stakedNusdAddress = stakedNaraUSD.address
+            stakedNaraUSDAddress = stakedNaraUSD.address
         } catch (error) {
             console.log('   ⚠️  StakedNaraUSD not found, skipping StakedNaraUSDComposer')
             console.log('   ℹ️  Deploy StakedNaraUSD first if you need cross-chain staking')
@@ -329,10 +329,10 @@ const deploy: DeployFunction = async (hre) => {
         }
 
         // Get StakedNaraUSDOFTAdapter address
-        let stakedNusdAdapterAddress: string
+        let stakedNaraUSDAdapterAddress: string
         try {
             const adapter = await hre.deployments.get('StakedNaraUSDOFTAdapter')
-            stakedNusdAdapterAddress = adapter.address
+            stakedNaraUSDAdapterAddress = adapter.address
         } catch (error) {
             console.log('   ⚠️  StakedNaraUSDOFTAdapter not found, skipping StakedNaraUSDComposer')
             console.log('   ℹ️  Run: npx hardhat deploy --network arbitrum-sepolia --tags staked-naraUSD-oft')
@@ -345,9 +345,9 @@ const deploy: DeployFunction = async (hre) => {
                 contract: 'contracts/staked-narausd/StakedNaraUSDComposer.sol:StakedNaraUSDComposer',
                 from: deployer,
                 args: [
-                    stakedNusdAddress, // StakedNaraUSD vault
+                    stakedNaraUSDAddress, // StakedNaraUSD vault
                     naraUSDAdapter.address, // naraUSD OFT adapter (asset)
-                    stakedNusdAdapterAddress, // snaraUSD OFT adapter (share)
+                    stakedNaraUSDAdapterAddress, // snaraUSD OFT adapter (share)
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,
