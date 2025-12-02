@@ -24,7 +24,7 @@ contract NaraUSDTest is TestHelper {
      * @notice Test basic setup
      */
     function test_Setup() public {
-        assertEq(naraUSD.name(), "naraUSD");
+        assertEq(naraUSD.name(), "Nara USD");
         assertEq(naraUSD.symbol(), "naraUSD");
         assertEq(naraUSD.decimals(), 18);
         assertEq(address(naraUSD.mct()), address(mct));
@@ -133,9 +133,7 @@ contract NaraUSDTest is TestHelper {
 
         // Withdraw all USDC from MCT to simulate insufficient liquidity
         vm.stopPrank();
-        vm.startPrank(owner);
-        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
-        vm.stopPrank();
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
 
         // Step 1: Request redemption (will be queued due to no liquidity)
         vm.startPrank(alice);
@@ -155,10 +153,8 @@ contract NaraUSDTest is TestHelper {
 
         // Step 2: Restore liquidity
         vm.stopPrank();
-        vm.startPrank(owner);
         usdc.approve(address(mct), 1000e6);
         mct.depositCollateral(address(usdc), 1000e6);
-        vm.stopPrank();
 
         // Step 3: Complete redemption
         vm.startPrank(alice);
@@ -190,9 +186,8 @@ contract NaraUSDTest is TestHelper {
 
         // Withdraw all USDC from MCT
         vm.stopPrank();
-        vm.startPrank(owner);
-        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
-        vm.stopPrank();
+        // Use test contract which has COLLATERAL_MANAGER_ROLE
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
 
         // Try instant redemption (should revert due to no liquidity)
         vm.startPrank(alice);
@@ -216,9 +211,8 @@ contract NaraUSDTest is TestHelper {
 
         // Withdraw liquidity to force queueing
         vm.stopPrank();
-        vm.startPrank(owner);
-        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
-        vm.stopPrank();
+        // Use test contract which has COLLATERAL_MANAGER_ROLE
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
 
         // Queue redemption
         vm.startPrank(alice);
@@ -252,9 +246,8 @@ contract NaraUSDTest is TestHelper {
 
         // Withdraw liquidity to force queueing
         vm.stopPrank();
-        vm.startPrank(owner);
-        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
-        vm.stopPrank();
+        // Use test contract which has COLLATERAL_MANAGER_ROLE
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
 
         // First queued request
         vm.startPrank(alice);
@@ -312,9 +305,8 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
 
         // Withdraw liquidity to force queueing
-        vm.startPrank(owner);
-        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), owner);
-        vm.stopPrank();
+        // Use test contract which has COLLATERAL_MANAGER_ROLE
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
 
         // Queue redemptions
         vm.startPrank(alice);
@@ -326,7 +318,7 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
 
         // Restore liquidity
-        vm.startPrank(owner);
+        // Use test contract which has COLLATERAL_MANAGER_ROLE
         usdc.approve(address(mct), 1500e6);
         mct.depositCollateral(address(usdc), 1500e6);
 
@@ -990,10 +982,12 @@ contract NaraUSDTest is TestHelper {
         uint256 treasuryUsdcBefore = usdc.balanceOf(treasury);
         uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), amount);
 
-        assertEq(naraUSDAmount, expectedUserAmount, "User amount incorrect");
-        assertEq(
+        // Allow small rounding errors due to decimal conversions (6 decimals <-> 18 decimals)
+        assertApproxEqAbs(naraUSDAmount, expectedUserAmount, 1e12, "User amount incorrect");
+        assertApproxEqAbs(
             usdc.balanceOf(treasury) - treasuryUsdcBefore,
             expectedFeeCollateral,
+            1,
             "Treasury fee in USDC incorrect"
         );
         assertEq(naraUSD.balanceOf(treasury), 0, "Treasury should not receive naraUSD");

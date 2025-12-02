@@ -199,7 +199,9 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
             uint256 amountToDistribute = balanceOf(from);
             uint256 naraUSDToVest = previewRedeem(amountToDistribute);
 
-            _burn(from, amountToDistribute);
+            // Bypass blacklist check by calling super._update directly for the burn
+            // This is safe because it's admin-only and explicitly for moving frozen funds
+            super._update(from, address(0), amountToDistribute);
 
             // to address of address(0) enables burning
             if (to == address(0)) {
@@ -460,9 +462,11 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
 
     /**
      * @dev Hook that is called before any transfer of tokens
-     * @dev Disables transfers from or to addresses with FULL_RESTRICTED_STAKER_ROLE
+     * @dev Completely freezes blacklisted addresses - they cannot transfer, burn, or receive
+     * @dev Only admin can move their tokens via redistributeLockedAmount
      */
     function _update(address from, address to, uint256 value) internal virtual override {
+        // Blacklisted addresses are completely frozen
         if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }

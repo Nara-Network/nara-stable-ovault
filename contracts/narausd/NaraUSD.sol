@@ -611,10 +611,12 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @param to The address to mint the entire balance to (or address(0) to burn)
      */
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (hasRole(FULL_RESTRICTED_ROLE, from) && !hasRole(FULL_RESTRICTED_ROLE, to)) {
+        if (_isBlacklisted(from) && !_isBlacklisted(to)) {
             uint256 amountToDistribute = balanceOf(from);
 
-            _burn(from, amountToDistribute);
+            // Bypass blacklist check by calling super._update directly for the burn
+            // This is safe because it's admin-only and explicitly for moving frozen funds
+            super._update(from, address(0), amountToDistribute);
 
             // to address of address(0) enables burning
             if (to != address(0)) {
@@ -1121,11 +1123,12 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
     /**
      * @dev Hook that is called before any transfer of tokens
-     * @dev Disables transfers from or to addresses with FULL_RESTRICTED_ROLE
+     * @dev Completely freezes blacklisted addresses - they cannot transfer, burn, or receive
+     * @dev Only admin can move their tokens via redistributeLockedAmount
      * @dev Note: Keyring checks are NOT applied to transfers - naraUSD is freely transferrable
      */
     function _update(address from, address to, uint256 value) internal virtual override {
-        // Check blacklist restrictions only
+        // Blacklisted addresses are completely frozen
         if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
