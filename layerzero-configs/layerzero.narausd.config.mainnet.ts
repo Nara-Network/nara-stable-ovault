@@ -9,21 +9,21 @@ import type { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 const arbitrumContract: OmniPointHardhat = {
     eid: EndpointId.ARBITRUM_V2_MAINNET, // 30110
     contractName: 'NaraUSDOFTAdapter',
-    address: '0xefa59EF9501B3699Da6C5a7326FCf422705d9FE8',
+    address: '0x27fd785F5767E3443D3A726d9715f64956539a71',
 }
 
 // Base - Spoke Chain (uses OFT/mint-burn)
 const baseContract: OmniPointHardhat = {
     eid: EndpointId.BASE_V2_MAINNET, // 30184
     contractName: 'NaraUSDOFT',
-    address: '0x9E98a76aCe0BE6bA3aFF1a230931cdCd0bf544dc',
+    address: '0xBebbc3471aE35E434ebf44556A422629Ab001031',
 }
 
 // Ethereum - Spoke Chain (uses OFT/mint-burn)
 const ethereumContract: OmniPointHardhat = {
     eid: EndpointId.ETHEREUM_V2_MAINNET, // 30101
     contractName: 'NaraUSDOFT',
-    address: '0xB95412e521d4A7aa5074878E3AADF8D9b09A141f', // TODO: Update with deployed address
+    address: '0x5A31B17100692B6580b50D0Cb54Bc3A0B63Ab5aD',
 }
 
 // Gas settings for cross-chain messages
