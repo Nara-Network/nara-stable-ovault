@@ -113,7 +113,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
 
         // Silo now holds snUSD (this token) during cooldown, which is later redeemed for nUSD
         silo = new StakednUSDSilo(address(this), address(this));
-        cooldownDuration = MAX_COOLDOWN_DURATION;
+        cooldownDuration = 7 days;
     }
 
     /* --------------- EXTERNAL --------------- */
