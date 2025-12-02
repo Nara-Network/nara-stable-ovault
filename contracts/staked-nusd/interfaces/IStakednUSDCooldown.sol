@@ -5,7 +5,7 @@ import "../../interfaces/staked-nusd/IStakednUSD.sol";
 
 struct UserCooldown {
     uint104 cooldownEnd;
-    uint152 underlyingAmount;
+    uint152 sharesAmount; // Amount of snUSD shares locked in silo
 }
 
 interface IStakednUSDCooldown is IStakednUSD {
@@ -29,4 +29,3 @@ interface IStakednUSDCooldown is IStakednUSD {
 
     function setCooldownDuration(uint24 duration) external;
 }
-

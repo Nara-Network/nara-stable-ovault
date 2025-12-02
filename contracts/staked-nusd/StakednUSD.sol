@@ -195,7 +195,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @param to The address to mint the entire balance to (or address(0) to burn)
      */
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, from) && !hasRole(FULL_RESTRICTED_STAKER_ROLE, to)) {
+        if (_isBlacklisted(from) && !_isBlacklisted(to)) {
             uint256 amountToDistribute = balanceOf(from);
             uint256 nusdToVest = previewRedeem(amountToDistribute);
 
@@ -247,7 +247,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      */
     function unstake(address receiver) external {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
-        uint256 shares = userCooldown.underlyingAmount; // stores locked snUSD shares
+        uint256 shares = userCooldown.sharesAmount; // locked snUSD shares
 
         // Allow claim after cooldown ends, or if cooldown has been globally disabled
         if (shares == 0 || (block.timestamp < userCooldown.cooldownEnd && cooldownDuration != 0)) {
@@ -255,7 +255,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         }
 
         userCooldown.cooldownEnd = 0;
-        userCooldown.underlyingAmount = 0;
+        userCooldown.sharesAmount = 0;
 
         // Retrieve locked snUSD from the silo back to this contract
         silo.withdraw(address(this), shares);
@@ -276,7 +276,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
 
         // Lock snUSD shares in the silo and record them for the caller
         cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
-        cooldowns[msg.sender].underlyingAmount += uint152(shares);
+        cooldowns[msg.sender].sharesAmount += uint152(shares);
 
         // Transfer snUSD from user to silo (locks it)
         _transfer(msg.sender, address(silo), shares);
@@ -293,7 +293,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
 
         // Lock snUSD shares in the silo and record them for the caller
         cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
-        cooldowns[msg.sender].underlyingAmount += uint152(shares);
+        cooldowns[msg.sender].sharesAmount += uint152(shares);
 
         // Transfer snUSD from user to silo (locks it)
         _transfer(msg.sender, address(silo), shares);
@@ -304,14 +304,14 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      */
     function cancelCooldown() external nonReentrant {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
-        uint256 shares = userCooldown.underlyingAmount; // locked snUSD shares
+        uint256 shares = userCooldown.sharesAmount; // locked snUSD shares
 
         if (shares == 0) {
             revert InvalidCooldown();
         }
 
         userCooldown.cooldownEnd = 0;
-        userCooldown.underlyingAmount = 0;
+        userCooldown.sharesAmount = 0;
 
         // Return locked snUSD from the silo back to the user
         silo.withdraw(msg.sender, shares);
@@ -404,7 +404,7 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         uint256 assets,
         uint256 shares
     ) internal override nonReentrant whenNotPaused notZero(assets) notZero(shares) {
-        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, caller) || hasRole(FULL_RESTRICTED_STAKER_ROLE, receiver)) {
+        if (_isBlacklisted(caller) || _isBlacklisted(receiver)) {
             revert OperationNotAllowed();
         }
         super._deposit(caller, receiver, assets, shares);
@@ -421,16 +421,30 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
         uint256 assets,
         uint256 shares
     ) internal override nonReentrant whenNotPaused notZero(assets) notZero(shares) {
-        if (
-            hasRole(FULL_RESTRICTED_STAKER_ROLE, caller) ||
-            hasRole(FULL_RESTRICTED_STAKER_ROLE, receiver) ||
-            hasRole(FULL_RESTRICTED_STAKER_ROLE, owner)
-        ) {
+        if (_isBlacklisted(caller) || _isBlacklisted(receiver) || _isBlacklisted(owner)) {
             revert OperationNotAllowed();
         }
 
         super._withdraw(caller, receiver, owner, assets, shares);
         _checkMinShares();
+    }
+
+    /**
+     * @notice Internal helper to check if an address is blacklisted
+     * @param account The address to check
+     * @return bool True if account has FULL_RESTRICTED_STAKER_ROLE
+     */
+    function _isBlacklisted(address account) internal view returns (bool) {
+        return hasRole(FULL_RESTRICTED_STAKER_ROLE, account);
+    }
+
+    /**
+     * @notice Public view helper to check if an address is blacklisted
+     * @param account The address to check
+     * @return bool True if account has FULL_RESTRICTED_STAKER_ROLE
+     */
+    function isBlacklisted(address account) external view returns (bool) {
+        return _isBlacklisted(account);
     }
 
     /**
@@ -449,10 +463,10 @@ contract StakednUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, ISt
      * @dev Disables transfers from or to addresses with FULL_RESTRICTED_STAKER_ROLE
      */
     function _update(address from, address to, uint256 value) internal virtual override {
-        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, from)) {
+        if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
-        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, to)) {
+        if (_isBlacklisted(to)) {
             revert OperationNotAllowed();
         }
         super._update(from, to, value);
