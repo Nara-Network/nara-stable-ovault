@@ -1,4 +1,4 @@
-# ⚡ Quick Start - Deploy nUSD OVault System
+# ⚡ Quick Start - Deploy naraUSD OVault System
 
 Fast deployment guide for both testnet and mainnet with environment-based configuration.
 
@@ -38,8 +38,8 @@ That's it! ✅
 | Contract                  | Description           | Address (after deployment) |
 | ------------------------- | --------------------- | -------------------------- |
 | MultiCollateralToken      | Holds USDC collateral | Check console output       |
-| nUSD                      | Stablecoin vault      | Check console output       |
-| StakednUSD                | Staking vault         | Check console output       |
+| naraUSD                      | Stablecoin vault      | Check console output       |
+| StakedNaraUSD                | Staking vault         | Check console output       |
 | StakingRewardsDistributor | Automated rewards     | Check console output       |
 
 ---
@@ -72,8 +72,8 @@ The deployment uses environment-based configuration. Settings are automatically 
 
 ### Limits
 
-- **Max Mint Per Block**: 1,000,000 nUSD
-- **Max Redeem Per Block**: 1,000,000 nUSD
+- **Max Mint Per Block**: 1,000,000 naraUSD
+- **Max Redeem Per Block**: 1,000,000 naraUSD
 
 ---
 
@@ -107,7 +107,7 @@ Or use faucet: https://faucet.circle.com/ (then bridge)
 
 - Bridge USDC from Ethereum mainnet or use a DEX
 
-### 3. Mint nUSD
+### 3. Mint naraUSD
 
 ```bash
 # Testnet
@@ -124,50 +124,50 @@ const usdc = await ethers.getContractAt(
   "IERC20",
   "YOUR_USDC_ADDRESS", // Check deployConfig for the correct address
 );
-const nusd = await ethers.getContractAt("nusd/nUSD", "YOUR_NUSD_ADDRESS");
+const narausd = await ethers.getContractAt("narausd/NaraUSD", "YOUR_NARAUSD_ADDRESS");
 
-// Mint 100 nUSD with 100 USDC
+// Mint 100 naraUSD with 100 USDC
 const amount = ethers.utils.parseUnits("100", 6); // 100 USDC (6 decimals)
-await usdc.approve(nusd.address, amount);
-await nusd.mintWithCollateral(usdc.address, amount);
+await usdc.approve(narausd.address, amount);
+await narausd.mintWithCollateral(usdc.address, amount);
 
 // Check balance
 const [signer] = await ethers.getSigners();
-const balance = await nusd.balanceOf(signer.address);
-console.log("nUSD balance:", ethers.utils.formatEther(balance));
+const balance = await narausd.balanceOf(signer.address);
+console.log("naraUSD balance:", ethers.utils.formatEther(balance));
 ```
 
-### 4. Stake nUSD
+### 4. Stake naraUSD
 
 ```javascript
-const stakedNusd = await ethers.getContractAt(
-  "staked-nusd/StakednUSD",
-  "YOUR_STAKED_NUSD_ADDRESS",
+const stakedNaraUSD = await ethers.getContractAt(
+  "staked-narausd/StakedNaraUSD",
+  "YOUR_STAKED_NARAUSD_ADDRESS",
 );
 
-// Stake 50 nUSD
+// Stake 50 naraUSD
 const stakeAmount = ethers.utils.parseEther("50");
-await nusd.approve(stakedNusd.address, stakeAmount);
-await stakedNusd.deposit(stakeAmount, (await ethers.getSigners())[0].address);
+await narausd.approve(stakedNaraUSD.address, stakeAmount);
+await stakedNaraUSD.deposit(stakeAmount, (await ethers.getSigners())[0].address);
 
-// Check snUSD balance
-const sBalance = await stakedNusd.balanceOf(
+// Check snaraUSD balance
+const sBalance = await stakedNaraUSD.balanceOf(
   (await ethers.getSigners())[0].address,
 );
-console.log("snUSD balance:", ethers.utils.formatEther(sBalance));
+console.log("snaraUSD balance:", ethers.utils.formatEther(sBalance));
 ```
 
 ### 5. Distribute Rewards (as Operator)
 
 ```javascript
 const distributor = await ethers.getContractAt(
-  "staked-nusd/StakingRewardsDistributor",
+  "staked-narausd/StakingRewardsDistributor",
   "YOUR_DISTRIBUTOR_ADDRESS",
 );
 
-// Transfer nUSD to distributor
+// Transfer naraUSD to distributor
 const rewardsAmount = ethers.utils.parseEther("10");
-await nusd.transfer(distributor.address, rewardsAmount);
+await narausd.transfer(distributor.address, rewardsAmount);
 
 // Distribute rewards (must be called by OPERATOR_ADDRESS)
 await distributor.transferInRewards(rewardsAmount);
@@ -188,8 +188,8 @@ DEPLOYMENT COMPLETE ✅
 
 📦 Deployed Contracts:
    MultiCollateralToken: 0x1234...
-   nUSD: 0x5678...
-   StakednUSD: 0x9abc...
+   naraUSD: 0x5678...
+   StakedNaraUSD: 0x9abc...
    StakingRewardsDistributor: 0xdef0...
 
 ⚙️  Configuration:
@@ -200,9 +200,9 @@ DEPLOYMENT COMPLETE ✅
    Max Redeem/Block: 1000000000000000000000000
 
 🔑 Granted Roles:
-   MCT.MINTER_ROLE → nUSD
-   StakednUSD.REWARDER_ROLE → StakingRewardsDistributor
-   StakednUSD.BLACKLIST_MANAGER_ROLE → Admin
+   MCT.MINTER_ROLE → naraUSD
+   StakedNaraUSD.REWARDER_ROLE → StakingRewardsDistributor
+   StakedNaraUSD.BLACKLIST_MANAGER_ROLE → Admin
 ```
 
 ---
@@ -223,7 +223,7 @@ Run these commands to verify each contract on Arbiscan.
 
 ## 🌐 Add Cross-Chain Support (Optional)
 
-To enable cross-chain nUSD and snUSD:
+To enable cross-chain naraUSD and snaraUSD:
 
 ### 1. Configuration
 
@@ -240,13 +240,13 @@ You can update spoke chains and other settings in these files.
 
 ```bash
 # On Arbitrum Sepolia (hub)
-# 1) Deploy nUSD OFT infra (deploys nUSDOFTAdapter and nUSDComposer on hub)
+# 1) Deploy naraUSD OFT infra (deploys NaraUSDOFTAdapter and NaraUSDComposer on hub)
 DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
-# 2) Deploy StakednUSD OFT adapter on hub (required for StakednUSDComposer)
-DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft
+# 2) Deploy StakedNaraUSD OFT adapter on hub (required for StakedNaraUSDComposer)
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags staked-narausd-oft
 
-# 3) Re-run ovault on hub to deploy StakednUSDComposer once the adapter exists
+# 3) Re-run ovault on hub to deploy StakedNaraUSDComposer once the adapter exists
 DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Base Sepolia (spoke)
@@ -258,16 +258,16 @@ DEPLOY_ENV=testnet npx hardhat deploy --network base-sepolia --tags ovault
 ```bash
 # On Arbitrum (hub)
 DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
-DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags staked-nusd-oft
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags staked-narausd-oft
 DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
 
 # On Base (spoke)
 DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags ovault
-DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags staked-nusd-oft
+DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags staked-narausd-oft
 
 # On Ethereum (spoke)
 DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags ovault
-DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags staked-nusd-oft
+DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags staked-narausd-oft
 ```
 
 ### 3. Wire LayerZero Peers
@@ -277,21 +277,21 @@ Update the contract addresses in respective config files. Then, run these comman
 **Testnet:**
 
 ```bash
-# nUSD peers (hub adapter ↔ spoke OFT)
-DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
+# naraUSD peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd.config.ts
 
-# snUSD peers (hub adapter ↔ spoke OFT)
-DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
+# snaraUSD peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.snarausd.config.ts
 ```
 
 **Mainnet:**
 
 ```bash
-# nUSD peers (hub adapter ↔ spoke OFT)
-DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.nusd.config.ts
+# naraUSD peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd.config.ts
 
-# snUSD peers (hub adapter ↔ spoke OFT)
-DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.snusd.config.ts
+# snaraUSD peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.snarausd.config.ts
 ```
 
 ---
@@ -311,9 +311,9 @@ await mct.addSupportedAsset("0xNewAssetAddress...");
 ### Update Rate Limits
 
 ```javascript
-const nusd = await ethers.getContractAt("nusd/nUSD", "NUSD_ADDRESS");
-await nusd.setMaxMintPerBlock(ethers.utils.parseEther("2000000"));
-await nusd.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
+const narausd = await ethers.getContractAt("narausd/NaraUSD", "NARAUSD_ADDRESS");
+await narausd.setMaxMintPerBlock(ethers.utils.parseEther("2000000"));
+await narausd.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
 ```
 
 ### Emergency Disable Mint/Redeem
@@ -322,17 +322,17 @@ await nusd.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
 const GATEKEEPER_ROLE = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes("GATEKEEPER_ROLE"),
 );
-await nusd.grantRole(GATEKEEPER_ROLE, "GATEKEEPER_ADDRESS");
+await narausd.grantRole(GATEKEEPER_ROLE, "GATEKEEPER_ADDRESS");
 
 // As gatekeeper
-await nusd.disableMintRedeem();
+await narausd.disableMintRedeem();
 ```
 
 ### Change Rewards Operator
 
 ```javascript
 const distributor = await ethers.getContractAt(
-  "staked-nusd/StakingRewardsDistributor",
+  "staked-narausd/StakingRewardsDistributor",
   "DISTRIBUTOR_ADDRESS",
 );
 await distributor.setOperator("NEW_OPERATOR_ADDRESS");
@@ -379,7 +379,7 @@ npx hardhat deploy --network arbitrum-sepolia --reset
 2. ✅ Verify on Arbiscan
 3. ✅ Test minting and staking
 4. 📖 Read [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for production deployment
-5. 📖 Read [STAKED_NUSD_INTEGRATION.md](./STAKED_NUSD_INTEGRATION.md) for details
+5. 📖 Read [STAKED_NARAUSD_INTEGRATION.md](./STAKED_NARAUSD_INTEGRATION.md) for details
 6. 🌐 Deploy OFT infrastructure for cross-chain support
 
 ---
@@ -395,8 +395,8 @@ npx hardhat deploy --network arbitrum-sepolia --reset
 **Understanding the System?**
 
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - Overview
-- [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - nUSD details
-- [STAKED_NUSD_INTEGRATION.md](./STAKED_NUSD_INTEGRATION.md) - Staking details
+- [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - naraUSD details
+- [STAKED_NARAUSD_INTEGRATION.md](./STAKED_NARAUSD_INTEGRATION.md) - Staking details
 
 ---
 

@@ -86,21 +86,21 @@ The StakedNaraUSD system allows users to stake naraUSD tokens and earn rewards. 
 
 ```solidity
 // User approves naraUSD
-narausd.approve(stakednaraUSD, amount);
+narausd.approve(stakedNaraUSD, amount);
 
 // User deposits naraUSD to receive snaraUSD
-stakednaraUSD.deposit(amount, userAddress);
+stakedNaraUSD.deposit(amount, userAddress);
 // OR
-stakednaraUSD.mint(shares, userAddress);
+stakedNaraUSD.mint(shares, userAddress);
 ```
 
 ### Flow 2: Unstake snaraUSD (Hub Chain)
 
 ```solidity
 // User redeems snaraUSD for naraUSD
-stakednaraUSD.redeem(shares, userAddress, userAddress);
+stakedNaraUSD.redeem(shares, userAddress, userAddress);
 // OR
-stakednaraUSD.withdraw(assets, userAddress, userAddress);
+stakedNaraUSD.withdraw(assets, userAddress, userAddress);
 ```
 
 ### Flow 3A: Cross-Chain Staking via Compose Message (Recommended) ⭐
@@ -216,7 +216,7 @@ const sendParam = {
     oftCmd: '0x'
 };
 
-await stakedNusdOFT.send(sendParam, { value: nativeFee });
+await stakedNaraUSDOFT.send(sendParam, { value: nativeFee });
 ```
 
 ### Flow 5: Automated Rewards Distribution
@@ -232,7 +232,7 @@ distributor.transferInRewards(rewardsAmount);
 ### Step 1: Deploy StakedNaraUSD on Hub Chain
 
 ```solidity
-StakedNaraUSD stakednaraUSD = new StakedNaraUSD(
+StakedNaraUSD stakedNaraUSD = new StakedNaraUSD(
     IERC20(narausdAddress),      // naraUSD token
     rewarderAddress,           // Initial rewarder
     adminAddress               // Admin (multisig)
@@ -243,7 +243,7 @@ StakedNaraUSD stakednaraUSD = new StakedNaraUSD(
 
 ```solidity
 StakingRewardsDistributor distributor = new StakingRewardsDistributor(
-    stakednaraUSD,                // Staking vault
+    stakedNaraUSD,                // Staking vault
     IERC20(narausdAddress),       // naraUSD token
     adminAddress,              // Admin (multisig)
     operatorAddress            // Operator (bot)
@@ -251,14 +251,14 @@ StakingRewardsDistributor distributor = new StakingRewardsDistributor(
 
 // Grant REWARDER_ROLE to distributor
 const REWARDER_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('REWARDER_ROLE'));
-await stakednaraUSD.grantRole(REWARDER_ROLE, distributor.address);
+await stakedNaraUSD.grantRole(REWARDER_ROLE, distributor.address);
 ```
 
 ### Step 3: Deploy StakedNaraUSDOFTAdapter (Hub)
 
 ```solidity
-StakedNaraUSDOFTAdapter stakedNusdAdapter = new StakedNaraUSDOFTAdapter(
-    stakednaraUSD.address,        // snaraUSD token
+StakedNaraUSDOFTAdapter stakedNaraUSDAdapter = new StakedNaraUSDOFTAdapter(
+    stakedNaraUSD.address,        // snaraUSD token
     LZ_ENDPOINT_HUB,           // LayerZero endpoint
     adminAddress               // Delegate
 );
@@ -269,7 +269,7 @@ StakedNaraUSDOFTAdapter stakedNusdAdapter = new StakedNaraUSDOFTAdapter(
 For each spoke chain:
 
 ```solidity
-StakedNaraUSDOFT stakedNusdOFT = new StakedNaraUSDOFT(
+StakedNaraUSDOFT stakedNaraUSDOFT = new StakedNaraUSDOFT(
     LZ_ENDPOINT_SPOKE,         // LayerZero endpoint
     adminAddress               // Delegate
 );
@@ -279,10 +279,10 @@ StakedNaraUSDOFT stakedNusdOFT = new StakedNaraUSDOFT(
 
 ```solidity
 // On Hub: Connect adapter to spoke OFTs
-await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT_spoke.address));
+await stakedNaraUSDAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNaraUSDOFT_spoke.address));
 
 // On Spoke: Connect OFT to hub adapter
-await stakedNusdOFT_spoke.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.address));
+await stakedNaraUSDOFT_spoke.setPeer(HUB_EID, addressToBytes32(stakedNaraUSDAdapter.address));
 ```
 
 ## Roles and Permissions
@@ -422,7 +422,7 @@ await distributor.setOperator(ZERO_ADDRESS);
 await distributor.rescueTokens(token, recipient, amount);
 
 // 3. Redistribute locked amounts if needed
-await stakednaraUSD.redistributeLockedAmount(restrictedUser, newOwner);
+await stakedNaraUSD.redistributeLockedAmount(restrictedUser, newOwner);
 ```
 
 ## Differences from Original StakedNaraUSD

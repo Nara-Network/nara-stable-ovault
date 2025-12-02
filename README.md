@@ -28,8 +28,8 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 | --------------------------------------------------------------- | ----------------------------------------------------------- |
 | **[Quick Start](./DEPLOYMENT_QUICK_START.md)**                  | 🎯 Deploy complete system on Arbitrum Sepolia (recommended) |
 | **[Cross-Chain Deployment](./docs/CROSS_CHAIN_DEPLOYMENT.md)**  | 🌐 Deploy OFT infrastructure for omnichain functionality    |
-| **[naraUSD Integration](./docs/NUSD_INTEGRATION.md)**              | 🏦 naraUSD + MCT vault architecture and admin flows            |
-| **[StakedNaraUSD Integration](./docs/STAKED_NUSD_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns                |
+| **[naraUSD Integration](./docs/NARAUSD_INTEGRATION.md)**              | 🏦 naraUSD + MCT vault architecture and admin flows            |
+| **[StakedNaraUSD Integration](./docs/STAKED_NARAUSD_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns                |
 | **[Project Structure](./docs/PROJECT_STRUCTURE.md)**            | 📁 System architecture and contract overview                |
 | **[LayerZero OVault Guide](./docs/LAYERZERO_OVAULT_GUIDE.md)**  | 🔧 Advanced LayerZero integration details                   |
 
@@ -165,8 +165,8 @@ await stargateUSDC.send(
 
 ```javascript
 // Stake 50 naraUSD to receive snaraUSD
-await narausd.approve(stakedNusd.address, ethers.utils.parseEther("50"));
-await stakedNusd.deposit(ethers.utils.parseEther("50"), yourAddress);
+await narausd.approve(stakedNaraUSD.address, ethers.utils.parseEther("50"));
+await stakedNaraUSD.deposit(ethers.utils.parseEther("50"), yourAddress);
 ```
 
 ### Redeem naraUSD (with Cooldown)
@@ -188,12 +188,12 @@ await narausd.cancelRedeem();
 
 ```javascript
 // Step 1: Start cooldown
-await stakedNusd.cooldownShares(ethers.utils.parseEther("50"));
+await stakedNaraUSD.cooldownShares(ethers.utils.parseEther("50"));
 
 // Step 2: Wait 90 days...
 
 // Step 3: Claim naraUSD
-await stakedNusd.unstake(yourAddress);
+await stakedNaraUSD.unstake(yourAddress);
 ```
 
 ---

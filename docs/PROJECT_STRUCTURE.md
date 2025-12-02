@@ -158,10 +158,10 @@ narausd.mintWithCollateral(usdcAddress, amount);
 
 ```solidity
 // 1. Approve naraUSD to StakedNaraUSD contract
-narausd.approve(stakednaraUSD, amount);
+narausd.approve(stakedNaraUSD, amount);
 
 // 2. Deposit to receive snaraUSD
-stakednaraUSD.deposit(amount, userAddress);
+stakedNaraUSD.deposit(amount, userAddress);
 // Result: naraUSD → snaraUSD (earning rewards)
 ```
 
@@ -179,7 +179,7 @@ const sendParam = {
     oftCmd: '0x'
 };
 
-await stakedNusdOFTAdapter.send(sendParam, { value: nativeFee });
+await stakedNaraUSDOFTAdapter.send(sendParam, { value: nativeFee });
 ```
 
 ### Flow 4: Complete Omnichain Flow
@@ -229,7 +229,7 @@ Bridge back to Hub
 4. **Deploy StakedNaraUSD**
 
    ```solidity
-   StakedNaraUSD stakednaraUSD = new StakedNaraUSD(
+   StakedNaraUSD stakedNaraUSD = new StakedNaraUSD(
        narausd,
        rewarder,
        admin
@@ -240,7 +240,7 @@ Bridge back to Hub
 
    ```solidity
    StakingRewardsDistributor distributor = new StakingRewardsDistributor(
-       stakednaraUSD,
+       stakedNaraUSD,
        narausd,
        admin,
        operator
@@ -250,7 +250,7 @@ Bridge back to Hub
 6. **Grant REWARDER_ROLE**
 
    ```solidity
-   await stakednaraUSD.grantRole(REWARDER_ROLE, distributor.address);
+   await stakedNaraUSD.grantRole(REWARDER_ROLE, distributor.address);
    ```
 
 7. **Deploy OFT Adapters (Lockbox)**
@@ -258,7 +258,7 @@ Bridge back to Hub
    ```solidity
    MCTOFTAdapter mctAdapter = new MCTOFTAdapter(mct, lzEndpoint, admin);
    NaraUSDOFTAdapter narausdAdapter = new NaraUSDOFTAdapter(narausd, lzEndpoint, admin);
-   StakedNaraUSDOFTAdapter stakedNusdAdapter = new StakedNaraUSDOFTAdapter(stakednaraUSD, lzEndpoint, admin);
+   StakedNaraUSDOFTAdapter stakedNaraUSDAdapter = new StakedNaraUSDOFTAdapter(stakedNaraUSD, lzEndpoint, admin);
    ```
 
 8. **Deploy Composer**
@@ -274,17 +274,17 @@ For each spoke chain:
 // 1. Deploy OFTs (Mint/Burn)
 MCTOFT mctOFT = new MCTOFT(lzEndpoint, admin);
 NaraUSDOFT narausdOFT = new NaraUSDOFT(lzEndpoint, admin);
-StakedNaraUSDOFT stakedNusdOFT = new StakedNaraUSDOFT(lzEndpoint, admin);
+StakedNaraUSDOFT stakedNaraUSDOFT = new StakedNaraUSDOFT(lzEndpoint, admin);
 
 // 2. Set peers to hub adapters
 await mctOFT.setPeer(HUB_EID, addressToBytes32(mctAdapter.address));
 await narausdOFT.setPeer(HUB_EID, addressToBytes32(narausdAdapter.address));
-await stakedNusdOFT.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.address));
+await stakedNaraUSDOFT.setPeer(HUB_EID, addressToBytes32(stakedNaraUSDAdapter.address));
 
 // 3. Set peers on hub to spoke OFTs
 await mctAdapter.setPeer(SPOKE_EID, addressToBytes32(mctOFT.address));
 await narausdAdapter.setPeer(SPOKE_EID, addressToBytes32(narausdOFT.address));
-await stakedNusdAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNusdOFT.address));
+await stakedNaraUSDAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNaraUSDOFT.address));
 ```
 
 ---
