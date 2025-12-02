@@ -8,11 +8,11 @@ import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTCom
 import { IOFT, SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { IVaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/interfaces/IVaultComposerSync.sol";
 
-interface InUSD {
+interface INaraUSD {
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external returns (uint256 nUSDAmount);
+    ) external returns (uint256 naraUSDAmount);
 
     function hasValidCredentials(address account) external view returns (bool);
 
@@ -23,27 +23,27 @@ interface InUSD {
 error UnauthorizedSender(address sender);
 
 /**
- * @title nUSDComposer
- * @notice Composer that enables cross-chain nUSD minting via collateral deposits
+ * @title NaraUSDComposer
+ * @notice Composer that enables cross-chain naraUSD minting via collateral deposits
  *
  * @dev Overview:
  * This composer allows users to deposit collateral (USDC/USDT) on any chain and receive
- * nUSD shares on any destination chain in a single transaction.
+ * naraUSD shares on any destination chain in a single transaction.
  *
  * User Flow:
  * 1. User sends collateral (USDC) from spoke chain via Stargate/collateral OFT
- * 2. nUSDComposer receives collateral on hub chain via lzCompose
- * 3. Composer calls nUSD.mintWithCollateral(collateralAsset, amount)
- * 4. nUSD internally manages MCT (MultiCollateralToken) - user never sees it
- * 5. Composer sends nUSD shares cross-chain via SHARE_OFT (nUSDOFTAdapter)
- * 6. User receives nUSD on destination chain
+ * 2. NaraUSDComposer receives collateral on hub chain via lzCompose
+ * 3. Composer calls naraUSD.mintWithCollateral(collateralAsset, amount)
+ * 4. naraUSD internally manages MCT (MultiCollateralToken) - user never sees it
+ * 5. Composer sends naraUSD shares cross-chain via SHARE_OFT (NaraUSDOFTAdapter)
+ * 6. User receives naraUSD on destination chain
  *
  * @dev IMPORTANT - ASSET_OFT Parameter (Validation Only):
  *
  * This contract inherits from VaultComposerSync which requires an ASSET_OFT parameter
  * that must satisfy: ASSET_OFT.token() == VAULT.asset()
  *
- * For nUSD vault:
+ * For naraUSD vault:
  * - VAULT.asset() = MCT (MultiCollateralToken)
  * - Therefore ASSET_OFT must be MCTOFTAdapter
  * - BUT: MCT NEVER goes cross-chain! It's hub-only and invisible to users.
@@ -54,7 +54,7 @@ error UnauthorizedSender(address sender);
  * Actual Flow Uses:
  * ✅ collateralAsset - What users actually deposit (USDC/USDT)
  * ✅ collateralAssetOFT - For cross-chain collateral (Stargate USDC OFT)
- * ✅ SHARE_OFT - For sending nUSD cross-chain (nUSDOFTAdapter)
+ * ✅ SHARE_OFT - For sending naraUSD cross-chain (NaraUSDOFTAdapter)
  * ❌ ASSET_OFT - Only for validation, never used in operations
  *
  * See _depositCollateralAndSend() for the actual deposit logic that uses
@@ -63,7 +63,7 @@ error UnauthorizedSender(address sender);
  * @custom:security MCT stays on hub chain only, ASSET_OFT is not used for cross-chain
  * @custom:note See MCTOFTAdapter.sol and WHY_MCTOFT_ADAPTER_EXISTS.md for details
  */
-contract nUSDComposer is VaultComposerSync {
+contract NaraUSDComposer is VaultComposerSync {
     using SafeERC20 for IERC20;
     using OFTComposeMsgCodec for bytes;
 
@@ -75,9 +75,9 @@ contract nUSDComposer is VaultComposerSync {
     event Error(bytes errorData);
 
     /**
-     * @notice Creates a new nUSDComposer for cross-chain nUSD minting
+     * @notice Creates a new NaraUSDComposer for cross-chain naraUSD minting
      *
-     * @param _vault The nUSD vault contract implementing ERC4626
+     * @param _vault The naraUSD vault contract implementing ERC4626
      *
      * @param _assetOFT VALIDATION ONLY - MCTOFTAdapter that satisfies vault.asset() check
      *                  This is NEVER used for actual cross-chain operations!
@@ -85,8 +85,8 @@ contract nUSDComposer is VaultComposerSync {
      *                  Passed only to satisfy VaultComposerSync constructor validation.
      *                  See contract-level documentation for detailed explanation.
      *
-     * @param _shareOFT The nUSD OFT adapter for cross-chain share transfers (ACTUALLY USED)
-     *                  This is what sends nUSD cross-chain to users.
+     * @param _shareOFT The naraUSD OFT adapter for cross-chain share transfers (ACTUALLY USED)
+     *                  This is what sends naraUSD cross-chain to users.
      *
      * @param _collateralAsset The collateral token users deposit (e.g., USDC, USDT)
      *                         This is what users actually send and deposit.
@@ -116,9 +116,9 @@ contract nUSDComposer is VaultComposerSync {
      *      Note: Does NOT use ASSET_OFT (MCT). Uses collateralAsset instead.
      *
      * Flow:
-     * 1. Approve nUSD to pull collateral
-     * 2. Call nUSD.mintWithCollateral(collateralAsset, amount) - MCT handled internally
-     * 3. Receive nUSD shares
+     * 1. Approve naraUSD to pull collateral
+     * 2. Call naraUSD.mintWithCollateral(collateralAsset, amount) - MCT handled internally
+     * 3. Receive naraUSD shares
      * 4. Send shares cross-chain via SHARE_OFT (not ASSET_OFT!)
      *
      * @param _depositor The address requesting the deposit
@@ -134,17 +134,17 @@ contract nUSDComposer is VaultComposerSync {
     ) internal {
         // Check if original sender has valid Keyring credentials
         address originalSender = address(uint160(uint256(_depositor)));
-        if (!InUSD(address(VAULT)).hasValidCredentials(originalSender)) {
+        if (!INaraUSD(address(VAULT)).hasValidCredentials(originalSender)) {
             revert UnauthorizedSender(originalSender);
         }
-        if (InUSD(address(VAULT)).isBlacklisted(originalSender)) {
+        if (INaraUSD(address(VAULT)).isBlacklisted(originalSender)) {
             revert UnauthorizedSender(originalSender);
         }
 
-        // Approve nUSD to pull collateral from this composer
+        // Approve naraUSD to pull collateral from this composer
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);
-        // Mint nUSD to this contract
-        uint256 shareAmount = InUSD(address(VAULT)).mintWithCollateral(collateralAsset, _assetAmount);
+        // Mint naraUSD to this contract
+        uint256 shareAmount = INaraUSD(address(VAULT)).mintWithCollateral(collateralAsset, _assetAmount);
         _assertSlippage(shareAmount, _sendParam.minAmountLD);
 
         _sendParam.amountLD = shareAmount;

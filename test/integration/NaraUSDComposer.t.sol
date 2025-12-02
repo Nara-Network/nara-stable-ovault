@@ -8,11 +8,11 @@ import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Opti
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /**
- * @title nUSDComposerTest
- * @notice Integration tests for nUSDComposer cross-chain minting functionality
- * @dev Tests the full flow: deposit collateral -> mint nUSD -> send cross-chain
+ * @title NaraUSDComposerTest
+ * @notice Integration tests for NaraUSDComposer cross-chain minting functionality
+ * @dev Tests the full flow: deposit collateral -> mint naraUSD -> send cross-chain
  */
-contract nUSDComposerTest is TestHelper {
+contract NaraUSDComposerTest is TestHelper {
     using OFTComposeMsgCodec for bytes;
     using OptionsBuilder for bytes;
 
@@ -25,15 +25,15 @@ contract nUSDComposerTest is TestHelper {
      */
     function test_Setup() public {
         _switchToHub();
-        assertEq(address(nusdComposer.VAULT()), address(nusd));
+        assertEq(address(nusdComposer.VAULT()), address(naraUSD));
         assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter)); // MCT is vault's underlying asset
-        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter)); // nUSD goes cross-chain
+        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter)); // naraUSD goes cross-chain
         assertEq(nusdComposer.collateralAsset(), address(usdc));
     }
 
     /**
      * @notice Test local deposit then cross-chain send (MCT stays on hub)
-     * @dev Since MCT doesn't go cross-chain, we deposit locally then send nUSD
+     * @dev Since MCT doesn't go cross-chain, we deposit locally then send naraUSD
      */
     function test_LocalDepositThenCrossChain() public {
         uint256 mctAmount = 100e18;
@@ -41,14 +41,14 @@ contract nUSDComposerTest is TestHelper {
 
         _switchToHub();
 
-        // Step 1: Alice deposits MCT locally to get nUSD
+        // Step 1: Alice deposits MCT locally to get naraUSD
         vm.startPrank(alice);
-        mct.approve(address(nusd), mctAmount);
-        uint256 nusdReceived = nusd.deposit(mctAmount, alice);
-        assertEq(nusdReceived, expectedNusd, "Should receive expected nUSD");
+        mct.approve(address(naraUSD), mctAmount);
+        uint256 nusdReceived = naraUSD.deposit(mctAmount, alice);
+        assertEq(nusdReceived, expectedNusd, "Should receive expected naraUSD");
 
-        // Step 2: Alice sends nUSD cross-chain to Bob on spoke
-        nusd.approve(address(nusdAdapter), nusdReceived);
+        // Step 2: Alice sends naraUSD cross-chain to Bob on spoke
+        naraUSD.approve(address(nusdAdapter), nusdReceived);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdReceived);
         MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
         nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -57,9 +57,9 @@ contract nUSDComposerTest is TestHelper {
         // Deliver packet to SPOKE chain at nusdOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
-        // Check spoke chain - bob should have nUSD
+        // Check spoke chain - bob should have naraUSD
         _switchToSpoke();
-        assertEq(nusdOFT.balanceOf(bob), nusdReceived, "Bob should have nUSD on spoke");
+        assertEq(nusdOFT.balanceOf(bob), nusdReceived, "Bob should have naraUSD on spoke");
     }
 
     /**
@@ -68,9 +68,9 @@ contract nUSDComposerTest is TestHelper {
      *      without a Stargate USDC OFT integration. The flow would be:
      *
      *      1. User on spoke chain calls stargateUSDC.send() with compose message
-     *      2. USDC arrives on hub, lzCompose() called on nUSDComposer
-     *      3. nUSDComposer._depositCollateralAndSend() mints nUSD from USDC
-     *      4. nUSD sent back to user on spoke chain
+     *      2. USDC arrives on hub, lzCompose() called on NaraUSDComposer
+     *      3. NaraUSDComposer._depositCollateralAndSend() mints naraUSD from USDC
+     *      4. naraUSD sent back to user on spoke chain
      *
      *      Current test setup only has mock USDC, not Stargate USDC OFT.
      *      Full integration test requires Stargate testnet/mainnet deployment.
@@ -81,20 +81,20 @@ contract nUSDComposerTest is TestHelper {
         // Step 1: User has USDC on spoke (e.g., Base)
         // Step 2: User calls stargateUSDC.send() with:
         //   - Destination: Hub chain (Arbitrum)
-        //   - To: nUSDComposer address
+        //   - To: NaraUSDComposer address
         //   - Amount: USDC amount
-        //   - ComposeMsg: abi.encode(SendParam for nUSD return, minMsgValue)
+        //   - ComposeMsg: abi.encode(SendParam for naraUSD return, minMsgValue)
 
         // Step 3: On hub chain, LayerZero endpoint calls:
-        //   nUSDComposer.lzCompose(stargateUSDC, guid, message)
+        //   NaraUSDComposer.lzCompose(stargateUSDC, guid, message)
 
-        // Step 4: nUSDComposer executes:
-        //   a) Approves USDC to nUSD
-        //   b) Calls nUSD.mintWithCollateral(USDC, amount)
-        //   c) Receives nUSD
-        //   d) Calls nusdAdapter.send() to return nUSD to spoke
+        // Step 4: NaraUSDComposer executes:
+        //   a) Approves USDC to naraUSD
+        //   b) Calls naraUSD.mintWithCollateral(USDC, amount)
+        //   c) Receives naraUSD
+        //   d) Calls nusdAdapter.send() to return naraUSD to spoke
 
-        // Step 5: User receives nUSD on spoke chain
+        // Step 5: User receives naraUSD on spoke chain
 
         // For actual testing, see:
         // - test_LocalDepositThenCrossChain() - tests local mint + send
@@ -113,14 +113,14 @@ contract nUSDComposerTest is TestHelper {
 
         _switchToHub();
 
-        // Deposit MCT into nUSD vault first
+        // Deposit MCT into naraUSD vault first
         vm.startPrank(alice);
-        mct.approve(address(nusd), mctAmount);
-        uint256 nusdReceived = nusd.deposit(mctAmount, alice);
-        assertEq(nusdReceived, expectedNusd, "Should receive expected nUSD");
+        mct.approve(address(naraUSD), mctAmount);
+        uint256 nusdReceived = naraUSD.deposit(mctAmount, alice);
+        assertEq(nusdReceived, expectedNusd, "Should receive expected naraUSD");
 
-        // Now send nUSD cross-chain via adapter
-        nusd.approve(address(nusdAdapter), nusdReceived);
+        // Now send naraUSD cross-chain via adapter
+        naraUSD.approve(address(nusdAdapter), nusdReceived);
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdReceived);
         MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
@@ -132,14 +132,14 @@ contract nUSDComposerTest is TestHelper {
         verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
         _switchToSpoke();
-        assertEq(nusdOFT.balanceOf(bob), nusdReceived, "Bob should have nUSD on spoke");
+        assertEq(nusdOFT.balanceOf(bob), nusdReceived, "Bob should have naraUSD on spoke");
     }
 
     /**
-     * @notice Test cross-chain redeem: send nUSD from spoke, receive MCT on hub
+     * @notice Test cross-chain redeem: send naraUSD from spoke, receive MCT on hub
      */
     function test_CrossChainRedeem() public {
-        // First, get some nUSD on spoke
+        // First, get some naraUSD on spoke
         test_LocalDepositAndSend();
 
         uint256 nusdAmount = 50e18;
@@ -147,7 +147,7 @@ contract nUSDComposerTest is TestHelper {
 
         _switchToSpoke();
 
-        // Bob sends nUSD back to hub to redeem for MCT
+        // Bob sends naraUSD back to hub to redeem for MCT
         vm.startPrank(bob);
 
         // Build send param for redemption
@@ -195,11 +195,11 @@ contract nUSDComposerTest is TestHelper {
             uint256 amount = i * 10e18;
 
             // Direct deposit on hub
-            mct.approve(address(nusd), amount);
-            uint256 nusdAmount = nusd.deposit(amount, alice);
+            mct.approve(address(naraUSD), amount);
+            uint256 nusdAmount = naraUSD.deposit(amount, alice);
 
             // Send to spoke
-            nusd.approve(address(nusdAdapter), nusdAmount);
+            naraUSD.approve(address(nusdAdapter), nusdAmount);
             SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdAmount);
             MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
 
@@ -210,7 +210,7 @@ contract nUSDComposerTest is TestHelper {
 
         _switchToSpoke();
         uint256 expectedTotal = 10e18 + 20e18 + 30e18 + 40e18 + 50e18;
-        assertEq(nusdOFT.balanceOf(bob), expectedTotal, "Bob should have all nUSD");
+        assertEq(nusdOFT.balanceOf(bob), expectedTotal, "Bob should have all naraUSD");
     }
 
     /**
@@ -223,10 +223,10 @@ contract nUSDComposerTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        mct.approve(address(nusd), mctAmount);
-        uint256 nusdAmount = nusd.deposit(mctAmount, alice);
+        mct.approve(address(naraUSD), mctAmount);
+        uint256 nusdAmount = naraUSD.deposit(mctAmount, alice);
 
-        nusd.approve(address(nusdAdapter), nusdAmount);
+        naraUSD.approve(address(nusdAdapter), nusdAmount);
 
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,
@@ -258,16 +258,16 @@ contract nUSDComposerTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        mct.approve(address(nusd), mctAmount);
+        mct.approve(address(naraUSD), mctAmount);
 
         uint256 aliceMctBefore = mct.balanceOf(alice);
-        uint256 aliceNusdBefore = nusd.balanceOf(alice);
-        uint256 nusdReceived = nusd.deposit(mctAmount, alice);
+        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        uint256 nusdReceived = naraUSD.deposit(mctAmount, alice);
         uint256 aliceMctAfter = mct.balanceOf(alice);
 
         assertEq(aliceMctBefore - aliceMctAfter, mctAmount, "MCT should be transferred");
-        assertEq(nusdReceived, mctAmount, "Should receive 1:1 nUSD for MCT");
-        assertEq(nusd.balanceOf(alice) - aliceNusdBefore, nusdReceived, "Alice should have additional nUSD");
+        assertEq(nusdReceived, mctAmount, "Should receive 1:1 naraUSD for MCT");
+        assertEq(naraUSD.balanceOf(alice) - aliceNusdBefore, nusdReceived, "Alice should have additional naraUSD");
         vm.stopPrank();
     }
 
@@ -279,22 +279,22 @@ contract nUSDComposerTest is TestHelper {
 
         _switchToHub();
 
-        // Mint nUSD with USDC collateral (so we have USDC to redeem back)
+        // Mint naraUSD with USDC collateral (so we have USDC to redeem back)
         vm.startPrank(alice);
-        usdc.approve(address(nusd), usdcAmount);
-        uint256 nusdReceived = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        usdc.approve(address(naraUSD), usdcAmount);
+        uint256 nusdReceived = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
 
         // Use cooldown-based redemption
-        nusd.cooldownRedeem(address(usdc), nusdReceived);
+        naraUSD.cooldownRedeem(address(usdc), nusdReceived);
 
         // Get cooldown info
-        (uint104 cooldownEnd, , ) = nusd.redemptionRequests(alice);
+        (uint104 cooldownEnd, , ) = naraUSD.redemptionRequests(alice);
 
         // Warp past cooldown
         vm.warp(cooldownEnd);
 
         // Complete redeem
-        uint256 collateralReceived = nusd.completeRedeem();
+        uint256 collateralReceived = naraUSD.completeRedeem();
 
         assertGt(collateralReceived, 0, "Should receive collateral");
         vm.stopPrank();
@@ -305,21 +305,21 @@ contract nUSDComposerTest is TestHelper {
      */
     function test_MintWithCollateral() public {
         uint256 usdcAmount = 1000e6; // 1000 USDC
-        uint256 expectedNusd = 1000e18; // 1000 nUSD
+        uint256 expectedNusd = 1000e18; // 1000 naraUSD
 
         _switchToHub();
 
         vm.startPrank(alice);
-        usdc.approve(address(nusd), usdcAmount);
+        usdc.approve(address(naraUSD), usdcAmount);
 
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        uint256 aliceNusdBefore = nusd.balanceOf(alice);
-        uint256 nusdReceived = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        uint256 nusdReceived = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
         assertEq(aliceUsdcBefore - aliceUsdcAfter, usdcAmount, "USDC should be transferred");
-        assertEq(nusdReceived, expectedNusd, "Should mint expected nUSD");
-        assertEq(nusd.balanceOf(alice) - aliceNusdBefore, expectedNusd, "Alice should have additional nUSD");
+        assertEq(nusdReceived, expectedNusd, "Should mint expected naraUSD");
+        assertEq(naraUSD.balanceOf(alice) - aliceNusdBefore, expectedNusd, "Alice should have additional naraUSD");
         vm.stopPrank();
     }
 
@@ -331,18 +331,18 @@ contract nUSDComposerTest is TestHelper {
 
         // Test with USDC
         vm.startPrank(alice);
-        uint256 aliceNusdBefore = nusd.balanceOf(alice);
+        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
 
-        usdc.approve(address(nusd), 500e6);
-        uint256 nusdFromUsdc = nusd.mintWithCollateral(address(usdc), 500e6);
-        assertEq(nusdFromUsdc, 500e18, "Should mint 500 nUSD from USDC");
+        usdc.approve(address(naraUSD), 500e6);
+        uint256 nusdFromUsdc = naraUSD.mintWithCollateral(address(usdc), 500e6);
+        assertEq(nusdFromUsdc, 500e18, "Should mint 500 naraUSD from USDC");
 
         // Test with USDT
-        usdt.approve(address(nusd), 500e6);
-        uint256 nusdFromUsdt = nusd.mintWithCollateral(address(usdt), 500e6);
-        assertEq(nusdFromUsdt, 500e18, "Should mint 500 nUSD from USDT");
+        usdt.approve(address(naraUSD), 500e6);
+        uint256 nusdFromUsdt = naraUSD.mintWithCollateral(address(usdt), 500e6);
+        assertEq(nusdFromUsdt, 500e18, "Should mint 500 naraUSD from USDT");
 
-        assertEq(nusd.balanceOf(alice) - aliceNusdBefore, 1000e18, "Alice should have 1000 nUSD additional");
+        assertEq(naraUSD.balanceOf(alice) - aliceNusdBefore, 1000e18, "Alice should have 1000 naraUSD additional");
         vm.stopPrank();
     }
 
@@ -372,10 +372,10 @@ contract nUSDComposerTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        usdc.approve(address(nusd), usdcAmount);
+        usdc.approve(address(naraUSD), usdcAmount);
 
         vm.expectRevert();
-        nusd.mintWithCollateral(address(usdc), usdcAmount);
+        naraUSD.mintWithCollateral(address(usdc), usdcAmount);
         vm.stopPrank();
     }
 
@@ -389,10 +389,10 @@ contract nUSDComposerTest is TestHelper {
         unsupportedToken.mint(alice, 1000e6);
 
         vm.startPrank(alice);
-        unsupportedToken.approve(address(nusd), 1000e6);
+        unsupportedToken.approve(address(naraUSD), 1000e6);
 
         vm.expectRevert();
-        nusd.mintWithCollateral(address(unsupportedToken), 1000e6);
+        naraUSD.mintWithCollateral(address(unsupportedToken), 1000e6);
         vm.stopPrank();
     }
 
@@ -405,10 +405,10 @@ contract nUSDComposerTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        mct.approve(address(nusd), mctAmount);
-        uint256 nusdAmount = nusd.deposit(mctAmount, alice);
+        mct.approve(address(naraUSD), mctAmount);
+        uint256 nusdAmount = naraUSD.deposit(mctAmount, alice);
 
-        nusd.approve(address(nusdAdapter), nusdAmount);
+        naraUSD.approve(address(nusdAdapter), nusdAmount);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,
@@ -433,12 +433,12 @@ contract nUSDComposerTest is TestHelper {
             nusdOFT.balanceOf(bob),
             nusdAmount,
             nusdAmount / 1000,
-            "Bob should have ~correct nUSD amount"
+            "Bob should have ~correct naraUSD amount"
         );
     }
 
     /**
-     * @notice Test end-to-end flow: collateral -> nUSD -> cross-chain
+     * @notice Test end-to-end flow: collateral -> naraUSD -> cross-chain
      */
     function test_EndToEndFlow() public {
         uint256 usdcAmount = 1000e6;
@@ -446,14 +446,14 @@ contract nUSDComposerTest is TestHelper {
 
         _switchToHub();
 
-        // Step 1: Alice deposits USDC to mint nUSD
+        // Step 1: Alice deposits USDC to mint naraUSD
         vm.startPrank(alice);
-        usdc.approve(address(nusd), usdcAmount);
-        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(nusdAmount, expectedNusd, "Should mint expected nUSD");
+        usdc.approve(address(naraUSD), usdcAmount);
+        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
+        assertEq(nusdAmount, expectedNusd, "Should mint expected naraUSD");
 
-        // Step 2: Alice sends nUSD to Bob on spoke chain
-        nusd.approve(address(nusdAdapter), nusdAmount);
+        // Step 2: Alice sends naraUSD to Bob on spoke chain
+        naraUSD.approve(address(nusdAdapter), nusdAmount);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdAmount);
         MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
         nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -462,9 +462,9 @@ contract nUSDComposerTest is TestHelper {
         // Deliver packet to SPOKE chain at nusdOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(nusdOFT)));
 
-        // Step 3: Verify Bob has nUSD on spoke
+        // Step 3: Verify Bob has naraUSD on spoke
         _switchToSpoke();
-        assertEq(nusdOFT.balanceOf(bob), nusdAmount, "Bob should have nUSD on spoke");
+        assertEq(nusdOFT.balanceOf(bob), nusdAmount, "Bob should have naraUSD on spoke");
 
         // Step 4: Bob sends half back to alice on hub
         uint256 sendBackAmount = nusdAmount / 2;
@@ -477,8 +477,8 @@ contract nUSDComposerTest is TestHelper {
         // Deliver packet to HUB chain at nusdAdapter
         verifyPackets(HUB_EID, addressToBytes32(address(nusdAdapter)));
 
-        // Step 5: Verify Alice received nUSD back on hub
+        // Step 5: Verify Alice received naraUSD back on hub
         _switchToHub();
-        assertGe(nusd.balanceOf(alice), sendBackAmount, "Alice should have nUSD back");
+        assertGe(naraUSD.balanceOf(alice), sendBackAmount, "Alice should have naraUSD back");
     }
 }

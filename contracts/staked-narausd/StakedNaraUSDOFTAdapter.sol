@@ -5,15 +5,15 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
 
 /**
- * @title StakednUSDOFTAdapter
- * @notice OFT adapter for snUSD vault shares on hub chain (lockbox model)
+ * @title StakedNaraUSDOFTAdapter
+ * @notice OFT adapter for snaraUSD vault shares on hub chain (lockbox model)
  * @dev The share token MUST be an OFT adapter (lockbox) to maintain proper vault accounting
  * @dev A mint-burn adapter would not work since it transforms totalSupply()
  */
-contract StakednUSDOFTAdapter is OFTAdapter {
+contract StakedNaraUSDOFTAdapter is OFTAdapter {
     /**
-     * @notice Creates a new OFT adapter for snUSD vault shares
-     * @param _token The StakednUSD token address
+     * @notice Creates a new OFT adapter for snaraUSD vault shares
+     * @param _token The StakedNaraUSD token address
      * @param _lzEndpoint The LayerZero endpoint for this chain
      * @param _delegate The account with administrative privileges
      */

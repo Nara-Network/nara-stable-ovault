@@ -6,18 +6,18 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
 
 /**
- * @title StakednUSDOFT
- * @notice OFT for snUSD vault shares on spoke chains
- * @dev This is deployed on spoke chains to represent snUSD shares cross-chain
+ * @title NaraUSDOFT
+ * @notice OFT for naraUSD vault shares on spoke chains
+ * @dev This is deployed on spoke chains to represent naraUSD shares cross-chain
  */
-contract StakednUSDOFT is OFT, AccessControl {
+contract NaraUSDOFT is OFT, AccessControl {
     /* --------------- CONSTANTS --------------- */
 
     /// @notice Role that can blacklist and un-blacklist addresses
     bytes32 public constant BLACKLIST_MANAGER_ROLE = keccak256("BLACKLIST_MANAGER_ROLE");
 
     /// @notice Role that prevents an address from transferring
-    bytes32 public constant FULL_RESTRICTED_STAKER_ROLE = keccak256("FULL_RESTRICTED_STAKER_ROLE");
+    bytes32 public constant FULL_RESTRICTED_ROLE = keccak256("FULL_RESTRICTED_ROLE");
 
     /* --------------- ERRORS --------------- */
 
@@ -34,14 +34,11 @@ contract StakednUSDOFT is OFT, AccessControl {
     }
 
     /**
-     * @notice Constructs the snUSD Share OFT contract for spoke chains
+     * @notice Constructs the naraUSD Share OFT contract for spoke chains
      * @param _lzEndpoint The address of the LayerZero endpoint on this chain
      * @param _delegate The address that will have owner privileges
      */
-    constructor(
-        address _lzEndpoint,
-        address _delegate
-    ) OFT("Staked nUSD", "snUSD", _lzEndpoint, _delegate) Ownable(_delegate) {
+    constructor(address _lzEndpoint, address _delegate) OFT("naraUSD", "naraUSD", _lzEndpoint, _delegate) Ownable(_delegate) {
         _grantRole(DEFAULT_ADMIN_ROLE, _delegate);
         _grantRole(BLACKLIST_MANAGER_ROLE, _delegate);
     }
@@ -51,7 +48,7 @@ contract StakednUSDOFT is OFT, AccessControl {
      * @param target The address to blacklist
      */
     function addToBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
-        _grantRole(FULL_RESTRICTED_STAKER_ROLE, target);
+        _grantRole(FULL_RESTRICTED_ROLE, target);
     }
 
     /**
@@ -59,18 +56,18 @@ contract StakednUSDOFT is OFT, AccessControl {
      * @param target The address to un-blacklist
      */
     function removeFromBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) {
-        _revokeRole(FULL_RESTRICTED_STAKER_ROLE, target);
+        _revokeRole(FULL_RESTRICTED_ROLE, target);
     }
 
     /**
      * @dev Hook that is called before any transfer of tokens
-     * @dev Disables transfers from or to addresses with FULL_RESTRICTED_STAKER_ROLE
+     * @dev Disables transfers from or to addresses with FULL_RESTRICTED_ROLE
      */
     function _update(address from, address to, uint256 value) internal virtual override {
-        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, from)) {
+        if (hasRole(FULL_RESTRICTED_ROLE, from)) {
             revert OperationNotAllowed();
         }
-        if (hasRole(FULL_RESTRICTED_STAKER_ROLE, to)) {
+        if (hasRole(FULL_RESTRICTED_ROLE, to)) {
             revert OperationNotAllowed();
         }
 

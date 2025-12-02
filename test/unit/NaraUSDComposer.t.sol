@@ -2,24 +2,24 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { nUSDComposer } from "../../contracts/nusd/nUSDComposer.sol";
+import { NaraUSDComposer } from "../../contracts/narausd/NaraUSDComposer.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SendParam } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
 /**
- * @title nUSDComposerTest
- * @notice Unit tests for nUSDComposer contract
- * @dev Tests the custom compose logic for cross-chain nUSD minting with collateral
+ * @title NaraUSDComposerTest
+ * @notice Unit tests for NaraUSDComposer contract
+ * @dev Tests the custom compose logic for cross-chain naraUSD minting with collateral
  */
-contract nUSDComposerTest is TestHelper {
+contract NaraUSDComposerTest is TestHelper {
     /**
      * @notice Verify constructor sets up immutables correctly
      */
     function test_Constructor() public view {
-        assertEq(address(nusdComposer.VAULT()), address(nusd), "Vault should be nUSD");
+        assertEq(address(nusdComposer.VAULT()), address(naraUSD), "Vault should be naraUSD");
         assertEq(address(nusdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
-        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be nUSDOFTAdapter");
+        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be NaraUSDOFTAdapter");
         assertEq(nusdComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
         assertEq(nusdComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
         assertEq(address(nusdComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
@@ -43,22 +43,22 @@ contract nUSDComposerTest is TestHelper {
         uint256 depositAmount = 100e6; // 100 USDC
 
         // Grant composer MINTER_ROLE
-        nusd.grantRole(nusd.MINTER_ROLE(), address(nusdComposer));
+        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(nusdComposer));
 
         // Fund the composer with USDC (simulating cross-chain arrival)
         usdc.mint(address(nusdComposer), depositAmount);
 
         // Track balances
         uint256 composerUsdcBefore = usdc.balanceOf(address(nusdComposer));
-        uint256 composerNusdBefore = nusd.balanceOf(address(nusdComposer));
+        uint256 composerNusdBefore = naraUSD.balanceOf(address(nusdComposer));
 
-        // Approve nUSD to pull USDC from composer
+        // Approve naraUSD to pull USDC from composer
         vm.prank(address(nusdComposer));
-        usdc.approve(address(nusd), depositAmount);
+        usdc.approve(address(naraUSD), depositAmount);
 
-        // Mint nUSD with collateral (simulating what _depositCollateralAndSend does)
+        // Mint naraUSD with collateral (simulating what _depositCollateralAndSend does)
         vm.prank(address(nusdComposer));
-        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), depositAmount);
+        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), depositAmount);
 
         // Verify the flow
         assertEq(
@@ -66,11 +66,11 @@ contract nUSDComposerTest is TestHelper {
             composerUsdcBefore - depositAmount,
             "Composer should transfer USDC"
         );
-        assertGt(nusdAmount, 0, "Should mint nUSD");
+        assertGt(nusdAmount, 0, "Should mint naraUSD");
         assertEq(
-            nusd.balanceOf(address(nusdComposer)),
+            naraUSD.balanceOf(address(nusdComposer)),
             composerNusdBefore + nusdAmount,
-            "Composer should receive nUSD"
+            "Composer should receive naraUSD"
         );
     }
 
@@ -117,11 +117,11 @@ contract nUSDComposerTest is TestHelper {
     }
 
     /**
-     * @notice Test that SHARE_OFT (nUSDOFTAdapter) is accepted as compose sender
+     * @notice Test that SHARE_OFT (NaraUSDOFTAdapter) is accepted as compose sender
      */
     function test_LzCompose_AcceptsShareOFT() public view {
         // SHARE_OFT should be in the valid senders list
-        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be nUSDOFTAdapter");
+        assertEq(address(nusdComposer.SHARE_OFT()), address(nusdAdapter), "SHARE_OFT should be NaraUSDOFTAdapter");
     }
 
     /**
@@ -165,7 +165,7 @@ contract nUSDComposerTest is TestHelper {
      * @notice Test that collateral is approved to vault for minting
      */
     function test_CollateralApproval() public view {
-        // Composer should have approval set for USDC -> nUSD
+        // Composer should have approval set for USDC -> naraUSD
         // This is set during _depositCollateralAndSend via forceApprove
         // We can't directly test internal function, but we verify the pattern in integration tests
         assertTrue(address(nusdComposer.collateralAsset()) == address(usdc), "Collateral should be USDC");
@@ -180,19 +180,19 @@ contract nUSDComposerTest is TestHelper {
         amount = bound(amount, 1e6, 1_000_000e6); // 1 USDC to 1M USDC
 
         // Grant composer MINTER_ROLE
-        nusd.grantRole(nusd.MINTER_ROLE(), address(nusdComposer));
+        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(nusdComposer));
 
         // Fund composer with USDC
         usdc.mint(address(nusdComposer), amount);
 
         // Simulate deposit flow
         vm.startPrank(address(nusdComposer));
-        usdc.approve(address(nusd), amount);
-        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), amount);
+        usdc.approve(address(naraUSD), amount);
+        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), amount);
         vm.stopPrank();
 
         // Verify proportional minting
-        assertGt(nusdAmount, 0, "Should mint some nUSD");
+        assertGt(nusdAmount, 0, "Should mint some naraUSD");
         assertApproxEqAbs(nusdAmount, amount * 1e12, 1e18, "Should mint ~1:1 (accounting for decimals)");
     }
 
@@ -205,18 +205,18 @@ contract nUSDComposerTest is TestHelper {
         uint256 depositAmount = 100e6; // 100 USDT
 
         // Grant composer MINTER_ROLE
-        nusd.grantRole(nusd.MINTER_ROLE(), address(nusdComposer));
+        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(nusdComposer));
 
         // Fund composer with USDT
         usdt.mint(address(nusdComposer), depositAmount);
 
         // Simulate deposit flow
         vm.startPrank(address(nusdComposer));
-        usdt.approve(address(nusd), depositAmount);
-        uint256 nusdAmount = nusd.mintWithCollateral(address(usdt), depositAmount);
+        usdt.approve(address(naraUSD), depositAmount);
+        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdt), depositAmount);
         vm.stopPrank();
 
-        assertGt(nusdAmount, 0, "Should mint nUSD with USDT");
+        assertGt(nusdAmount, 0, "Should mint naraUSD with USDT");
     }
 
     /**

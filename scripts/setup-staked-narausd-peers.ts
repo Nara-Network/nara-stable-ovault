@@ -1,12 +1,12 @@
 import { ethers } from 'hardhat'
 
 /**
- * Sets up LayerZero peer connections for StakednUSD OFT infrastructure
- * This allows snUSD to be bridged between Arbitrum (hub) and Base (spoke)
+ * Sets up LayerZero peer connections for StakedNaraUSD OFT infrastructure
+ * This allows snaraUSD to be bridged between Arbitrum (hub) and Base (spoke)
  *
  * Run:
- * npx hardhat run scripts/setup-staked-nusd-peers.ts --network arbitrum-sepolia
- * npx hardhat run scripts/setup-staked-nusd-peers.ts --network base-sepolia
+ * npx hardhat run scripts/setup-staked-narausd-peers.ts --network arbitrum-sepolia
+ * npx hardhat run scripts/setup-staked-narausd-peers.ts --network base-sepolia
  */
 
 async function main() {
@@ -15,7 +15,7 @@ async function main() {
     const chainId = network.chainId
 
     console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-    console.log(`Setting up StakednUSD OFT Peers`)
+    console.log(`Setting up StakedNaraUSD OFT Peers`)
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
     console.log(`Network: ${networkName} (Chain ID: ${chainId})`)
 
@@ -39,7 +39,7 @@ async function main() {
         console.log(`   Peer EID: ${BASE_SEPOLIA_EID}`)
         console.log(`   Peer Address: ${SPOKE_STAKED_NUSD_OFT}`)
 
-        const adapter = await ethers.getContractAt('StakednUSDOFTAdapter', HUB_STAKED_NUSD_ADAPTER)
+        const adapter = await ethers.getContractAt('StakedNaraUSDOFTAdapter', HUB_STAKED_NUSD_ADAPTER)
 
         // Check current peer
         const currentPeer = await adapter.peers(BASE_SEPOLIA_EID)
@@ -48,7 +48,7 @@ async function main() {
         console.log(`   Expected peer: ${expectedPeer}`)
 
         if (currentPeer !== expectedPeer) {
-            console.log(`   ⏳ Updating peer to new StakednUSDOFT...`)
+            console.log(`   ⏳ Updating peer to new StakedNaraUSDOFT...`)
             const tx = await adapter.setPeer(BASE_SEPOLIA_EID, expectedPeer)
             await tx.wait()
             console.log(`   ✅ Peer updated! Transaction: ${tx.hash}`)
@@ -66,7 +66,7 @@ async function main() {
         console.log(`   Peer EID: ${ARBITRUM_SEPOLIA_EID}`)
         console.log(`   Peer Address: ${HUB_STAKED_NUSD_ADAPTER}`)
 
-        const oft = await ethers.getContractAt('StakednUSDOFT', SPOKE_STAKED_NUSD_OFT)
+        const oft = await ethers.getContractAt('StakedNaraUSDOFT', SPOKE_STAKED_NUSD_OFT)
 
         // Check current peer
         const currentPeer = await oft.peers(ARBITRUM_SEPOLIA_EID)

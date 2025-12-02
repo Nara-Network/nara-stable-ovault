@@ -61,7 +61,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
 // ============================================
 // StakednUSD Deployment Configuration
 // ============================================
-export const STAKED_NUSD_CONFIG = {
+export const STAKED_NARAUSD_CONFIG = {
     // StakednUSD vault configuration (where the staking vault lives)
     vault: {
         deploymentEid: _hubEid,
@@ -98,10 +98,10 @@ export const shouldDeployShare = (eid: number): boolean =>
 export const shouldDeployShareAdapter = (eid: number): boolean =>
     isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress
 
-export const isStakedNusdVaultChain = (eid: number): boolean => eid === STAKED_NUSD_CONFIG.vault.deploymentEid
-export const shouldDeployStakedNusdVault = (eid: number): boolean =>
-    isStakedNusdVaultChain(eid) && !STAKED_NUSD_CONFIG.vault.vaultAddress
-export const shouldDeployStakedNusdShare = (eid: number): boolean =>
-    !STAKED_NUSD_CONFIG.vault.shareOFTAdapterAddress && STAKED_NUSD_CONFIG.shareOFT.deploymentEids.includes(eid)
-export const shouldDeployStakedNusdShareAdapter = (eid: number): boolean =>
-    isStakedNusdVaultChain(eid) && !STAKED_NUSD_CONFIG.vault.shareOFTAdapterAddress
+export const isStakedNaraUSDVaultChain = (eid: number): boolean => eid === STAKED_NARAUSD_CONFIG.vault.deploymentEid
+export const shouldDeployStakedNaraUSDVault = (eid: number): boolean =>
+    isStakedNaraUSDVaultChain(eid) && !STAKED_NARAUSD_CONFIG.vault.vaultAddress
+export const shouldDeployStakedNaraUSDShare = (eid: number): boolean =>
+    !STAKED_NARAUSD_CONFIG.vault.shareOFTAdapterAddress && STAKED_NARAUSD_CONFIG.shareOFT.deploymentEids.includes(eid)
+export const shouldDeployStakedNaraUSDShareAdapter = (eid: number): boolean =>
+    isStakedNaraUSDVaultChain(eid) && !STAKED_NARAUSD_CONFIG.vault.shareOFTAdapterAddress

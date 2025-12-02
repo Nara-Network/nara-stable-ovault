@@ -4,19 +4,19 @@ pragma solidity ^0.8.22;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
- * @title nUSDRedeemSilo
- * @notice Holds locked nUSD tokens during redemption cooldown period
+ * @title NaraUSDRedeemSilo
+ * @notice Holds locked naraUSD tokens during redemption queue period
  */
-contract nUSDRedeemSilo {
+contract NaraUSDRedeemSilo {
     /// @notice Error when caller is not the vault
     error OnlyVault();
 
     address immutable VAULT;
-    IERC20 immutable nUSD;
+    IERC20 immutable naraUSD;
 
-    constructor(address vault, address nusd) {
+    constructor(address vault, address narausd) {
         VAULT = vault;
-        nUSD = IERC20(nusd);
+        naraUSD = IERC20(narausd);
     }
 
     modifier onlyVault() {
@@ -24,9 +24,9 @@ contract nUSDRedeemSilo {
         _;
     }
 
-    /// @notice Withdraw nUSD from silo (only callable by vault)
+    /// @notice Withdraw naraUSD from silo (only callable by vault)
     function withdraw(address to, uint256 amount) external onlyVault {
-        nUSD.transfer(to, amount);
+        naraUSD.transfer(to, amount);
     }
 }
 

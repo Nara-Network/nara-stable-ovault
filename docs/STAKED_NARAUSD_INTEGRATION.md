@@ -1,23 +1,23 @@
-## # StakednUSD - OVault Integration
+## # StakedNaraUSD - OVault Integration
 
-Complete OVault (Omnichain Vault) implementation for staking nUSD tokens with cross-chain functionality.
+Complete OVault (Omnichain Vault) implementation for staking naraUSD tokens with cross-chain functionality.
 
 ## Overview
 
-The StakednUSD system allows users to stake nUSD tokens and earn rewards. The implementation includes:
+The StakedNaraUSD system allows users to stake naraUSD tokens and earn rewards. The implementation includes:
 
-1. **StakednUSD**: ERC4626 vault that accepts nUSD and issues snUSD shares
+1. **StakedNaraUSD**: ERC4626 vault that accepts naraUSD and issues snaraUSD shares
 2. **StakingRewardsDistributor**: Automated rewards distribution without multisig transactions
-3. **StakednUSDComposer**: Cross-chain staking operations (mirrors Ethena's implementation)
-4. **Cross-chain functionality**: OFT adapters for omnichain snUSD transfers
+3. **StakedNaraUSDComposer**: Cross-chain staking operations (mirrors Ethena's implementation)
+4. **Cross-chain functionality**: OFT adapters for omnichain snaraUSD transfers
 
 ## Architecture
 
 ### Hub Chain Contracts
 
-- **StakednUSD.sol**: Main staking vault (ERC4626)
-  - Accepts nUSD deposits
-  - Issues snUSD shares
+- **StakedNaraUSD.sol**: Main staking vault (ERC4626)
+  - Accepts naraUSD deposits
+  - Issues snaraUSD shares
   - Vesting rewards over 8 hours
   - Blacklist functionality
   - Minimum shares protection
@@ -25,13 +25,13 @@ The StakednUSD system allows users to stake nUSD tokens and earn rewards. The im
 - **StakingRewardsDistributor.sol**: Automated rewards helper
   - Operator role for automated distributions
   - Owner (multisig) for configuration
-  - Transfers nUSD rewards to staking vault
+  - Transfers naraUSD rewards to staking vault
 
-- **StakednUSDOFTAdapter.sol**: OFT adapter for hub chain
-  - Lockbox model for snUSD
+- **StakedNaraUSDOFTAdapter.sol**: OFT adapter for hub chain
+  - Lockbox model for snaraUSD
   - Enables cross-chain transfers
 
-- **StakednUSDComposer.sol**: Cross-chain staking composer
+- **StakedNaraUSDComposer.sol**: Cross-chain staking composer
   - Enables staking from any spoke chain
   - Deployed on hub chain only
   - Handles stake + bridge back logic
@@ -40,14 +40,14 @@ The StakednUSD system allows users to stake nUSD tokens and earn rewards. The im
 
 ### Spoke Chain Contracts
 
-- **StakednUSDOFT.sol**: OFT for spoke chains
-  - Mint/burn model for snUSD
-  - Represents snUSD shares cross-chain
+- **StakedNaraUSDOFT.sol**: OFT for spoke chains
+  - Mint/burn model for snaraUSD
+  - Represents snaraUSD shares cross-chain
   - Blacklist functionality (prevents transfers from/to restricted addresses)
 
 ## Key Features
 
-### Staking Vault (StakednUSD)
+### Staking Vault (StakedNaraUSD)
 
 1. **ERC4626 Standard**
    - Standard deposit/withdraw/mint/redeem functions
@@ -82,25 +82,25 @@ The StakednUSD system allows users to stake nUSD tokens and earn rewards. The im
 
 ## User Flows
 
-### Flow 1: Stake nUSD (Hub Chain)
+### Flow 1: Stake naraUSD (Hub Chain)
 
 ```solidity
-// User approves nUSD
-nusd.approve(stakednUSD, amount);
+// User approves naraUSD
+narausd.approve(stakednaraUSD, amount);
 
-// User deposits nUSD to receive snUSD
-stakednUSD.deposit(amount, userAddress);
+// User deposits naraUSD to receive snaraUSD
+stakednaraUSD.deposit(amount, userAddress);
 // OR
-stakednUSD.mint(shares, userAddress);
+stakednaraUSD.mint(shares, userAddress);
 ```
 
-### Flow 2: Unstake snUSD (Hub Chain)
+### Flow 2: Unstake snaraUSD (Hub Chain)
 
 ```solidity
-// User redeems snUSD for nUSD
-stakednUSD.redeem(shares, userAddress, userAddress);
+// User redeems snaraUSD for naraUSD
+stakednaraUSD.redeem(shares, userAddress, userAddress);
 // OR
-stakednUSD.withdraw(assets, userAddress, userAddress);
+stakednaraUSD.withdraw(assets, userAddress, userAddress);
 ```
 
 ### Flow 3A: Cross-Chain Staking via Compose Message (Recommended) ⭐
@@ -113,9 +113,9 @@ import { Options } from "@layerzerolabs/lz-v2-utilities";
 
 // Build compose message for return trip
 const returnSendParam = {
-  dstEid: BASE_EID, // Receive snUSD back on Base
+  dstEid: BASE_EID, // Receive snaraUSD back on Base
   to: addressToBytes32(userAddress),
-  amountLD: 0, // Composer will fill with snUSD amount
+  amountLD: 0, // Composer will fill with snaraUSD amount
   minAmountLD: minShares, // Slippage protection
   extraOptions: "0x",
   composeMsg: "0x",
@@ -137,7 +137,7 @@ const lzOptions = Options.newOptions()
 // Build send parameters
 const sendParam = {
   dstEid: ARBITRUM_EID, // Hub
-  to: addressToBytes32(STAKED_NUSD_COMPOSER), // Composer address
+  to: addressToBytes32(STAKED_NARAUSD_COMPOSER), // Composer address
   amountLD: amount,
   minAmountLD: (amount * 99n) / 100n,
   extraOptions: lzOptions,
@@ -145,14 +145,14 @@ const sendParam = {
   oftCmd: "0x",
 };
 
-// Approve nUSD OFT on Base
-await nusdOFT.approve(NUSD_OFT_BASE, amount);
+// Approve naraUSD OFT on Base
+await narausdOFT.approve(NARAUSD_OFT_BASE, amount);
 
 // Quote the fee
-const fee = await nusdOFT.quoteSend(sendParam, false);
+const fee = await narausdOFT.quoteSend(sendParam, false);
 
 // Single transaction: Everything happens automatically!
-await nusdOFT.send(
+await narausdOFT.send(
   sendParam,
   { nativeFee: fee.nativeFee, lzTokenFee: 0 },
   userAddress, // Refund address
@@ -160,17 +160,17 @@ await nusdOFT.send(
 );
 
 // Wait for LayerZero settlement (~1-5 mins)
-// User receives snUSD on Base Sepolia! ✅
+// User receives snaraUSD on Base Sepolia! ✅
 ```
 
 **Behind the scenes:**
 
-1. nUSDOFT burns nUSD on Base
-2. Bridges nUSD to Arbitrum (hub) with compose message
-3. Compose message triggers StakednUSDComposer.lzCompose() on Arbitrum
-4. Composer stakes nUSD → receives snUSD
-5. Composer bridges snUSD back to Base
-6. User receives snUSD on Base
+1. NaraUSDOFT burns naraUSD on Base
+2. Bridges naraUSD to Arbitrum (hub) with compose message
+3. Compose message triggers StakedNaraUSDComposer.lzCompose() on Arbitrum
+4. Composer stakes naraUSD → receives snaraUSD
+5. Composer bridges snaraUSD back to Base
+6. User receives snaraUSD on Base
 
 **Benefits:**
 
@@ -186,26 +186,26 @@ await nusdOFT.send(
 ```solidity
 // User switches to Arbitrum Sepolia
 const stakedComposer = await ethers.getContractAt(
-    "StakednUSDComposer",
+    "StakedNaraUSDComposer",
     STAKED_COMPOSER_ARBITRUM
 );
 
-// Approve nUSD on Arbitrum
-await nusd.approve(stakedComposer.address, amount);
+// Approve naraUSD on Arbitrum
+await narausd.approve(stakedComposer.address, amount);
 
-// Stake and send snUSD back to Base
+// Stake and send snaraUSD back to Base
 await stakedComposer.depositRemote(
     amount,
     userAddress,
-    BASE_EID, // Send snUSD to Base
+    BASE_EID, // Send snaraUSD to Base
     { value: fee.nativeFee }
 );
 ```
 
-### Flow 4: Transfer snUSD Cross-Chain
+### Flow 4: Transfer snaraUSD Cross-Chain
 
 ```solidity
-// User on Spoke Chain A transfers snUSD to Spoke Chain B
+// User on Spoke Chain A transfers snaraUSD to Spoke Chain B
 const sendParam = {
     dstEid: SPOKE_B_EID,
     to: addressToBytes32(receiverAddress),
@@ -224,16 +224,16 @@ await stakedNusdOFT.send(sendParam, { value: nativeFee });
 ```solidity
 // Operator (bot) calls distributor
 distributor.transferInRewards(rewardsAmount);
-// This transfers nUSD rewards to StakednUSD vault
+// This transfers naraUSD rewards to StakedNaraUSD vault
 ```
 
 ## Deployment Guide
 
-### Step 1: Deploy StakednUSD on Hub Chain
+### Step 1: Deploy StakedNaraUSD on Hub Chain
 
 ```solidity
-StakednUSD stakednUSD = new StakednUSD(
-    IERC20(nusdAddress),      // nUSD token
+StakedNaraUSD stakednaraUSD = new StakedNaraUSD(
+    IERC20(narausdAddress),      // naraUSD token
     rewarderAddress,           // Initial rewarder
     adminAddress               // Admin (multisig)
 );
@@ -243,33 +243,33 @@ StakednUSD stakednUSD = new StakednUSD(
 
 ```solidity
 StakingRewardsDistributor distributor = new StakingRewardsDistributor(
-    stakednUSD,                // Staking vault
-    IERC20(nusdAddress),       // nUSD token
+    stakednaraUSD,                // Staking vault
+    IERC20(narausdAddress),       // naraUSD token
     adminAddress,              // Admin (multisig)
     operatorAddress            // Operator (bot)
 );
 
 // Grant REWARDER_ROLE to distributor
 const REWARDER_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('REWARDER_ROLE'));
-await stakednUSD.grantRole(REWARDER_ROLE, distributor.address);
+await stakednaraUSD.grantRole(REWARDER_ROLE, distributor.address);
 ```
 
-### Step 3: Deploy StakednUSDOFTAdapter (Hub)
+### Step 3: Deploy StakedNaraUSDOFTAdapter (Hub)
 
 ```solidity
-StakednUSDOFTAdapter stakedNusdAdapter = new StakednUSDOFTAdapter(
-    stakednUSD.address,        // snUSD token
+StakedNaraUSDOFTAdapter stakedNusdAdapter = new StakedNaraUSDOFTAdapter(
+    stakednaraUSD.address,        // snaraUSD token
     LZ_ENDPOINT_HUB,           // LayerZero endpoint
     adminAddress               // Delegate
 );
 ```
 
-### Step 4: Deploy StakednUSDOFT (Spoke Chains)
+### Step 4: Deploy StakedNaraUSDOFT (Spoke Chains)
 
 For each spoke chain:
 
 ```solidity
-StakednUSDOFT stakedNusdOFT = new StakednUSDOFT(
+StakedNaraUSDOFT stakedNusdOFT = new StakedNaraUSDOFT(
     LZ_ENDPOINT_SPOKE,         // LayerZero endpoint
     adminAddress               // Delegate
 );
@@ -287,7 +287,7 @@ await stakedNusdOFT_spoke.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.ad
 
 ## Roles and Permissions
 
-### StakednUSD Roles
+### StakedNaraUSD Roles
 
 | Role                          | Description         | Functions                                                    |
 | ----------------------------- | ------------------- | ------------------------------------------------------------ |
@@ -328,53 +328,53 @@ await stakedNusdOFT_spoke.setPeer(HUB_EID, addressToBytes32(stakedNusdAdapter.ad
 - Cannot renounce admin role
 - Role-based permissions for security
 
-## Integration with nUSD OVault
+## Integration with naraUSD OVault
 
-The StakednUSD vault integrates seamlessly with the nUSD OVault system:
+The StakedNaraUSD vault integrates seamlessly with the naraUSD OVault system:
 
 1. **Deposit Flow**:
 
    ```
-   User → Mint nUSD (with collateral) → Stake nUSD → Receive snUSD → Transfer cross-chain
+   User → Mint naraUSD (with collateral) → Stake naraUSD → Receive snaraUSD → Transfer cross-chain
    ```
 
 2. **Withdraw Flow**:
 
    ```
-   User → Bridge snUSD to hub → Unstake for nUSD → Redeem for collateral
+   User → Bridge snaraUSD to hub → Unstake for naraUSD → Redeem for collateral
    ```
 
 3. **Full Omnichain Flow**:
    ```
    User deposits USDC on Chain A
-   → Mints nUSD
-   → Stakes for snUSD
-   → Bridges snUSD to Chain B
-   → User holds snUSD on Chain B earning rewards
+   → Mints naraUSD
+   → Stakes for snaraUSD
+   → Bridges snaraUSD to Chain B
+   → User holds snaraUSD on Chain B earning rewards
    ```
 
 ## Folder Structure
 
 ```
-contracts/staked-nusd/
-├── StakednUSD.sol                    # Main staking vault (ERC4626)
+contracts/staked-narausd/
+├── StakedNaraUSD.sol                    # Main staking vault (ERC4626)
 ├── StakingRewardsDistributor.sol     # Automated rewards distribution
-├── StakednUSDOFTAdapter.sol          # Hub chain OFT adapter (lockbox)
-└── StakednUSDOFT.sol                 # Spoke chain OFT (mint/burn)
+├── StakedNaraUSDOFTAdapter.sol          # Hub chain OFT adapter (lockbox)
+└── StakedNaraUSDOFT.sol                 # Spoke chain OFT (mint/burn)
 
-contracts/interfaces/staked-nusd/
-├── IStakednUSD.sol                   # StakednUSD interface
+contracts/interfaces/staked-narausd/
+├── IStakedNaraUSD.sol                   # StakedNaraUSD interface
 └── IStakingRewardsDistributor.sol    # Distributor interface
 ```
 
 ## Testing Checklist
 
-- [ ] Deposit nUSD and receive snUSD
-- [ ] Withdraw snUSD for nUSD
+- [ ] Deposit naraUSD and receive snaraUSD
+- [ ] Withdraw snaraUSD for naraUSD
 - [ ] Transfer rewards via distributor
 - [ ] Verify 8-hour vesting
 - [ ] Test blacklist functionality
-- [ ] Test cross-chain snUSD transfers
+- [ ] Test cross-chain snaraUSD transfers
 - [ ] Test emergency token rescue
 - [ ] Test minimum shares protection
 - [ ] Verify all role permissions
@@ -383,10 +383,10 @@ contracts/interfaces/staked-nusd/
 
 | Operation            | Gas (Hub) | Gas (Spoke) | Notes                |
 | -------------------- | --------- | ----------- | -------------------- |
-| Stake nUSD           | ~120k     | N/A         | Deposit on hub       |
-| Unstake snUSD        | ~100k     | N/A         | Withdraw on hub      |
+| Stake naraUSD           | ~120k     | N/A         | Deposit on hub       |
+| Unstake snaraUSD        | ~100k     | N/A         | Withdraw on hub      |
 | Transfer Rewards     | ~90k      | N/A         | Via distributor      |
-| Cross-Chain Transfer | ~150k     | ~80k        | snUSD between chains |
+| Cross-Chain Transfer | ~150k     | ~80k        | snaraUSD between chains |
 | Add to Blacklist     | ~50k      | N/A         | Admin operation      |
 
 ## Monitoring
@@ -394,19 +394,19 @@ contracts/interfaces/staked-nusd/
 Key metrics to monitor:
 
 1. **Staking Vault**:
-   - Total nUSD staked
-   - Total snUSD supply
-   - Exchange rate (snUSD/nUSD)
+   - Total naraUSD staked
+   - Total snaraUSD supply
+   - Exchange rate (snaraUSD/naraUSD)
    - Vesting amount and progress
    - Blacklisted addresses
 
 2. **Rewards Distribution**:
    - Rewards distributed per period
    - Operator activity
-   - nUSD balance in distributor
+   - naraUSD balance in distributor
 
 3. **Cross-Chain**:
-   - snUSD supply per chain
+   - snaraUSD supply per chain
    - Cross-chain message success rate
    - Gas costs for bridging
 
@@ -422,10 +422,10 @@ await distributor.setOperator(ZERO_ADDRESS);
 await distributor.rescueTokens(token, recipient, amount);
 
 // 3. Redistribute locked amounts if needed
-await stakednUSD.redistributeLockedAmount(restrictedUser, newOwner);
+await stakednaraUSD.redistributeLockedAmount(restrictedUser, newOwner);
 ```
 
-## Differences from Original StakednUSD
+## Differences from Original StakedNaraUSD
 
 | Original                 | OVault Version        | Improvement                    |
 | ------------------------ | --------------------- | ------------------------------ |
@@ -433,7 +433,7 @@ await stakednUSD.redistributeLockedAmount(restrictedUser, newOwner);
 | `_beforeTokenTransfer`   | `_update`             | OpenZeppelin 5.x compatibility |
 | SingleAdminAccessControl | AccessControl         | Standard OZ implementation     |
 | security/ReentrancyGuard | utils/ReentrancyGuard | OpenZeppelin 5.x path          |
-| No cross-chain           | Full OVault support   | Omnichain snUSD                |
+| No cross-chain           | Full OVault support   | Omnichain snaraUSD                |
 
 ## License
 

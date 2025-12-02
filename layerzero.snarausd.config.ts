@@ -1,5 +1,5 @@
 /**
- * LayerZero nUSD Configuration Selector
+ * LayerZero snaraUSD Configuration Selector
  *
  * This file exports the appropriate LayerZero configuration based on the DEPLOY_ENV environment variable.
  *
@@ -12,8 +12,8 @@
  * Note: The environment variable is checked at module load time, so make sure to set it before running hardhat commands.
  */
 
-import mainnetConfig from './layerzero-configs/layerzero.nusd.config.mainnet'
-import testnetConfig from './layerzero-configs/layerzero.nusd.config.testnet'
+import mainnetConfig from './layerzero-configs/layerzero.snarausd.config.mainnet'
+import testnetConfig from './layerzero-configs/layerzero.snarausd.config.testnet'
 
 // Determine which config to use based on environment variable
 const deployEnv = (process.env.DEPLOY_ENV || 'testnet').toLowerCase()

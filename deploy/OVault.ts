@@ -13,12 +13,12 @@ import { handleDeploymentWithRetry } from './utils'
  *
  * Hub Chain (e.g., Sepolia):
  * - MCTOFTAdapter (lockbox for MCT)
- * - nUSDOFTAdapter (lockbox for nUSD)
- * - nUSDComposer (cross-chain operations)
+ * - NaraUSDOFTAdapter (lockbox for nUSD)
+ * - NaraUSDComposer (cross-chain operations)
  *
  * Spoke Chains (e.g., OP Sepolia, Base Sepolia):
  * - MCTOFT (mint/burn for MCT)
- * - nUSDOFT (mint/burn for nUSD)
+ * - NaraUSDOFT (mint/burn for nUSD)
  *
  * Prerequisites:
  * - Core contracts must be deployed first (MCT, nUSD)
@@ -163,13 +163,13 @@ const deploy: DeployFunction = async (hre) => {
     // SHARE OFT (nUSD) - Deploy on spoke chains, Adapter on hub
     // ========================================
     if (shouldDeployShare(networkEid)) {
-        // Spoke chain: Deploy nUSDOFT (mint/burn)
+        // Spoke chain: Deploy NaraUSDOFT (mint/burn)
         console.log('📦 Deploying Share OFT (nUSD) on spoke chain...')
 
-        const nusdOFT = await handleDeploymentWithRetry(
+        const naraUSDOFT = await handleDeploymentWithRetry(
             hre,
-            deployments.deploy('nUSDOFT', {
-                contract: 'contracts/nusd/nUSDOFT.sol:nUSDOFT',
+            deployments.deploy('NaraUSDOFT', {
+                contract: 'contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT',
                 from: deployer,
                 args: [
                     endpointV2.address, // _lzEndpoint
@@ -178,11 +178,11 @@ const deploy: DeployFunction = async (hre) => {
                 log: true,
                 skipIfAlreadyDeployed: true,
             }),
-            'nUSDOFT',
-            'contracts/nusd/nUSDOFT.sol:nUSDOFT'
+            'NaraUSDOFT',
+            'contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT'
         )
-        deployedContracts.nusdOFT = nusdOFT.address
-        console.log(`   ✓ nUSDOFT deployed at: ${nusdOFT.address}`)
+        deployedContracts.naraUSDOFT = naraUSDOFT.address
+        console.log(`   ✓ NaraUSDOFT deployed at: ${naraUSDOFT.address}`)
     } else if (DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && !isVaultChain(networkEid)) {
         console.log('⏭️  Skipping share OFT deployment (existing mesh)')
     }
@@ -198,32 +198,32 @@ const deploy: DeployFunction = async (hre) => {
         // Get nUSD address
         let nusdAddress: string
         try {
-            const nusd = await hre.deployments.get('nUSD')
-            nusdAddress = nusd.address
+            const naraUSD = await hre.deployments.get('nUSD')
+            nusdAddress = naraUSD.address
         } catch (error) {
             throw new Error(
                 'nUSD not found. Please deploy core contracts first using FullSystem or nUSD deployment script.'
             )
         }
 
-        // Deploy nUSDOFTAdapter (lockbox for nUSD shares)
-        console.log('   → Deploying nUSDOFTAdapter (lockbox)...')
-        const nusdAdapter = await handleDeploymentWithRetry(
+        // Deploy NaraUSDOFTAdapter (lockbox for nUSD shares)
+        console.log('   → Deploying NaraUSDOFTAdapter (lockbox)...')
+        const naraUSDAdapter = await handleDeploymentWithRetry(
             hre,
-            deployments.deploy('nUSDOFTAdapter', {
-                contract: 'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter',
+            deployments.deploy('NaraUSDOFTAdapter', {
+                contract: 'contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter',
                 from: deployer,
                 args: [nusdAddress, endpointV2.address, deployer],
                 log: true,
                 skipIfAlreadyDeployed: true,
             }),
-            'nUSDOFTAdapter',
-            'contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter'
+            'NaraUSDOFTAdapter',
+            'contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter'
         )
-        deployedContracts.nusdAdapter = nusdAdapter.address
-        console.log(`   ✓ nUSDOFTAdapter deployed at: ${nusdAdapter.address}`)
+        deployedContracts.naraUSDAdapter = naraUSDAdapter.address
+        console.log(`   ✓ NaraUSDOFTAdapter deployed at: ${naraUSDAdapter.address}`)
 
-        // Deploy nUSDComposer if collateral asset is configured
+        // Deploy NaraUSDComposer if collateral asset is configured
         const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
         const collateralAssetOFT = DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress
 
@@ -252,10 +252,10 @@ const deploy: DeployFunction = async (hre) => {
             }
 
             // Validate addresses before deployment
-            console.log('   → Validating addresses for nUSDComposer...')
+            console.log('   → Validating addresses for NaraUSDComposer...')
             console.log(`      Vault (nUSD): ${nusdAddress}`)
             console.log(`      Asset OFT (MCT Adapter): ${mctAssetOFTAddress}`)
-            console.log(`      Share OFT (nUSD Adapter): ${nusdAdapter.address}`)
+            console.log(`      Share OFT (nUSD Adapter): ${naraUSDAdapter.address}`)
             console.log(`      Collateral Asset: ${collateralAsset}`)
             console.log(`      Collateral Asset OFT: ${collateralAssetOFT}`)
 
@@ -270,9 +270,9 @@ const deploy: DeployFunction = async (hre) => {
                 throw new Error(`MCTOFTAdapter at ${mctAssetOFTAddress} is not a contract`)
             }
 
-            const shareOftCodeSize = await hre.ethers.provider.getCode(nusdAdapter.address)
+            const shareOftCodeSize = await hre.ethers.provider.getCode(naraUSDAdapter.address)
             if (shareOftCodeSize === '0x') {
-                throw new Error(`nUSDOFTAdapter at ${nusdAdapter.address} is not a contract`)
+                throw new Error(`NaraUSDOFTAdapter at ${naraUSDAdapter.address} is not a contract`)
             }
 
             const codeSize = await hre.ethers.provider.getCode(collateralAsset)
@@ -289,74 +289,74 @@ const deploy: DeployFunction = async (hre) => {
                 )
             }
 
-            console.log('   → Deploying nUSDComposer...')
+            console.log('   → Deploying NaraUSDComposer...')
             const composer = await handleDeploymentWithRetry(
                 hre,
-                deployments.deploy('nUSDComposer', {
-                    contract: 'contracts/nusd/nUSDComposer.sol:nUSDComposer',
+                deployments.deploy('NaraUSDComposer', {
+                    contract: 'contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer',
                     from: deployer,
                     args: [
                         nusdAddress, // vault (nUSD)
                         mctAssetOFTAddress, // asset OFT (MCT adapter)
-                        nusdAdapter.address, // share OFT adapter
+                        naraUSDAdapter.address, // share OFT adapter
                         collateralAsset, // configured collateral asset (e.g., USDC)
                         collateralAssetOFT, // USDC OFT address
                     ],
                     log: true,
                     skipIfAlreadyDeployed: true,
                 }),
-                'nUSDComposer',
-                'contracts/nusd/nUSDComposer.sol:nUSDComposer'
+                'NaraUSDComposer',
+                'contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer'
             )
             deployedContracts.composer = composer.address
-            console.log(`   ✓ nUSDComposer deployed at: ${composer.address}`)
+            console.log(`   ✓ NaraUSDComposer deployed at: ${composer.address}`)
         } else {
-            console.log('   ⏭️  Skipping nUSDComposer (set vault.collateralAssetAddress to deploy).')
+            console.log('   ⏭️  Skipping NaraUSDComposer (set vault.collateralAssetAddress to deploy).')
         }
 
-        // Deploy StakednUSDComposer (cross-chain staking operations)
-        console.log('   → Deploying StakednUSDComposer...')
+        // Deploy StakedNaraUSDComposer (cross-chain staking operations)
+        console.log('   → Deploying StakedNaraUSDComposer...')
 
-        // Get StakednUSD address
+        // Get StakedNaraUSD address
         let stakedNusdAddress: string
         try {
-            const stakedNusd = await hre.deployments.get('StakednUSD')
-            stakedNusdAddress = stakedNusd.address
+            const stakedNaraUSD = await hre.deployments.get('StakedNaraUSD')
+            stakedNusdAddress = stakedNaraUSD.address
         } catch (error) {
-            console.log('   ⚠️  StakednUSD not found, skipping StakednUSDComposer')
-            console.log('   ℹ️  Deploy StakednUSD first if you need cross-chain staking')
+            console.log('   ⚠️  StakedNaraUSD not found, skipping StakedNaraUSDComposer')
+            console.log('   ℹ️  Deploy StakedNaraUSD first if you need cross-chain staking')
             return
         }
 
-        // Get StakednUSDOFTAdapter address
+        // Get StakedNaraUSDOFTAdapter address
         let stakedNusdAdapterAddress: string
         try {
-            const adapter = await hre.deployments.get('StakednUSDOFTAdapter')
+            const adapter = await hre.deployments.get('StakedNaraUSDOFTAdapter')
             stakedNusdAdapterAddress = adapter.address
         } catch (error) {
-            console.log('   ⚠️  StakednUSDOFTAdapter not found, skipping StakednUSDComposer')
-            console.log('   ℹ️  Run: npx hardhat deploy --network arbitrum-sepolia --tags staked-nusd-oft')
+            console.log('   ⚠️  StakedNaraUSDOFTAdapter not found, skipping StakedNaraUSDComposer')
+            console.log('   ℹ️  Run: npx hardhat deploy --network arbitrum-sepolia --tags staked-naraUSD-oft')
             return
         }
 
         const stakedComposer = await handleDeploymentWithRetry(
             hre,
-            deployments.deploy('StakednUSDComposer', {
-                contract: 'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer',
+            deployments.deploy('StakedNaraUSDComposer', {
+                contract: 'contracts/staked-narausd/StakedNaraUSDComposer.sol:StakedNaraUSDComposer',
                 from: deployer,
                 args: [
-                    stakedNusdAddress, // StakednUSD vault
-                    nusdAdapter.address, // nUSD OFT adapter (asset)
+                    stakedNusdAddress, // StakedNaraUSD vault
+                    naraUSDAdapter.address, // nUSD OFT adapter (asset)
                     stakedNusdAdapterAddress, // snUSD OFT adapter (share)
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,
             }),
-            'StakednUSDComposer',
-            'contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer'
+            'StakedNaraUSDComposer',
+            'contracts/staked-narausd/StakedNaraUSDComposer.sol:StakedNaraUSDComposer'
         )
         deployedContracts.stakedComposer = stakedComposer.address
-        console.log(`   ✓ StakednUSDComposer deployed at: ${stakedComposer.address}`)
+        console.log(`   ✓ StakedNaraUSDComposer deployed at: ${stakedComposer.address}`)
     }
 
     // ========================================
@@ -398,33 +398,33 @@ const deploy: DeployFunction = async (hre) => {
                 )
             }
 
-            if (deployedContracts.nusdAdapter) {
-                const nusd = await hre.deployments.get('nUSD')
-                console.log(`# nUSDOFTAdapter`)
+            if (deployedContracts.naraUSDAdapter) {
+                const naraUSD = await hre.deployments.get('nUSD')
+                console.log(`# NaraUSDOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --contract contracts/nusd/nUSDOFTAdapter.sol:nUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.nusdAdapter} "${nusd.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.naraUSDAdapter} "${naraUSD.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
 
             if (deployedContracts.composer) {
-                const nusd = await hre.deployments.get('nUSD')
+                const naraUSD = await hre.deployments.get('nUSD')
                 const mctAdapter = await hre.deployments.get('MCTOFTAdapter')
-                const nusdAdapter = await hre.deployments.get('nUSDOFTAdapter')
+                const naraUSDAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
                 const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
                 const collateralAssetOFT = DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress
-                console.log(`# nUSDComposer`)
+                console.log(`# NaraUSDComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/nusd/nUSDComposer.sol:nUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${nusd.address}" "${mctAdapter.address}" "${nusdAdapter.address}" "${collateralAsset}" "${collateralAssetOFT}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${naraUSD.address}" "${mctAdapter.address}" "${naraUSDAdapter.address}" "${collateralAsset}" "${collateralAssetOFT}"\n`
                 )
             }
 
             if (deployedContracts.stakedComposer) {
-                const stakedNusd = await hre.deployments.get('StakednUSD')
-                const nusdAdapter = await hre.deployments.get('nUSDOFTAdapter')
-                const stakedNusdAdapter = await hre.deployments.get('StakednUSDOFTAdapter')
-                console.log(`# StakednUSDComposer`)
+                const stakedNaraUSD = await hre.deployments.get('StakedNaraUSD')
+                const naraUSDAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
+                const stakedNaraUSDAdapter = await hre.deployments.get('StakedNaraUSDOFTAdapter')
+                console.log(`# StakedNaraUSDComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/staked-nusd/StakednUSDComposer.sol:StakednUSDComposer --network ${hre.network.name} ${deployedContracts.stakedComposer} "${stakedNusd.address}" "${nusdAdapter.address}" "${stakedNusdAdapter.address}"\n`
+                    `npx hardhat verify --contract contracts/staked-narausd/StakedNaraUSDComposer.sol:StakedNaraUSDComposer --network ${hre.network.name} ${deployedContracts.stakedComposer} "${stakedNaraUSD.address}" "${naraUSDAdapter.address}" "${stakedNaraUSDAdapter.address}"\n`
                 )
             }
         } else {
@@ -436,10 +436,10 @@ const deploy: DeployFunction = async (hre) => {
                 )
             }
 
-            if (deployedContracts.nusdOFT) {
-                console.log(`# nUSDOFT`)
+            if (deployedContracts.naraUSDOFT) {
+                console.log(`# NaraUSDOFT`)
                 console.log(
-                    `npx hardhat verify --contract contracts/nusd/nUSDOFT.sol:nUSDOFT --network ${hre.network.name} ${deployedContracts.nusdOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT --network ${hre.network.name} ${deployedContracts.naraUSDOFT} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         }

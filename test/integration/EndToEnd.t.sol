@@ -27,33 +27,33 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 1: User deposits collateral to mint nUSD ===
         vm.startPrank(alice);
-        uint256 aliceNusdBefore = nusd.balanceOf(alice);
-        usdc.approve(address(nusd), usdcAmount);
-        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        usdc.approve(address(naraUSD), usdcAmount);
+        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
         assertEq(nusdAmount, expectedNusd, "Step 1: Should mint correct nUSD");
-        assertEq(nusd.balanceOf(alice) - aliceNusdBefore, expectedNusd, "Step 1: Alice should have additional nUSD");
+        assertEq(naraUSD.balanceOf(alice) - aliceNusdBefore, expectedNusd, "Step 1: Alice should have additional nUSD");
 
         // === STEP 2: User stakes nUSD to earn yield ===
-        nusd.approve(address(stakedNusd), nusdAmount);
-        uint256 sNusdAmount = stakedNusd.deposit(nusdAmount, alice);
+        naraUSD.approve(address(stakedNaraUSD), nusdAmount);
+        uint256 sNusdAmount = stakedNaraUSD.deposit(nusdAmount, alice);
         assertEq(sNusdAmount, nusdAmount, "Step 2: Should receive 1:1 snUSD initially");
-        assertEq(stakedNusd.balanceOf(alice), sNusdAmount, "Step 2: Alice should have snUSD");
+        assertEq(stakedNaraUSD.balanceOf(alice), sNusdAmount, "Step 2: Alice should have snUSD");
 
         // === STEP 3: Rewards are distributed (time passes) ===
         vm.stopPrank();
         // Test contract has REWARDER_ROLE
         uint256 rewardsAmount = 100e18; // 10% yield
-        nusd.mint(address(this), rewardsAmount);
-        nusd.approve(address(stakedNusd), rewardsAmount);
-        stakedNusd.transferInRewards(rewardsAmount);
+        naraUSD.mint(address(this), rewardsAmount);
+        naraUSD.approve(address(stakedNaraUSD), rewardsAmount);
+        stakedNaraUSD.transferInRewards(rewardsAmount);
 
         // Wait for rewards to vest (8 hour vesting period)
         vm.warp(block.timestamp + 8 hours);
 
         // === STEP 4: User transfers snUSD to another chain ===
         vm.startPrank(alice);
-        uint256 aliceSNusd = stakedNusd.balanceOf(alice);
-        stakedNusd.approve(address(stakedNusdAdapter), aliceSNusd);
+        uint256 aliceSNusd = stakedNaraUSD.balanceOf(alice);
+        stakedNaraUSD.approve(address(stakedNusdAdapter), aliceSNusd);
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSNusd);
         MessagingFee memory fee = _getMessagingFee(address(stakedNusdAdapter), sendParam);
@@ -81,13 +81,13 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 7: Bob unstakes on hub to get nUSD back ===
         _switchToHub();
-        uint256 bobSNusd = stakedNusd.balanceOf(bob);
+        uint256 bobSNusd = stakedNaraUSD.balanceOf(bob);
         assertEq(bobSNusd, aliceSNusd, "Step 7: Bob should have snUSD on hub");
 
         vm.startPrank(bob);
-        uint256 nusdRedeemed = stakedNusd.redeem(bobSNusd, bob, bob);
+        uint256 nusdRedeemed = stakedNaraUSD.redeem(bobSNusd, bob, bob);
         assertGt(nusdRedeemed, nusdAmount, "Step 7: Should redeem more nUSD due to rewards");
-        assertEq(nusd.balanceOf(bob), nusdRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have nUSD");
+        assertEq(naraUSD.balanceOf(bob), nusdRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have nUSD");
         vm.stopPrank();
     }
 
@@ -101,7 +101,7 @@ contract EndToEndTest is TestHelper {
 
         // Alice sends nUSD to spoke
         vm.startPrank(alice);
-        nusd.approve(address(nusdAdapter), amount);
+        naraUSD.approve(address(nusdAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, alice, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(nusdAdapter), sendParam1);
         nusdAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
@@ -112,7 +112,7 @@ contract EndToEndTest is TestHelper {
 
         // Bob sends nUSD to spoke
         vm.startPrank(bob);
-        nusd.approve(address(nusdAdapter), amount);
+        naraUSD.approve(address(nusdAdapter), amount);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee2 = _getMessagingFee(address(nusdAdapter), sendParam2);
         nusdAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
@@ -146,11 +146,11 @@ contract EndToEndTest is TestHelper {
         // User mints nUSD with USDC collateral on hub
         vm.startPrank(alice);
         uint256 usdcAmount = 100e6; // 100 USDC
-        usdc.approve(address(nusd), usdcAmount);
-        uint256 nusdAmount = nusd.mintWithCollateral(address(usdc), usdcAmount);
+        usdc.approve(address(naraUSD), usdcAmount);
+        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
 
         // Send to spoke
-        nusd.approve(address(nusdAdapter), nusdAmount);
+        naraUSD.approve(address(nusdAdapter), nusdAmount);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, nusdAmount);
         MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
         nusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -175,16 +175,16 @@ contract EndToEndTest is TestHelper {
         vm.startPrank(alice);
 
         // Start cooldown (nUSD uses cooldown, not direct redeem)
-        nusd.cooldownRedeem(address(usdc), nusdAmount);
+        naraUSD.cooldownRedeem(address(usdc), nusdAmount);
 
         // Get cooldown info
-        (uint104 cooldownEnd, , ) = nusd.redemptionRequests(alice);
+        (uint104 cooldownEnd, , ) = naraUSD.redemptionRequests(alice);
 
         // Warp past cooldown
         vm.warp(cooldownEnd);
 
         // Complete redemption
-        uint256 collateralReceived = nusd.completeRedeem();
+        uint256 collateralReceived = naraUSD.completeRedeem();
         assertGt(collateralReceived, 0, "Should receive collateral");
         vm.stopPrank();
     }
@@ -200,18 +200,18 @@ contract EndToEndTest is TestHelper {
 
         // Alice stakes on hub
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), stakeAmount);
-        uint256 shares = stakedNusd.deposit(stakeAmount, alice);
+        naraUSD.approve(address(stakedNaraUSD), stakeAmount);
+        uint256 shares = stakedNaraUSD.deposit(stakeAmount, alice);
         vm.stopPrank();
 
         // Rewards distributed (test contract has REWARDER_ROLE)
-        nusd.mint(address(this), rewardAmount);
-        nusd.approve(address(stakedNusd), rewardAmount);
-        stakedNusd.transferInRewards(rewardAmount);
+        naraUSD.mint(address(this), rewardAmount);
+        naraUSD.approve(address(stakedNaraUSD), rewardAmount);
+        stakedNaraUSD.transferInRewards(rewardAmount);
 
         // Alice sends shares to spoke
         vm.startPrank(alice);
-        stakedNusd.approve(address(stakedNusdAdapter), shares);
+        stakedNaraUSD.approve(address(stakedNusdAdapter), shares);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, shares);
         MessagingFee memory fee = _getMessagingFee(address(stakedNusdAdapter), sendParam);
         stakedNusdAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -226,9 +226,9 @@ contract EndToEndTest is TestHelper {
         vm.warp(block.timestamp + 8 hours);
 
         // Test contract has REWARDER_ROLE
-        nusd.mint(address(this), rewardAmount);
-        nusd.approve(address(stakedNusd), rewardAmount);
-        stakedNusd.transferInRewards(rewardAmount);
+        naraUSD.mint(address(this), rewardAmount);
+        naraUSD.approve(address(stakedNaraUSD), rewardAmount);
+        stakedNaraUSD.transferInRewards(rewardAmount);
 
         // Alice sends back to hub
         _switchToSpoke();
@@ -244,7 +244,7 @@ contract EndToEndTest is TestHelper {
         // Alice redeems and should have accumulated rewards
         _switchToHub();
         vm.startPrank(alice);
-        uint256 nusdRedeemed = stakedNusd.redeem(shares, alice, alice);
+        uint256 nusdRedeemed = stakedNaraUSD.redeem(shares, alice, alice);
         assertGt(nusdRedeemed, stakeAmount, "Should have earned rewards");
         vm.stopPrank();
     }
@@ -260,13 +260,13 @@ contract EndToEndTest is TestHelper {
 
         // Alice operations on hub
         vm.startPrank(alice);
-        mct.approve(address(nusd), amount);
-        nusd.deposit(amount, alice);
+        mct.approve(address(naraUSD), amount);
+        naraUSD.deposit(amount, alice);
         vm.stopPrank();
 
         // Send nUSD to spoke for Bob
         vm.startPrank(alice);
-        nusd.approve(address(nusdAdapter), amount);
+        naraUSD.approve(address(nusdAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(nusdAdapter), sendParam1);
         nusdAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
@@ -277,8 +277,8 @@ contract EndToEndTest is TestHelper {
 
         // Bob operations on hub (parallel)
         vm.startPrank(bob);
-        mct.approve(address(nusd), amount);
-        nusd.deposit(amount, bob);
+        mct.approve(address(naraUSD), amount);
+        naraUSD.deposit(amount, bob);
         vm.stopPrank();
 
         // === Spoke operations ===
@@ -289,13 +289,13 @@ contract EndToEndTest is TestHelper {
 
         // === Verify total supply consistency ===
         _switchToHub();
-        uint256 hubNusdSupply = nusd.totalSupply();
+        uint256 hubNusdSupply = naraUSD.totalSupply();
 
         _switchToSpoke();
         uint256 spokeNusdSupply = nusdOFT.totalSupply();
 
         _switchToHub();
-        uint256 lockedInAdapter = nusd.balanceOf(address(nusdAdapter));
+        uint256 lockedInAdapter = naraUSD.balanceOf(address(nusdAdapter));
 
         assertEq(spokeNusdSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
     }
@@ -309,7 +309,7 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(nusdAdapter), amount);
+        naraUSD.approve(address(nusdAdapter), amount);
 
         // Attempt with insufficient gas (simulated failure)
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amount);
@@ -343,12 +343,12 @@ contract EndToEndTest is TestHelper {
             uint256 amount = amounts[i];
 
             // Ensure alice has enough balance
-            if (amount > nusd.balanceOf(alice)) {
-                nusd.mint(alice, amount);
+            if (amount > naraUSD.balanceOf(alice)) {
+                naraUSD.mint(alice, amount);
             }
 
             vm.startPrank(alice);
-            nusd.approve(address(nusdAdapter), amount);
+            naraUSD.approve(address(nusdAdapter), amount);
 
             SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, amount);
             MessagingFee memory fee = _getMessagingFee(address(nusdAdapter), sendParam);
@@ -377,26 +377,26 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
 
         // Initial TVL
-        uint256 initialVaultAssets = nusd.totalAssets();
+        uint256 initialVaultAssets = naraUSD.totalAssets();
 
         // Alice deposits collateral
         vm.startPrank(alice);
-        usdc.approve(address(nusd), usdcAmount);
-        nusd.mintWithCollateral(address(usdc), usdcAmount);
+        usdc.approve(address(naraUSD), usdcAmount);
+        naraUSD.mintWithCollateral(address(usdc), usdcAmount);
         vm.stopPrank();
 
         // TVL should increase
-        uint256 afterDepositAssets = nusd.totalAssets();
+        uint256 afterDepositAssets = naraUSD.totalAssets();
         assertEq(afterDepositAssets, initialVaultAssets + expectedNusd, "TVL should increase");
 
         // Alice stakes
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), expectedNusd);
-        stakedNusd.deposit(expectedNusd, alice);
+        naraUSD.approve(address(stakedNaraUSD), expectedNusd);
+        stakedNaraUSD.deposit(expectedNusd, alice);
         vm.stopPrank();
 
         // StakednUSD TVL should increase
-        uint256 stakedTVL = stakedNusd.totalAssets();
+        uint256 stakedTVL = stakedNaraUSD.totalAssets();
         assertEq(stakedTVL, expectedNusd, "Staked TVL should match deposit");
     }
 
@@ -411,7 +411,7 @@ contract EndToEndTest is TestHelper {
 
         // Send nUSD to spoke
         vm.startPrank(alice);
-        nusd.approve(address(nusdAdapter), amount);
+        naraUSD.approve(address(nusdAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
         MessagingFee memory fee1 = _getMessagingFee(address(nusdAdapter), sendParam1);
         nusdAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
@@ -422,9 +422,9 @@ contract EndToEndTest is TestHelper {
 
         // Send snUSD to spoke
         vm.startPrank(alice);
-        nusd.approve(address(stakedNusd), amount);
-        uint256 shares = stakedNusd.deposit(amount, alice);
-        stakedNusd.approve(address(stakedNusdAdapter), shares);
+        naraUSD.approve(address(stakedNaraUSD), amount);
+        uint256 shares = stakedNaraUSD.deposit(amount, alice);
+        stakedNaraUSD.approve(address(stakedNusdAdapter), shares);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, shares);
         MessagingFee memory fee2 = _getMessagingFee(address(stakedNusdAdapter), sendParam2);
         stakedNusdAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
@@ -449,7 +449,7 @@ contract EndToEndTest is TestHelper {
         _switchToHub();
 
         vm.startPrank(alice);
-        nusd.approve(address(nusdAdapter), amount);
+        naraUSD.approve(address(nusdAdapter), amount);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,

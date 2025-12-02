@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
- * @title IStakednUSD
- * @notice Interface for the StakednUSD contract
+ * @title IStakedNaraUSD
+ * @notice Interface for the StakedNaraUSD contract
  */
-interface IStakednUSD is IERC4626, IERC20Permit {
+interface IStakedNaraUSD is IERC4626, IERC20Permit {
     /* --------------- EVENTS --------------- */
 
     event RewardsReceived(uint256 amount);
@@ -36,8 +36,8 @@ interface IStakednUSD is IERC4626, IERC20Permit {
     function transferInRewards(uint256 amount) external;
 
     /**
-     * @notice Burn nUSD from the contract to decrease snUSD exchange rate
-     * @param amount The amount of nUSD to burn
+     * @notice Burn naraUSD from the contract to decrease snaraUSD exchange rate
+     * @param amount The amount of naraUSD to burn
      */
     function burnAssets(uint256 amount) external;
 
@@ -71,7 +71,7 @@ interface IStakednUSD is IERC4626, IERC20Permit {
     /* --------------- VIEW FUNCTIONS --------------- */
 
     /**
-     * @notice Returns the amount of nUSD tokens that are unvested
+     * @notice Returns the amount of naraUSD tokens that are unvested
      * @return The unvested amount
      */
     function getUnvestedAmount() external view returns (uint256);

@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
- * @title InUSD
- * @notice Interface for the nUSD contract
+ * @title INaraUSD
+ * @notice Interface for the naraUSD contract
  */
-interface InUSD is IERC4626, IERC20Permit {
+interface INaraUSD is IERC4626, IERC20Permit {
     /* --------------- ENUMS --------------- */
 
     enum DelegatedSignerStatus {
@@ -23,12 +23,12 @@ interface InUSD is IERC4626, IERC20Permit {
         address indexed beneficiary,
         address indexed collateralAsset,
         uint256 collateralAmount,
-        uint256 nUSDAmount
+        uint256 naraUSDAmount
     );
     event Redeem(
         address indexed beneficiary,
         address indexed collateralAsset,
-        uint256 nUSDAmount,
+        uint256 naraUSDAmount,
         uint256 collateralAmount
     );
     event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
@@ -39,17 +39,17 @@ interface InUSD is IERC4626, IERC20Permit {
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
     event RedemptionRequested(
         address indexed user,
-        uint256 nUSDAmount,
+        uint256 naraUSDAmount,
         address indexed collateralAsset,
         uint256 cooldownEnd
     );
     event RedemptionCompleted(
         address indexed user,
-        uint256 nUSDAmount,
+        uint256 naraUSDAmount,
         address indexed collateralAsset,
         uint256 collateralAmount
     );
-    event RedemptionCancelled(address indexed user, uint256 nUSDAmount);
+    event RedemptionCancelled(address indexed user, uint256 naraUSDAmount);
     event MintFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
@@ -64,7 +64,7 @@ interface InUSD is IERC4626, IERC20Permit {
 
     struct RedemptionRequest {
         uint104 cooldownEnd;
-        uint152 nUSDAmount;
+        uint152 naraUSDAmount;
         address collateralAsset;
     }
 
@@ -91,44 +91,44 @@ interface InUSD is IERC4626, IERC20Permit {
     /* --------------- FUNCTIONS --------------- */
 
     /**
-     * @notice Mint nUSD by depositing collateral
+     * @notice Mint naraUSD by depositing collateral
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
-     * @return nUSDAmount The amount of nUSD minted
+     * @return naraUSDAmount The amount of naraUSD minted
      */
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external returns (uint256 nUSDAmount);
+    ) external returns (uint256 naraUSDAmount);
 
     /**
-     * @notice Mint nUSD on behalf of a beneficiary
+     * @notice Mint naraUSD on behalf of a beneficiary
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
-     * @param beneficiary The address to receive minted nUSD
-     * @return nUSDAmount The amount of nUSD minted
+     * @param beneficiary The address to receive minted naraUSD
+     * @return naraUSDAmount The amount of naraUSD minted
      */
     function mintWithCollateralFor(
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) external returns (uint256 nUSDAmount);
+    ) external returns (uint256 naraUSDAmount);
 
     /**
-     * @notice Request redemption with cooldown - locks nUSD and starts cooldown timer
+     * @notice Request redemption with cooldown - locks naraUSD and starts cooldown timer
      * @param collateralAsset The collateral asset to receive after cooldown
-     * @param nUSDAmount The amount of nUSD to lock for redemption
+     * @param naraUSDAmount The amount of naraUSD to lock for redemption
      */
-    function cooldownRedeem(address collateralAsset, uint256 nUSDAmount) external;
+    function cooldownRedeem(address collateralAsset, uint256 naraUSDAmount) external;
 
     /**
-     * @notice Complete redemption after cooldown period - redeems nUSD for collateral
+     * @notice Complete redemption after cooldown period - redeems naraUSD for collateral
      * @return collateralAmount The amount of collateral received
      */
     function completeRedeem() external returns (uint256 collateralAmount);
 
     /**
-     * @notice Cancel redemption request and return locked nUSD to user
+     * @notice Cancel redemption request and return locked naraUSD to user
      */
     function cancelRedeem() external;
 
@@ -241,14 +241,14 @@ interface InUSD is IERC4626, IERC20Permit {
     function redistributeLockedAmount(address from, address to) external;
 
     /**
-     * @notice Mint nUSD without collateral backing (protocol controlled)
-     * @param to The recipient of newly minted nUSD
+     * @notice Mint naraUSD without collateral backing (protocol controlled)
+     * @param to The recipient of newly minted naraUSD
      * @param amount The amount to mint
      */
     function mint(address to, uint256 amount) external;
 
     /**
-     * @notice Burn nUSD and underlying MCT without withdrawing collateral
+     * @notice Burn naraUSD and underlying MCT without withdrawing collateral
      * @param amount The amount to burn (from msg.sender)
      */
     function burn(uint256 amount) external;

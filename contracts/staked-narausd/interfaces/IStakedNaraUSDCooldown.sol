@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "../../interfaces/staked-nusd/IStakednUSD.sol";
+import "../../interfaces/staked-nusd/IStakedNaraUSD.sol";
 
 struct UserCooldown {
     uint104 cooldownEnd;
-    uint152 sharesAmount; // Amount of snUSD shares locked in silo
+    uint152 sharesAmount; // Amount of snaraUSD shares locked in silo
 }
 
-interface IStakednUSDCooldown is IStakednUSD {
+interface IStakedNaraUSDCooldown is IStakedNaraUSD {
     // Events //
     /// @notice Event emitted when cooldown duration updates
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);

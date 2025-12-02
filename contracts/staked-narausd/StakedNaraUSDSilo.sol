@@ -2,13 +2,13 @@
 pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/InUSDSiloDefinitions.sol";
+import "./interfaces/INaraUSDSiloDefinitions.sol";
 
 /**
- * @title StakednUSDSilo
- * @notice The Silo allows to store staking vault tokens (snUSD) during the stake cooldown process.
+ * @title StakedNaraUSDSilo
+ * @notice The Silo allows to store staking vault tokens (snaraUSD) during the stake cooldown process.
  */
-contract StakednUSDSilo is InUSDSiloDefinitions {
+contract StakedNaraUSDSilo is INaraUSDSiloDefinitions {
     address immutable STAKING_VAULT;
     IERC20 immutable TOKEN;
 
