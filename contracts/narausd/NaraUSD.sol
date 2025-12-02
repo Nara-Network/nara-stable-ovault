@@ -756,7 +756,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         _checkKeyringCredential(msg.sender);
 
         // Convert collateral to naraUSD amount (normalize decimals)
-        naraUSDAmount = _convertToNUSDAmount(collateralAsset, collateralAmount);
+        naraUSDAmount = _convertToNaraUSDAmount(collateralAsset, collateralAmount);
 
         // Check minimum mint amount
         if (minMintAmount > 0 && naraUSDAmount < minMintAmount) {
@@ -770,7 +770,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         IERC20(collateralAsset).safeTransferFrom(beneficiary, address(this), collateralAmount);
 
         // Calculate mint fee on collateral amount (convert to 18 decimals for fee calculation)
-        uint256 collateralAmount18 = _convertToNUSDAmount(collateralAsset, collateralAmount);
+        uint256 collateralAmount18 = _convertToNaraUSDAmount(collateralAsset, collateralAmount);
         uint256 feeAmount18 = _calculateMintFee(collateralAmount18);
         uint256 collateralAfterFee = collateralAmount;
         uint256 collateralForMinting = collateralAmount;
@@ -807,7 +807,10 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @param collateralAmount The amount of collateral
      * @return The equivalent naraUSD amount (18 decimals)
      */
-    function _convertToNUSDAmount(address collateralAsset, uint256 collateralAmount) internal view returns (uint256) {
+    function _convertToNaraUSDAmount(
+        address collateralAsset,
+        uint256 collateralAmount
+    ) internal view returns (uint256) {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         if (collateralDecimals == 18) {
@@ -827,7 +830,10 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @param naraUSDAmount The amount of naraUSD (18 decimals)
      * @return The equivalent collateral amount
      */
-    function _convertToCollateralAmount(address collateralAsset, uint256 naraUSDAmount) internal view returns (uint256) {
+    function _convertToCollateralAmount(
+        address collateralAsset,
+        uint256 naraUSDAmount
+    ) internal view returns (uint256) {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         if (collateralDecimals == 18) {
@@ -1093,7 +1099,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         uint256 receivedCollateral = mct.redeem(collateralAsset, naraUSDAmount, address(this));
 
         // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
-        uint256 receivedCollateral18 = _convertToNUSDAmount(collateralAsset, receivedCollateral);
+        uint256 receivedCollateral18 = _convertToNaraUSDAmount(collateralAsset, receivedCollateral);
         uint256 feeAmount18 = _calculateRedeemFee(receivedCollateral18);
         uint256 collateralAfterFee = receivedCollateral;
 

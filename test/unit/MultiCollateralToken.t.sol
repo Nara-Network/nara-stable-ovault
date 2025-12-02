@@ -109,12 +109,12 @@ contract MultiCollateralTokenTest is TestHelper {
         uint256 usdcAmount = 1000e6;
         uint256 mctAmount = _mintMCT(address(usdc), usdcAmount, alice);
 
-        // Redeem (transfer MCT to nUSD which has MINTER_ROLE to redeem)
+        // Redeem (transfer MCT to naraUSD which has MINTER_ROLE to redeem)
         vm.startPrank(alice);
         mct.transfer(address(naraUSD), mctAmount);
         vm.stopPrank();
 
-        // nUSD redeems
+        // naraUSD redeems
         vm.startPrank(address(naraUSD));
         mct.approve(address(mct), mctAmount);
 

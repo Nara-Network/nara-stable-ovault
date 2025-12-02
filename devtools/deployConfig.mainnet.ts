@@ -13,20 +13,20 @@ const _hubEid = EndpointId.ARBITRUM_V2_MAINNET // Arbitrum as hub chain
 const _spokeEids = [EndpointId.BASE_V2_MAINNET, EndpointId.ETHEREUM_V2_MAINNET] // Base and Ethereum as spoke chains
 
 // ============================================
-// nUSD OVault Deployment Configuration
+// naraUSD OVault Deployment Configuration
 // ============================================
 export const DEPLOYMENT_CONFIG: DeploymentConfig = {
     // Vault chain configuration (where the ERC4626 vault lives)
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'nusd/nUSD',
-            shareAdapter: 'nusd/nUSDOFTAdapter',
-            composer: 'nusd/nUSDComposer',
+            vault: 'narausd/NaraUSD',
+            shareAdapter: 'narausd/NaraUSDOFTAdapter',
+            composer: 'narausd/NaraUSDComposer',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         // This will skip deployment and use your existing hubEid contract deployments instead
-        // This must be the address of the nUSD (ERC4626 vault)
+        // This must be the address of the naraUSD (ERC4626 vault)
         vaultAddress: undefined, // Set to '0xabc...' to use existing vault
         // This must be the address of the MCT OFT adapter (not MCT itself - use the OFT adapter address)
         assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
@@ -36,12 +36,12 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         collateralAssetOFTAddress: '0xe8CDF27AcD73a434D661C84887215F7598e7d0d3', // USDC OFT on Arbitrum Mainnet (UPDATE THIS)
     },
 
-    // Share OFT configuration (nUSD shares on spoke chains)
+    // Share OFT configuration (naraUSD shares on spoke chains)
     shareOFT: {
-        contract: 'nusd/nUSDOFT',
+        contract: 'narausd/NaraUSDOFT',
         metadata: {
-            name: 'nUSD',
-            symbol: 'nUSD',
+            name: 'NaraUSD',
+            symbol: 'NaraUSD',
         },
         deploymentEids: _spokeEids,
     },
@@ -66,9 +66,9 @@ export const STAKED_NARAUSD_CONFIG = {
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'staked-nusd/StakednUSD',
-            shareAdapter: 'staked-nusd/StakednUSDOFTAdapter',
-            distributor: 'staked-nusd/StakingRewardsDistributor',
+            vault: 'staked-narausd/StakedNaraUSD',
+            shareAdapter: 'staked-narausd/StakedNaraUSDOFTAdapter',
+            distributor: 'staked-narausd/StakingRewardsDistributor',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         vaultAddress: undefined, // Set to '0xabc...' to use existing StakednUSD vault
@@ -76,12 +76,12 @@ export const STAKED_NARAUSD_CONFIG = {
         distributorAddress: undefined, // Set to '0xghi...' to use existing StakingRewardsDistributor
     },
 
-    // Share OFT configuration (snUSD shares on spoke chains)
+    // Share OFT configuration (snaraUSD shares on spoke chains)
     shareOFT: {
-        contract: 'staked-nusd/StakednUSDOFT',
+        contract: 'staked-narausd/StakedNaraUSDOFT',
         metadata: {
-            name: 'Staked nUSD',
-            symbol: 'snUSD',
+            name: 'Staked naraUSD',
+            symbol: 'snaraUSD',
         },
         deploymentEids: _spokeEids,
     },

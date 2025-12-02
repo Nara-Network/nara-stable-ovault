@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./interfaces/IStakedNaraUSDCooldown.sol";
 import "./StakedNaraUSDSilo.sol";
-import "../interfaces/nusd/InaraUSD.sol";
+import "../interfaces/narausd/INaraUSD.sol";
 
 /**
  * @title StakedNaraUSD
@@ -148,8 +148,8 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
 
         // Call naraUSD's burn function to properly burn naraUSD and MCT
         // naraUSD.burn() burns from msg.sender (this contract), so StakedNaraUSD must own the tokens
-        InaraUSD nusd = InaraUSD(asset());
-        nusd.burn(amount);
+        INaraUSD naraUSD = INaraUSD(asset());
+        naraUSD.burn(amount);
 
         emit AssetsBurned(amount);
 
@@ -197,13 +197,13 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_isBlacklisted(from) && !_isBlacklisted(to)) {
             uint256 amountToDistribute = balanceOf(from);
-            uint256 nusdToVest = previewRedeem(amountToDistribute);
+            uint256 naraUSDToVest = previewRedeem(amountToDistribute);
 
             _burn(from, amountToDistribute);
 
             // to address of address(0) enables burning
             if (to == address(0)) {
-                _updateVestingAmount(nusdToVest);
+                _updateVestingAmount(naraUSDToVest);
             } else {
                 _mint(to, amountToDistribute);
             }

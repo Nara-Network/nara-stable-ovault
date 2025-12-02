@@ -4,12 +4,12 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 import { DEPLOYMENT_CONFIG } from '../devtools'
 
 /**
- * Complete deployment script for the full nUSD OVault system
+ * Complete deployment script for the full naraUSD OVault system
  *
  * This script deploys:
  * 1. MultiCollateralToken (MCT) with USDC as initial asset
- * 2. nUSD vault with MCT as underlying
- * 3. StakedNaraUSD vault for staking nUSD
+ * 2. naraUSD vault with MCT as underlying
+ * 3. StakedNaraUSD vault for staking naraUSD
  * 4. StakingRewardsDistributor for automated rewards
  *
  * Supports both testnet and mainnet deployments based on DEPLOY_ENV:
@@ -31,8 +31,8 @@ const ADMIN_ADDRESS = '0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671' // TODO: Set 
 const OPERATOR_ADDRESS = '0xD5259f0B4aA6189210970243d3B57eb04f5C64B7' // TODO: Set operator address (bot/EOA)
 
 // Limits
-const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M nUSD (18 decimals)
-const MAX_REDEEM_PER_BLOCK = '1000000000000000000000000' // 1M nUSD (18 decimals)
+const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M naraUSD (18 decimals)
+const MAX_REDEEM_PER_BLOCK = '1000000000000000000000000' // 1M naraUSD (18 decimals)
 
 // ============================================
 
@@ -55,7 +55,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     }
 
     console.log('\n=====================================================')
-    console.log('Deploying Full nUSD OVault System')
+    console.log('Deploying Full naraUSD OVault System')
     console.log(`Environment: ${deployEnv.toUpperCase()}`)
     console.log(`Network: ${networkName} (Chain ID: ${network.chainId})`)
     console.log('=====================================================\n')
@@ -75,10 +75,10 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('')
 
     // ========================================
-    // PHASE 1: Deploy MCT and nUSD
+    // PHASE 1: Deploy MCT and naraUSD
     // ========================================
     console.log('========================================')
-    console.log('PHASE 1: MCT + nUSD')
+    console.log('PHASE 1: MCT + naraUSD')
     console.log('========================================\n')
 
     // Step 1: Deploy MultiCollateralToken
@@ -93,20 +93,20 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('   ✓ MultiCollateralToken deployed at:', mctDeployment.address)
     console.log('')
 
-    // Step 2: Deploy nUSD
-    console.log('2. Deploying nUSD...')
-    const nusdDeployment = await deploy('nUSD', {
-        contract: 'contracts/narausd/nUSD.sol:NaraUSD',
+    // Step 2: Deploy naraUSD
+    console.log('2. Deploying naraUSD...')
+    const nusdDeployment = await deploy('NaraUSD', {
+        contract: 'contracts/narausd/naraUSD.sol:NaraUSD',
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
         waitConfirmations: 1,
     })
-    console.log('   ✓ nUSD deployed at:', nusdDeployment.address)
+    console.log('   ✓ naraUSD deployed at:', nusdDeployment.address)
     console.log('')
 
-    // Step 3: Grant MINTER_ROLE to nUSD
-    console.log('3. Granting MINTER_ROLE to nUSD...')
+    // Step 3: Grant MINTER_ROLE to naraUSD
+    console.log('3. Granting MINTER_ROLE to naraUSD...')
     const mct = await hre.ethers.getContractAt(
         'contracts/mct/MultiCollateralToken.sol:MultiCollateralToken',
         mctDeployment.address
@@ -116,7 +116,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     try {
         const tx = await mct.grantRole(MINTER_ROLE, nusdDeployment.address)
         await tx.wait()
-        console.log('   ✓ MINTER_ROLE granted to nUSD')
+        console.log('   ✓ MINTER_ROLE granted to naraUSD')
     } catch (error) {
         console.log('   ⚠ Could not grant MINTER_ROLE automatically')
         console.log('   Please manually grant as admin')
@@ -136,7 +136,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         contract: 'contracts/staked-narausd/StakedNaraUSD.sol:StakedNaraUSD',
         from: deployer,
         args: [
-            nusdDeployment.address, // nUSD token
+            nusdDeployment.address, // naraUSD token
             deployer, // Initial rewarder (will be replaced by distributor)
             ADMIN_ADDRESS, // Admin
         ],
@@ -153,7 +153,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         from: deployer,
         args: [
             stakedNusdDeployment.address, // StakedNaraUSD vault
-            nusdDeployment.address, // nUSD token
+            nusdDeployment.address, // naraUSD token
             ADMIN_ADDRESS, // Admin (multisig)
             OPERATOR_ADDRESS, // Operator (bot)
         ],
@@ -210,7 +210,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     console.log('📦 Deployed Contracts:')
     console.log('   MultiCollateralToken:', mctDeployment.address)
-    console.log('   nUSD:', nusdDeployment.address)
+    console.log('   naraUSD:', nusdDeployment.address)
     console.log('   StakedNaraUSD:', stakedNusdDeployment.address)
     console.log('   StakingRewardsDistributor:', distributorDeployment.address)
     console.log('')
@@ -224,7 +224,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('')
 
     console.log('🔑 Granted Roles:')
-    console.log('   MCT.MINTER_ROLE → nUSD')
+    console.log('   MCT.MINTER_ROLE → naraUSD')
     console.log('   StakedNaraUSD.REWARDER_ROLE → StakingRewardsDistributor')
     console.log('   StakedNaraUSD.BLACKLIST_MANAGER_ROLE → Admin')
     console.log('')
@@ -238,7 +238,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         `   npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network ${networkName} ${mctDeployment.address} "${ADMIN_ADDRESS}" "[\\"${usdcAddress}\\"]"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/narausd/nUSD.sol:NaraUSD --network ${networkName} ${nusdDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
+        `   npx hardhat verify --contract contracts/narausd/naraUSD.sol:NaraUSD --network ${networkName} ${nusdDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
     )
     console.log(
         `   npx hardhat verify --contract contracts/staked-narausd/StakedNaraUSD.sol:StakedNaraUSD --network ${networkName} ${stakedNusdDeployment.address} "${nusdDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
@@ -248,7 +248,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     )
     console.log('')
 
-    console.log('2️⃣  Test Minting nUSD:')
+    console.log('2️⃣  Test Minting naraUSD:')
     if (deployEnv === 'testnet') {
         console.log('   - Get testnet USDC from faucet/bridge')
     } else {
@@ -264,7 +264,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('')
 
     console.log('4️⃣  Test Rewards Distribution:')
-    console.log('   - Transfer nUSD to StakingRewardsDistributor')
+    console.log('   - Transfer naraUSD to StakingRewardsDistributor')
     console.log('   - Call distributor.transferInRewards(amount) as operator')
     console.log('')
 
@@ -272,8 +272,8 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log(`   DEPLOY_ENV=${deployEnv} npx hardhat deploy --network ${networkName} --tags ovault`)
     console.log(`   DEPLOY_ENV=${deployEnv} npx hardhat deploy --network ${networkName} --tags staked-naraUSD-oft`)
     console.log('   This deploys:')
-    console.log('   - MCTOFTAdapter, NaraUSDOFTAdapter, NaraUSDComposer (for nUSD)')
-    console.log('   - StakedNaraUSDOFTAdapter, StakedNaraUSDComposer (for snUSD)')
+    console.log('   - MCTOFTAdapter, NaraUSDOFTAdapter, NaraUSDComposer (for naraUSD)')
+    console.log('   - StakedNaraUSDOFTAdapter, StakedNaraUSDComposer (for snaraUSD)')
     console.log('')
 
     console.log('6️⃣  Deploy on Spoke Chains:')

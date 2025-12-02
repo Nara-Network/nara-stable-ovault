@@ -58,7 +58,7 @@ contract NaraUSDComposerTest is TestHelper {
 
         // Mint naraUSD with collateral (simulating what _depositCollateralAndSend does)
         vm.prank(address(naraUSDComposer));
-        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), depositAmount);
+        uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), depositAmount);
 
         // Verify the flow
         assertEq(
@@ -66,10 +66,10 @@ contract NaraUSDComposerTest is TestHelper {
             composerUsdcBefore - depositAmount,
             "Composer should transfer USDC"
         );
-        assertGt(nusdAmount, 0, "Should mint naraUSD");
+        assertGt(naraUSDAmount, 0, "Should mint naraUSD");
         assertEq(
             naraUSD.balanceOf(address(naraUSDComposer)),
-            composerNusdBefore + nusdAmount,
+            composerNusdBefore + naraUSDAmount,
             "Composer should receive naraUSD"
         );
     }
@@ -188,12 +188,12 @@ contract NaraUSDComposerTest is TestHelper {
         // Simulate deposit flow
         vm.startPrank(address(naraUSDComposer));
         usdc.approve(address(naraUSD), amount);
-        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), amount);
+        uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), amount);
         vm.stopPrank();
 
         // Verify proportional minting
-        assertGt(nusdAmount, 0, "Should mint some naraUSD");
-        assertApproxEqAbs(nusdAmount, amount * 1e12, 1e18, "Should mint ~1:1 (accounting for decimals)");
+        assertGt(naraUSDAmount, 0, "Should mint some naraUSD");
+        assertApproxEqAbs(naraUSDAmount, amount * 1e12, 1e18, "Should mint ~1:1 (accounting for decimals)");
     }
 
     /**
@@ -213,10 +213,10 @@ contract NaraUSDComposerTest is TestHelper {
         // Simulate deposit flow
         vm.startPrank(address(naraUSDComposer));
         usdt.approve(address(naraUSD), depositAmount);
-        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdt), depositAmount);
+        uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdt), depositAmount);
         vm.stopPrank();
 
-        assertGt(nusdAmount, 0, "Should mint naraUSD with USDT");
+        assertGt(naraUSDAmount, 0, "Should mint naraUSD with USDT");
     }
 
     /**

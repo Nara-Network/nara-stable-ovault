@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "../../interfaces/staked-nusd/IStakedNaraUSD.sol";
+import "../../interfaces/staked-narausd/IStakedNaraUSD.sol";
 
 struct UserCooldown {
     uint104 cooldownEnd;

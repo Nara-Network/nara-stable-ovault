@@ -37,7 +37,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LocalDepositThenCrossChain() public {
         uint256 mctAmount = 100e18;
-        uint256 expectedNusd = 100e18;
+        uint256 expectedNaraUSD = 100e18;
 
         _switchToHub();
 
@@ -45,7 +45,7 @@ contract NaraUSDComposerTest is TestHelper {
         vm.startPrank(alice);
         mct.approve(address(naraUSD), mctAmount);
         uint256 nusdReceived = naraUSD.deposit(mctAmount, alice);
-        assertEq(nusdReceived, expectedNusd, "Should receive expected naraUSD");
+        assertEq(nusdReceived, expectedNaraUSD, "Should receive expected naraUSD");
 
         // Step 2: Alice sends naraUSD cross-chain to Bob on spoke
         naraUSD.approve(address(naraUSDAdapter), nusdReceived);
@@ -109,7 +109,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LocalDepositAndSend() public {
         uint256 mctAmount = 100e18;
-        uint256 expectedNusd = 100e18;
+        uint256 expectedNaraUSD = 100e18;
 
         _switchToHub();
 
@@ -117,7 +117,7 @@ contract NaraUSDComposerTest is TestHelper {
         vm.startPrank(alice);
         mct.approve(address(naraUSD), mctAmount);
         uint256 nusdReceived = naraUSD.deposit(mctAmount, alice);
-        assertEq(nusdReceived, expectedNusd, "Should receive expected naraUSD");
+        assertEq(nusdReceived, expectedNaraUSD, "Should receive expected naraUSD");
 
         // Now send naraUSD cross-chain via adapter
         naraUSD.approve(address(naraUSDAdapter), nusdReceived);
@@ -142,7 +142,7 @@ contract NaraUSDComposerTest is TestHelper {
         // First, get some naraUSD on spoke
         test_LocalDepositAndSend();
 
-        uint256 nusdAmount = 50e18;
+        uint256 naraUSDAmount = 50e18;
         uint256 expectedMct = 50e18;
 
         _switchToSpoke();
@@ -154,7 +154,7 @@ contract NaraUSDComposerTest is TestHelper {
         SendParam memory sendParam = _buildSendParam(
             HUB_EID,
             alice,
-            nusdAmount,
+            naraUSDAmount,
             (expectedMct * 99) / 100, // 1% slippage
             _buildComposeOptions(200000, 300000),
             "",
@@ -196,11 +196,11 @@ contract NaraUSDComposerTest is TestHelper {
 
             // Direct deposit on hub
             mct.approve(address(naraUSD), amount);
-            uint256 nusdAmount = naraUSD.deposit(amount, alice);
+            uint256 naraUSDAmount = naraUSD.deposit(amount, alice);
 
             // Send to spoke
-            naraUSD.approve(address(naraUSDAdapter), nusdAmount);
-            SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdAmount);
+            naraUSD.approve(address(naraUSDAdapter), naraUSDAmount);
+            SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDAmount);
             MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
 
             naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -224,14 +224,14 @@ contract NaraUSDComposerTest is TestHelper {
 
         vm.startPrank(alice);
         mct.approve(address(naraUSD), mctAmount);
-        uint256 nusdAmount = naraUSD.deposit(mctAmount, alice);
+        uint256 naraUSDAmount = naraUSD.deposit(mctAmount, alice);
 
-        naraUSD.approve(address(naraUSDAdapter), nusdAmount);
+        naraUSD.approve(address(naraUSDAdapter), naraUSDAmount);
 
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,
             bob,
-            nusdAmount,
+            naraUSDAmount,
             minNusd,
             OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0),
             "",
@@ -261,13 +261,13 @@ contract NaraUSDComposerTest is TestHelper {
         mct.approve(address(naraUSD), mctAmount);
 
         uint256 aliceMctBefore = mct.balanceOf(alice);
-        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
         uint256 nusdReceived = naraUSD.deposit(mctAmount, alice);
         uint256 aliceMctAfter = mct.balanceOf(alice);
 
         assertEq(aliceMctBefore - aliceMctAfter, mctAmount, "MCT should be transferred");
         assertEq(nusdReceived, mctAmount, "Should receive 1:1 naraUSD for MCT");
-        assertEq(naraUSD.balanceOf(alice) - aliceNusdBefore, nusdReceived, "Alice should have additional naraUSD");
+        assertEq(naraUSD.balanceOf(alice) - aliceNaraUSDBefore, nusdReceived, "Alice should have additional naraUSD");
         vm.stopPrank();
     }
 
@@ -305,7 +305,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_MintWithCollateral() public {
         uint256 usdcAmount = 1000e6; // 1000 USDC
-        uint256 expectedNusd = 1000e18; // 1000 naraUSD
+        uint256 expectedNaraUSD = 1000e18; // 1000 naraUSD
 
         _switchToHub();
 
@@ -313,13 +313,13 @@ contract NaraUSDComposerTest is TestHelper {
         usdc.approve(address(naraUSD), usdcAmount);
 
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
         uint256 nusdReceived = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
         assertEq(aliceUsdcBefore - aliceUsdcAfter, usdcAmount, "USDC should be transferred");
-        assertEq(nusdReceived, expectedNusd, "Should mint expected naraUSD");
-        assertEq(naraUSD.balanceOf(alice) - aliceNusdBefore, expectedNusd, "Alice should have additional naraUSD");
+        assertEq(nusdReceived, expectedNaraUSD, "Should mint expected naraUSD");
+        assertEq(naraUSD.balanceOf(alice) - aliceNaraUSDBefore, expectedNaraUSD, "Alice should have additional naraUSD");
         vm.stopPrank();
     }
 
@@ -331,7 +331,7 @@ contract NaraUSDComposerTest is TestHelper {
 
         // Test with USDC
         vm.startPrank(alice);
-        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
 
         usdc.approve(address(naraUSD), 500e6);
         uint256 nusdFromUsdc = naraUSD.mintWithCollateral(address(usdc), 500e6);
@@ -342,7 +342,7 @@ contract NaraUSDComposerTest is TestHelper {
         uint256 nusdFromUsdt = naraUSD.mintWithCollateral(address(usdt), 500e6);
         assertEq(nusdFromUsdt, 500e18, "Should mint 500 naraUSD from USDT");
 
-        assertEq(naraUSD.balanceOf(alice) - aliceNusdBefore, 1000e18, "Alice should have 1000 naraUSD additional");
+        assertEq(naraUSD.balanceOf(alice) - aliceNaraUSDBefore, 1000e18, "Alice should have 1000 naraUSD additional");
         vm.stopPrank();
     }
 
@@ -406,14 +406,14 @@ contract NaraUSDComposerTest is TestHelper {
 
         vm.startPrank(alice);
         mct.approve(address(naraUSD), mctAmount);
-        uint256 nusdAmount = naraUSD.deposit(mctAmount, alice);
+        uint256 naraUSDAmount = naraUSD.deposit(mctAmount, alice);
 
-        naraUSD.approve(address(naraUSDAdapter), nusdAmount);
+        naraUSD.approve(address(naraUSDAdapter), naraUSDAmount);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
         SendParam memory sendParam = _buildSendParam(
             SPOKE_EID,
             bob,
-            nusdAmount,
+            naraUSDAmount,
             0, // minAmountLD = 0 to avoid slippage issues
             OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0),
             "",
@@ -431,8 +431,8 @@ contract NaraUSDComposerTest is TestHelper {
         // Use approximate equality for fuzz tests due to potential rounding in mock OFT (0.1% tolerance)
         assertApproxEqAbs(
             naraUSDOFT.balanceOf(bob),
-            nusdAmount,
-            nusdAmount / 1000,
+            naraUSDAmount,
+            naraUSDAmount / 1000,
             "Bob should have ~correct naraUSD amount"
         );
     }
@@ -442,19 +442,19 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_EndToEndFlow() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedNusd = 1000e18;
+        uint256 expectedNaraUSD = 1000e18;
 
         _switchToHub();
 
         // Step 1: Alice deposits USDC to mint naraUSD
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), usdcAmount);
-        uint256 nusdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(nusdAmount, expectedNusd, "Should mint expected naraUSD");
+        uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
+        assertEq(naraUSDAmount, expectedNaraUSD, "Should mint expected naraUSD");
 
         // Step 2: Alice sends naraUSD to Bob on spoke chain
-        naraUSD.approve(address(naraUSDAdapter), nusdAmount);
-        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, nusdAmount);
+        naraUSD.approve(address(naraUSDAdapter), naraUSDAmount);
+        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDAmount);
         MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
         naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
@@ -464,10 +464,10 @@ contract NaraUSDComposerTest is TestHelper {
 
         // Step 3: Verify Bob has naraUSD on spoke
         _switchToSpoke();
-        assertEq(naraUSDOFT.balanceOf(bob), nusdAmount, "Bob should have naraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(bob), naraUSDAmount, "Bob should have naraUSD on spoke");
 
         // Step 4: Bob sends half back to alice on hub
-        uint256 sendBackAmount = nusdAmount / 2;
+        uint256 sendBackAmount = naraUSDAmount / 2;
         vm.startPrank(bob);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, sendBackAmount);
         MessagingFee memory fee2 = _getMessagingFee(address(naraUSDOFT), sendParam2);

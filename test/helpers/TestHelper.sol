@@ -109,8 +109,8 @@ abstract contract TestHelper is TestHelperOz5 {
         // Grant MINTER_ROLE to test contract for minting without collateral
         mct.grantRole(mct.MINTER_ROLE(), address(this));
 
-        // Deploy real nUSD vault
-        naraUSD = new nUSD(
+        // Deploy real naraUSD vault
+        naraUSD = new NaraUSD(
             mct,
             address(this), // admin
             type(uint256).max, // maxMintPerBlock (unlimited for testing)
@@ -119,11 +119,11 @@ abstract contract TestHelper is TestHelperOz5 {
         // Grant necessary roles
         naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(this));
         naraUSD.grantRole(naraUSD.COLLATERAL_MANAGER_ROLE(), address(this));
-        // Add MCT as minter to itself for nUSD minting flow
+        // Add MCT as minter to itself for naraUSD minting flow
         mct.grantRole(mct.MINTER_ROLE(), address(naraUSD));
 
         // Deploy real StakednUSD vault
-        stakedNaraUSD = new StakednUSD(
+        stakedNaraUSD = new StakedNaraUSD(
             naraUSD,
             address(this), // initialRewarder
             address(this) // admin
@@ -136,20 +136,20 @@ abstract contract TestHelper is TestHelperOz5 {
         // It's only needed to satisfy composer validation checks
         mctAdapter = new MCTOFTAdapter(address(mct), address(endpoints[HUB_EID]), delegate);
 
-        naraUSDAdapter = new nUSDOFTAdapter(address(naraUSD), address(endpoints[HUB_EID]), delegate);
+        naraUSDAdapter = new NaraUSDOFTAdapter(address(naraUSD), address(endpoints[HUB_EID]), delegate);
 
-        stakedNaraUSDAdapter = new StakednUSDOFTAdapter(address(stakedNaraUSD), address(endpoints[HUB_EID]), delegate);
+        stakedNaraUSDAdapter = new StakedNaraUSDOFTAdapter(address(stakedNaraUSD), address(endpoints[HUB_EID]), delegate);
 
         // Deploy Composers
-        naraUSDComposer = new nUSDComposer(
+        naraUSDComposer = new NaraUSDComposer(
             address(naraUSD),
             address(mctAdapter), // ASSET_OFT for validation (MCT is vault's underlying asset)
-            address(naraUSDAdapter), // SHARE_OFT (nUSD goes cross-chain)
+            address(naraUSDAdapter), // SHARE_OFT (naraUSD goes cross-chain)
             address(usdc),
             address(usdc) // Using USDC as both collateral and collateral OFT for simplicity
         );
 
-        stakedNaraUSDComposer = new StakednUSDComposer(
+        stakedNaraUSDComposer = new StakedNaraUSDComposer(
             address(stakedNaraUSD),
             address(naraUSDAdapter),
             address(stakedNaraUSDAdapter)
@@ -163,16 +163,16 @@ abstract contract TestHelper is TestHelperOz5 {
         // Simulates spoke chain using mock endpoints (no Foundry fork switching)
 
         // Deploy OFTs on spoke chain
-        naraUSDOFT = new nUSDOFT(address(endpoints[SPOKE_EID]), delegate);
+        naraUSDOFT = new NaraUSDOFT(address(endpoints[SPOKE_EID]), delegate);
 
-        stakedNaraUSDOFT = new StakednUSDOFT(address(endpoints[SPOKE_EID]), delegate);
+        stakedNaraUSDOFT = new StakedNaraUSDOFT(address(endpoints[SPOKE_EID]), delegate);
     }
 
     /**
      * @notice Wire all OApps together for cross-chain communication
      */
     function _wireOApps() internal {
-        // Wire nUSD OFT <-> Adapter
+        // Wire naraUSD OFT <-> Adapter
         address[] memory nusdPath = new address[](2);
         nusdPath[0] = address(naraUSDAdapter);
         nusdPath[1] = address(naraUSDOFT);
@@ -205,8 +205,8 @@ abstract contract TestHelper is TestHelperOz5 {
         mct.mintWithoutCollateral(alice, INITIAL_BALANCE_18);
         mct.mintWithoutCollateral(bob, INITIAL_BALANCE_18);
 
-        // Mint nUSD to test accounts for staking tests
-        // First mint MCT, then deposit to get nUSD
+        // Mint naraUSD to test accounts for staking tests
+        // First mint MCT, then deposit to get naraUSD
         mct.mintWithoutCollateral(address(this), INITIAL_BALANCE_18 * 2);
         mct.approve(address(naraUSD), INITIAL_BALANCE_18 * 2);
         naraUSD.deposit(INITIAL_BALANCE_18, alice);

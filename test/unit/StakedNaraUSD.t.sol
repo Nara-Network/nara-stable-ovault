@@ -63,12 +63,12 @@ contract StakedNaraUSDTest is TestHelper {
         uint256 shares = stakedNaraUSD.deposit(depositAmount, alice);
 
         // Redeem
-        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
         uint256 assets = stakedNaraUSD.redeem(shares, alice, alice);
-        uint256 aliceNusdAfter = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUSDAfter = naraUSD.balanceOf(alice);
 
         assertEq(assets, depositAmount, "Should redeem 1:1");
-        assertEq(aliceNusdAfter - aliceNusdBefore, depositAmount, "naraUSD returned");
+        assertEq(aliceNaraUSDAfter - aliceNaraUSDBefore, depositAmount, "naraUSD returned");
         assertEq(stakedNaraUSD.balanceOf(alice), 0, "snaraUSD burned");
 
         vm.stopPrank();
@@ -84,7 +84,7 @@ contract StakedNaraUSDTest is TestHelper {
         // Deposit
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
 
         naraUSD.approve(address(stakedNaraUSD), depositAmount);
         uint256 shares = stakedNaraUSD.deposit(depositAmount, alice);
@@ -108,7 +108,7 @@ contract StakedNaraUSDTest is TestHelper {
         // Unstake
         stakedNaraUSD.unstake(alice);
 
-        assertEq(naraUSD.balanceOf(alice), aliceNusdBefore, "naraUSD returned");
+        assertEq(naraUSD.balanceOf(alice), aliceNaraUSDBefore, "naraUSD returned");
 
         vm.stopPrank();
     }
@@ -121,7 +121,7 @@ contract StakedNaraUSDTest is TestHelper {
 
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceNusdBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
 
         naraUSD.approve(address(stakedNaraUSD), depositAmount);
         stakedNaraUSD.deposit(depositAmount, alice);
@@ -138,7 +138,7 @@ contract StakedNaraUSDTest is TestHelper {
         stakedNaraUSD.unstake(alice);
 
         // Should have returned 500 (depositAmount - cooldownAssets is still staked)
-        assertEq(naraUSD.balanceOf(alice), aliceNusdBefore - depositAmount + cooldownAssets, "Partial naraUSD returned");
+        assertEq(naraUSD.balanceOf(alice), aliceNaraUSDBefore - depositAmount + cooldownAssets, "Partial naraUSD returned");
 
         vm.stopPrank();
     }

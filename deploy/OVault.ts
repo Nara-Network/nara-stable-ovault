@@ -7,21 +7,21 @@ import { DEPLOYMENT_CONFIG, isVaultChain, shouldDeployAsset, shouldDeployShare }
 import { handleDeploymentWithRetry } from './utils'
 
 /**
- * OVault Deployment Script for nUSD System
+ * OVault Deployment Script for naraUSD System
  *
  * This script deploys the LayerZero OFT infrastructure for cross-chain functionality:
  *
  * Hub Chain (e.g., Sepolia):
  * - MCTOFTAdapter (lockbox for MCT)
- * - NaraUSDOFTAdapter (lockbox for nUSD)
+ * - NaraUSDOFTAdapter (lockbox for naraUSD)
  * - NaraUSDComposer (cross-chain operations)
  *
  * Spoke Chains (e.g., OP Sepolia, Base Sepolia):
  * - MCTOFT (mint/burn for MCT)
- * - NaraUSDOFT (mint/burn for nUSD)
+ * - NaraUSDOFT (mint/burn for naraUSD)
  *
  * Prerequisites:
- * - Core contracts must be deployed first (MCT, nUSD)
+ * - Core contracts must be deployed first (MCT, naraUSD)
  * - LayerZero EndpointV2 must be deployed
  * - devtools/deployConfig.ts must be configured
  *
@@ -100,7 +100,7 @@ const deploy: DeployFunction = async (hre) => {
                 mctAddress = mct.address
             } catch (error) {
                 throw new Error(
-                    'MultiCollateralToken not found. Please deploy core contracts first using FullSystem or nUSD deployment script.'
+                    'MultiCollateralToken not found. Please deploy core contracts first using FullSystem or naraUSD deployment script.'
                 )
             }
 
@@ -160,11 +160,11 @@ const deploy: DeployFunction = async (hre) => {
     console.log('')
 
     // ========================================
-    // SHARE OFT (nUSD) - Deploy on spoke chains, Adapter on hub
+    // SHARE OFT (naraUSD) - Deploy on spoke chains, Adapter on hub
     // ========================================
     if (shouldDeployShare(networkEid)) {
         // Spoke chain: Deploy NaraUSDOFT (mint/burn)
-        console.log('📦 Deploying Share OFT (nUSD) on spoke chain...')
+        console.log('📦 Deploying Share OFT (naraUSD) on spoke chain...')
 
         const naraUSDOFT = await handleDeploymentWithRetry(
             hre,
@@ -195,18 +195,18 @@ const deploy: DeployFunction = async (hre) => {
     if (isVaultChain(networkEid)) {
         console.log('📦 Deploying Hub Chain Components...')
 
-        // Get nUSD address
+        // Get naraUSD address
         let nusdAddress: string
         try {
-            const naraUSD = await hre.deployments.get('nUSD')
+            const naraUSD = await hre.deployments.get('NaraUSD')
             nusdAddress = naraUSD.address
         } catch (error) {
             throw new Error(
-                'nUSD not found. Please deploy core contracts first using FullSystem or nUSD deployment script.'
+                'NaraUSD not found. Please deploy core contracts first using FullSystem or naraUSD deployment script.'
             )
         }
 
-        // Deploy NaraUSDOFTAdapter (lockbox for nUSD shares)
+        // Deploy NaraUSDOFTAdapter (lockbox for naraUSD shares)
         console.log('   → Deploying NaraUSDOFTAdapter (lockbox)...')
         const naraUSDAdapter = await handleDeploymentWithRetry(
             hre,
@@ -253,16 +253,16 @@ const deploy: DeployFunction = async (hre) => {
 
             // Validate addresses before deployment
             console.log('   → Validating addresses for NaraUSDComposer...')
-            console.log(`      Vault (nUSD): ${nusdAddress}`)
+            console.log(`      Vault (naraUSD): ${nusdAddress}`)
             console.log(`      Asset OFT (MCT Adapter): ${mctAssetOFTAddress}`)
-            console.log(`      Share OFT (nUSD Adapter): ${naraUSDAdapter.address}`)
+            console.log(`      Share OFT (naraUSD Adapter): ${naraUSDAdapter.address}`)
             console.log(`      Collateral Asset: ${collateralAsset}`)
             console.log(`      Collateral Asset OFT: ${collateralAssetOFT}`)
 
             // Check if addresses are valid contracts
             const vaultCodeSize = await hre.ethers.provider.getCode(nusdAddress)
             if (vaultCodeSize === '0x') {
-                throw new Error(`nUSD vault at ${nusdAddress} is not a contract`)
+                throw new Error(`naraUSD vault at ${nusdAddress} is not a contract`)
             }
 
             const assetOftCodeSize = await hre.ethers.provider.getCode(mctAssetOFTAddress)
@@ -296,7 +296,7 @@ const deploy: DeployFunction = async (hre) => {
                     contract: 'contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer',
                     from: deployer,
                     args: [
-                        nusdAddress, // vault (nUSD)
+                        nusdAddress, // vault (naraUSD)
                         mctAssetOFTAddress, // asset OFT (MCT adapter)
                         naraUSDAdapter.address, // share OFT adapter
                         collateralAsset, // configured collateral asset (e.g., USDC)
@@ -346,8 +346,8 @@ const deploy: DeployFunction = async (hre) => {
                 from: deployer,
                 args: [
                     stakedNusdAddress, // StakedNaraUSD vault
-                    naraUSDAdapter.address, // nUSD OFT adapter (asset)
-                    stakedNusdAdapterAddress, // snUSD OFT adapter (share)
+                    naraUSDAdapter.address, // naraUSD OFT adapter (asset)
+                    stakedNusdAdapterAddress, // snaraUSD OFT adapter (share)
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,
@@ -399,7 +399,7 @@ const deploy: DeployFunction = async (hre) => {
             }
 
             if (deployedContracts.naraUSDAdapter) {
-                const naraUSD = await hre.deployments.get('nUSD')
+                const naraUSD = await hre.deployments.get('NaraUSD')
                 console.log(`# NaraUSDOFTAdapter`)
                 console.log(
                     `npx hardhat verify --contract contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.naraUSDAdapter} "${naraUSD.address}" "${endpointV2.address}" "${deployer}"\n`
@@ -407,7 +407,7 @@ const deploy: DeployFunction = async (hre) => {
             }
 
             if (deployedContracts.composer) {
-                const naraUSD = await hre.deployments.get('nUSD')
+                const naraUSD = await hre.deployments.get('NaraUSD')
                 const mctAdapter = await hre.deployments.get('MCTOFTAdapter')
                 const naraUSDAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
                 const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
