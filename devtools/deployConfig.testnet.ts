@@ -30,7 +30,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         vaultAddress: undefined, // Set to '0xabc...' to use existing vault
         // This must be the address of the MCT OFT adapter (not MCT itself - use the OFT adapter address)
         assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
-        // This must be the address of the nUSDOFTAdapter
+        // This must be the address of the NaraUSDOFTAdapter
         shareOFTAdapterAddress: undefined, // Set to '0xghi...' to use existing OFTAdapter
         collateralAssetAddress: '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773', // USDC on Arbitrum Sepolia
         collateralAssetOFTAddress: '0x543BdA7c6cA4384FE90B1F5929bb851F52888983', // USDC OFT on Arbitrum Sepolia
@@ -59,10 +59,10 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
 } as const
 
 // ============================================
-// StakednUSD Deployment Configuration
+// StakedNaraUSD Deployment Configuration
 // ============================================
 export const STAKED_NARAUSD_CONFIG = {
-    // StakednUSD vault configuration (where the staking vault lives)
+    // StakedNaraUSD vault configuration (where the staking vault lives)
     vault: {
         deploymentEid: _hubEid,
         contracts: {
@@ -71,8 +71,8 @@ export const STAKED_NARAUSD_CONFIG = {
             distributor: 'staked-narausd/StakingRewardsDistributor',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
-        vaultAddress: undefined, // Set to '0xabc...' to use existing StakednUSD vault
-        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing StakednUSDOFTAdapter
+        vaultAddress: undefined, // Set to '0xabc...' to use existing StakedNaraUSD vault
+        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing StakedNaraUSDOFTAdapter
         distributorAddress: undefined, // Set to '0xghi...' to use existing StakingRewardsDistributor
     },
 

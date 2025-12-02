@@ -392,7 +392,7 @@ contract EndToEndTest is TestHelper {
         stakedNaraUSD.deposit(expectedNaraUSD, alice);
         vm.stopPrank();
 
-        // StakednUSD TVL should increase
+        // StakedNaraUSD TVL should increase
         uint256 stakedTVL = stakedNaraUSD.totalAssets();
         assertEq(stakedTVL, expectedNaraUSD, "Staked TVL should match deposit");
     }

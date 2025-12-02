@@ -43,7 +43,7 @@ contract NaraUSDTest is TestHelper {
 
         uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        uint256 nusdContractMctBefore = mct.balanceOf(address(naraUSD));
+        uint256 naraUSDContractMctBefore = mct.balanceOf(address(naraUSD));
 
         uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
@@ -61,7 +61,7 @@ contract NaraUSDTest is TestHelper {
 
         // Verify MCT created (held by naraUSD contract)
         assertEq(
-            mct.balanceOf(address(naraUSD)) - nusdContractMctBefore,
+            mct.balanceOf(address(naraUSD)) - naraUSDContractMctBefore,
             expectedNaraUSD,
             "naraUSD holds additional MCT"
         );

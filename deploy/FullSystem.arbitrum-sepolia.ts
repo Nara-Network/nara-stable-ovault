@@ -95,14 +95,14 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 2: Deploy naraUSD
     console.log('2. Deploying naraUSD...')
-    const nusdDeployment = await deploy('NaraUSD', {
-        contract: 'contracts/narausd/naraUSD.sol:NaraUSD',
+    const naraUSDDeployment = await deploy('NaraUSD', {
+        contract: 'contracts/narausd/NaraUSD.sol:NaraUSD',
         from: deployer,
         args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
         log: true,
         waitConfirmations: 1,
     })
-    console.log('   ✓ naraUSD deployed at:', nusdDeployment.address)
+    console.log('   ✓ naraUSD deployed at:', naraUSDDeployment.address)
     console.log('')
 
     // Step 3: Grant MINTER_ROLE to naraUSD
@@ -114,7 +114,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const MINTER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('MINTER_ROLE'))
 
     try {
-        const tx = await mct.grantRole(MINTER_ROLE, nusdDeployment.address)
+        const tx = await mct.grantRole(MINTER_ROLE, naraUSDDeployment.address)
         await tx.wait()
         console.log('   ✓ MINTER_ROLE granted to naraUSD')
     } catch (error) {
@@ -132,18 +132,18 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     // Step 4: Deploy StakedNaraUSD
     console.log('4. Deploying StakedNaraUSD...')
-    const stakedNusdDeployment = await deploy('StakedNaraUSD', {
+    const stakedNaraUSDDeployment = await deploy('StakedNaraUSD', {
         contract: 'contracts/staked-narausd/StakedNaraUSD.sol:StakedNaraUSD',
         from: deployer,
         args: [
-            nusdDeployment.address, // naraUSD token
+            naraUSDDeployment.address, // naraUSD token
             deployer, // Initial rewarder (will be replaced by distributor)
             ADMIN_ADDRESS, // Admin
         ],
         log: true,
         waitConfirmations: 1,
     })
-    console.log('   ✓ StakedNaraUSD deployed at:', stakedNusdDeployment.address)
+    console.log('   ✓ StakedNaraUSD deployed at:', stakedNaraUSDDeployment.address)
     console.log('')
 
     // Step 5: Deploy StakingRewardsDistributor
@@ -152,8 +152,8 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         contract: 'contracts/staked-narausd/StakingRewardsDistributor.sol:StakingRewardsDistributor',
         from: deployer,
         args: [
-            stakedNusdDeployment.address, // StakedNaraUSD vault
-            nusdDeployment.address, // naraUSD token
+            stakedNaraUSDDeployment.address, // StakedNaraUSD vault
+            naraUSDDeployment.address, // naraUSD token
             ADMIN_ADDRESS, // Admin (multisig)
             OPERATOR_ADDRESS, // Operator (bot)
         ],
@@ -167,7 +167,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('6. Granting roles to StakedNaraUSD contracts...')
     const stakedNaraUSD = await hre.ethers.getContractAt(
         'contracts/staked-narausd/StakedNaraUSD.sol:StakedNaraUSD',
-        stakedNusdDeployment.address
+        stakedNaraUSDDeployment.address
     )
     const REWARDER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('REWARDER_ROLE'))
     const BLACKLIST_MANAGER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('BLACKLIST_MANAGER_ROLE'))
@@ -210,8 +210,8 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
 
     console.log('📦 Deployed Contracts:')
     console.log('   MultiCollateralToken:', mctDeployment.address)
-    console.log('   naraUSD:', nusdDeployment.address)
-    console.log('   StakedNaraUSD:', stakedNusdDeployment.address)
+    console.log('   naraUSD:', naraUSDDeployment.address)
+    console.log('   StakedNaraUSD:', stakedNaraUSDDeployment.address)
     console.log('   StakingRewardsDistributor:', distributorDeployment.address)
     console.log('')
 
@@ -238,13 +238,13 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         `   npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network ${networkName} ${mctDeployment.address} "${ADMIN_ADDRESS}" "[\\"${usdcAddress}\\"]"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/narausd/naraUSD.sol:NaraUSD --network ${networkName} ${nusdDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
+        `   npx hardhat verify --contract contracts/narausd/NaraUSD.sol:NaraUSD --network ${networkName} ${naraUSDDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/staked-narausd/StakedNaraUSD.sol:StakedNaraUSD --network ${networkName} ${stakedNusdDeployment.address} "${nusdDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
+        `   npx hardhat verify --contract contracts/staked-narausd/StakedNaraUSD.sol:StakedNaraUSD --network ${networkName} ${stakedNaraUSDDeployment.address} "${naraUSDDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/staked-narausd/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${networkName} ${distributorDeployment.address} "${stakedNusdDeployment.address}" "${nusdDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
+        `   npx hardhat verify --contract contracts/staked-narausd/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${networkName} ${distributorDeployment.address} "${stakedNaraUSDDeployment.address}" "${naraUSDDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
     )
     console.log('')
 

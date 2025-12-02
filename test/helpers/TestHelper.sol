@@ -122,7 +122,7 @@ abstract contract TestHelper is TestHelperOz5 {
         // Add MCT as minter to itself for naraUSD minting flow
         mct.grantRole(mct.MINTER_ROLE(), address(naraUSD));
 
-        // Deploy real StakednUSD vault
+        // Deploy real StakedNaraUSD vault
         stakedNaraUSD = new StakedNaraUSD(
             naraUSD,
             address(this), // initialRewarder
@@ -173,12 +173,12 @@ abstract contract TestHelper is TestHelperOz5 {
      */
     function _wireOApps() internal {
         // Wire naraUSD OFT <-> Adapter
-        address[] memory nusdPath = new address[](2);
-        nusdPath[0] = address(naraUSDAdapter);
-        nusdPath[1] = address(naraUSDOFT);
-        this.wireOApps(nusdPath);
+        address[] memory naraUSDPath = new address[](2);
+        naraUSDPath[0] = address(naraUSDAdapter);
+        naraUSDPath[1] = address(naraUSDOFT);
+        this.wireOApps(naraUSDPath);
 
-        // Wire StakednUSD OFT <-> Adapter
+        // Wire StakedNaraUSD OFT <-> Adapter
         address[] memory stakedPath = new address[](2);
         stakedPath[0] = address(stakedNaraUSDAdapter);
         stakedPath[1] = address(stakedNaraUSDOFT);

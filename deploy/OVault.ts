@@ -196,10 +196,10 @@ const deploy: DeployFunction = async (hre) => {
         console.log('📦 Deploying Hub Chain Components...')
 
         // Get naraUSD address
-        let nusdAddress: string
+        let naraUSDAddress: string
         try {
             const naraUSD = await hre.deployments.get('NaraUSD')
-            nusdAddress = naraUSD.address
+            naraUSDAddress = naraUSD.address
         } catch (error) {
             throw new Error(
                 'NaraUSD not found. Please deploy core contracts first using FullSystem or naraUSD deployment script.'
@@ -213,7 +213,7 @@ const deploy: DeployFunction = async (hre) => {
             deployments.deploy('NaraUSDOFTAdapter', {
                 contract: 'contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter',
                 from: deployer,
-                args: [nusdAddress, endpointV2.address, deployer],
+                args: [naraUSDAddress, endpointV2.address, deployer],
                 log: true,
                 skipIfAlreadyDeployed: true,
             }),
@@ -253,16 +253,16 @@ const deploy: DeployFunction = async (hre) => {
 
             // Validate addresses before deployment
             console.log('   → Validating addresses for NaraUSDComposer...')
-            console.log(`      Vault (naraUSD): ${nusdAddress}`)
+            console.log(`      Vault (naraUSD): ${naraUSDAddress}`)
             console.log(`      Asset OFT (MCT Adapter): ${mctAssetOFTAddress}`)
             console.log(`      Share OFT (naraUSD Adapter): ${naraUSDAdapter.address}`)
             console.log(`      Collateral Asset: ${collateralAsset}`)
             console.log(`      Collateral Asset OFT: ${collateralAssetOFT}`)
 
             // Check if addresses are valid contracts
-            const vaultCodeSize = await hre.ethers.provider.getCode(nusdAddress)
+            const vaultCodeSize = await hre.ethers.provider.getCode(naraUSDAddress)
             if (vaultCodeSize === '0x') {
-                throw new Error(`naraUSD vault at ${nusdAddress} is not a contract`)
+                throw new Error(`naraUSD vault at ${naraUSDAddress} is not a contract`)
             }
 
             const assetOftCodeSize = await hre.ethers.provider.getCode(mctAssetOFTAddress)
@@ -296,7 +296,7 @@ const deploy: DeployFunction = async (hre) => {
                     contract: 'contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer',
                     from: deployer,
                     args: [
-                        nusdAddress, // vault (naraUSD)
+                        naraUSDAddress, // vault (naraUSD)
                         mctAssetOFTAddress, // asset OFT (MCT adapter)
                         naraUSDAdapter.address, // share OFT adapter
                         collateralAsset, // configured collateral asset (e.g., USDC)
