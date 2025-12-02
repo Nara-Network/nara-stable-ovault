@@ -207,6 +207,7 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     error CantBlacklistOwner();
     error BelowMinimumAmount();
     error KeyringCredentialInvalid(address account);
+    error InsufficientCollateral();
 
     /* --------------- MODIFIERS --------------- */
 
@@ -354,32 +355,29 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         mct.mintWithoutCollateral(address(this), amount);
     }
 
-    /* --------------- REDEMPTION (ESCROW + BULK SOLVER WITH EXPIRY) --------------- */
+    /* --------------- REDEMPTION (INSTANT OR QUEUED) --------------- */
 
     /**
-     * @notice Request redemption - locks nUSD in the redeem silo with an expiry deadline
-     * @param collateralAsset The collateral asset to receive when redemption is executed
-     * @param nUSDAmount The amount of nUSD to lock for redemption
-     * @param deadline Unix timestamp after which this redemption request becomes invalid
+     * @notice Redeem nUSD for collateral - instant if liquidity available, otherwise queued
+     * @param collateralAsset The collateral asset to receive
+     * @param nUSDAmount The amount of nUSD to redeem
+     * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
+     * @return wasQueued True if request was queued, false if executed instantly
      */
-    function cooldownRedeem(
+    function redeem(
         address collateralAsset,
         uint256 nUSDAmount,
-        uint64 deadline
-    ) external nonReentrant whenNotPaused {
+        bool allowQueue
+    ) external nonReentrant whenNotPaused returns (bool wasQueued) {
         if (nUSDAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
-        if (redemptionRequests[msg.sender].nUSDAmount > 0) revert ExistingRedemptionRequest();
-
-        // Deadline must be in the future (and non-zero) to be valid
-        if (deadline <= block.timestamp) revert InvalidCooldown();
 
         // Check minimum redeem amount
         if (minRedeemAmount > 0 && nUSDAmount < minRedeemAmount) {
             revert BelowMinimumAmount();
         }
 
-        // Check blacklist restrictions (full restriction prevents redeeming)
+        // Check blacklist restrictions
         if (_isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
@@ -387,17 +385,22 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Check Keyring credentials
         _checkKeyringCredential(msg.sender);
 
-        // Transfer nUSD from user to silo (locks it)
-        _transfer(msg.sender, address(redeemSilo), nUSDAmount);
+        // Calculate collateral needed
+        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, nUSDAmount);
 
-        // Record redemption request, using deadline as an expiry timestamp
-        redemptionRequests[msg.sender] = RedemptionRequest({
-            deadline: uint104(deadline),
-            nUSDAmount: uint152(nUSDAmount),
-            collateralAsset: collateralAsset
-        });
+        // Check if MCT has sufficient collateral for instant redemption
+        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
 
-        emit RedemptionRequested(msg.sender, nUSDAmount, collateralAsset, deadline);
+        if (availableCollateral >= collateralNeeded) {
+            // Instant redemption path
+            _instantRedeem(msg.sender, collateralAsset, nUSDAmount);
+            return false;
+        } else {
+            // Queue path
+            if (!allowQueue) revert InsufficientCollateral();
+            _queueRedeem(msg.sender, collateralAsset, nUSDAmount);
+            return true;
+        }
     }
 
     /**
@@ -994,8 +997,56 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
     }
 
     /**
+     * @notice Internal function to execute instant redemption
+     * @param user The user redeeming
+     * @param collateralAsset The collateral asset to receive
+     * @param nUSDAmount The amount of nUSD to redeem
+     * @return collateralAmount The amount of collateral sent to user (after fees)
+     */
+    function _instantRedeem(
+        address user,
+        address collateralAsset,
+        uint256 nUSDAmount
+    ) internal belowMaxRedeemPerBlock(nUSDAmount) returns (uint256 collateralAmount) {
+        // Track redeemed amount for per-block limit
+        redeemedPerBlock[block.number] += nUSDAmount;
+
+        // Burn nUSD from user
+        _burn(user, nUSDAmount);
+
+        // Execute redemption and transfer to user
+        collateralAmount = _executeRedemption(user, collateralAsset, nUSDAmount);
+
+        emit Redeem(user, collateralAsset, nUSDAmount, collateralAmount);
+
+        return collateralAmount;
+    }
+
+    /**
+     * @notice Internal function to queue a redemption request
+     * @param user The user requesting redemption
+     * @param collateralAsset The collateral asset to receive
+     * @param nUSDAmount The amount of nUSD to lock
+     */
+    function _queueRedeem(address user, address collateralAsset, uint256 nUSDAmount) internal {
+        if (redemptionRequests[user].nUSDAmount > 0) revert ExistingRedemptionRequest();
+
+        // Transfer nUSD from user to silo (escrow)
+        _transfer(user, address(redeemSilo), nUSDAmount);
+
+        // Record redemption request (no deadline - valid until completed or cancelled)
+        redemptionRequests[user] = RedemptionRequest({
+            deadline: 0,
+            nUSDAmount: uint152(nUSDAmount),
+            collateralAsset: collateralAsset
+        });
+
+        emit RedemptionRequested(user, nUSDAmount, collateralAsset, 0);
+    }
+
+    /**
      * @notice Internal helper to complete a single redemption
-     * @dev Reverts if the request does not exist or has expired
+     * @dev Reverts if the request does not exist
      * @param user The address whose redemption request should be completed
      * @return collateralAmount The amount of collateral sent to the user (after fees)
      */
@@ -1003,8 +1054,6 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         RedemptionRequest memory request = redemptionRequests[user];
 
         if (request.nUSDAmount == 0) revert NoRedemptionRequest();
-        // Enforce that the request has not expired, if a deadline was set
-        if (request.deadline != 0 && block.timestamp > request.deadline) revert InvalidCooldown();
 
         // Check blacklist restrictions (full restriction prevents redeeming)
         if (_isBlacklisted(user)) {
@@ -1026,7 +1075,27 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
         // Burn nUSD
         _burn(address(this), nUSDAmount);
 
-        // Redeem MCT for collateral - first to this contract
+        // Execute redemption and transfer to user
+        collateralAmount = _executeRedemption(user, collateralAsset, nUSDAmount);
+
+        emit RedemptionCompleted(user, nUSDAmount, collateralAsset, collateralAmount);
+
+        return collateralAmount;
+    }
+
+    /**
+     * @notice Internal function to execute MCT redemption with fee handling
+     * @param user The user receiving collateral
+     * @param collateralAsset The collateral asset to receive
+     * @param nUSDAmount The amount of nUSD being redeemed
+     * @return collateralAmount The amount of collateral sent to user (after fees)
+     */
+    function _executeRedemption(
+        address user,
+        address collateralAsset,
+        uint256 nUSDAmount
+    ) internal returns (uint256 collateralAmount) {
+        // Redeem MCT for collateral to this contract
         uint256 receivedCollateral = mct.redeem(collateralAsset, nUSDAmount, address(this));
 
         // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
@@ -1046,8 +1115,6 @@ contract nUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable 
 
         // Transfer remaining collateral to user
         IERC20(collateralAsset).safeTransfer(user, collateralAfterFee);
-
-        emit RedemptionCompleted(user, nUSDAmount, collateralAsset, collateralAfterFee);
 
         return collateralAfterFee;
     }
