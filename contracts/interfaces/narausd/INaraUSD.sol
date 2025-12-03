@@ -121,11 +121,7 @@ interface INaraUSD is IERC4626, IERC20Permit {
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return wasQueued True if request was queued, false if executed instantly
      */
-    function redeem(
-        address collateralAsset,
-        uint256 naraUSDAmount,
-        bool allowQueue
-    ) external returns (bool wasQueued);
+    function redeem(address collateralAsset, uint256 naraUSDAmount, bool allowQueue) external returns (bool wasQueued);
 
     /**
      * @notice Complete queued redemption - redeems naraUSD for collateral
