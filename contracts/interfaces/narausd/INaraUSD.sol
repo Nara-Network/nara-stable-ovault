@@ -140,6 +140,12 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function bulkCompleteRedeem(address[] calldata users) external;
 
     /**
+     * @notice Update queued redemption request amount
+     * @param newAmount The new amount of naraUSD to redeem
+     */
+    function updateRedemptionRequest(uint256 newAmount) external;
+
+    /**
      * @notice Cancel queued redemption request and return locked naraUSD to user
      */
     function cancelRedeem() external;

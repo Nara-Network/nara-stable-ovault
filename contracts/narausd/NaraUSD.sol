@@ -423,6 +423,41 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     }
 
     /**
+     * @notice Update queued redemption request amount
+     * @param newAmount The new amount of naraUSD to redeem
+     * @dev Can increase or decrease the queued amount
+     */
+    function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
+        RedemptionRequest storage request = redemptionRequests[msg.sender];
+
+        if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
+        if (newAmount == 0) revert InvalidAmount();
+
+        // Check minimum redeem amount
+        if (minRedeemAmount > 0 && newAmount < minRedeemAmount) {
+            revert BelowMinimumAmount();
+        }
+
+        uint256 currentAmount = request.naraUSDAmount;
+
+        if (newAmount > currentAmount) {
+            // Increasing - transfer additional naraUSD to silo
+            uint256 additionalAmount = newAmount - currentAmount;
+            _transfer(msg.sender, address(redeemSilo), additionalAmount);
+        } else if (newAmount < currentAmount) {
+            // Decreasing - return excess naraUSD from silo to user
+            uint256 excessAmount = currentAmount - newAmount;
+            redeemSilo.withdraw(msg.sender, excessAmount);
+        }
+        // If newAmount == currentAmount, nothing to do
+
+        // Update stored amount
+        request.naraUSDAmount = uint152(newAmount);
+
+        emit RedemptionRequested(msg.sender, newAmount, request.collateralAsset);
+    }
+
+    /**
      * @notice Cancel redemption request and return locked naraUSD to user
      */
     function cancelRedeem() external nonReentrant {
