@@ -208,27 +208,39 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
     /// @notice Ensure minted amount doesn't exceed max per block
     modifier belowMaxMintPerBlock(uint256 mintAmount) {
-        if (mintedPerBlock[block.number] + mintAmount > maxMintPerBlock) {
-            revert MaxMintPerBlockExceeded();
-        }
+        _checkBelowMaxMintPerBlock(mintAmount);
         _;
     }
 
     /// @notice Ensure redeemed amount doesn't exceed max per block
     modifier belowMaxRedeemPerBlock(uint256 redeemAmount) {
-        if (redeemedPerBlock[block.number] + redeemAmount > maxRedeemPerBlock) {
-            revert MaxRedeemPerBlockExceeded();
-        }
+        _checkBelowMaxRedeemPerBlock(redeemAmount);
         _;
     }
 
     /// @notice Ensure blacklist target is not admin
     modifier notAdmin(address target) {
-        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+        _checkNotAdmin(target);
         _;
     }
 
     /* --------------- INTERNAL HELPERS --------------- */
+
+    function _checkBelowMaxMintPerBlock(uint256 mintAmount) internal view {
+        if (mintedPerBlock[block.number] + mintAmount > maxMintPerBlock) {
+            revert MaxMintPerBlockExceeded();
+        }
+    }
+
+    function _checkBelowMaxRedeemPerBlock(uint256 redeemAmount) internal view {
+        if (redeemedPerBlock[block.number] + redeemAmount > maxRedeemPerBlock) {
+            revert MaxRedeemPerBlockExceeded();
+        }
+    }
+
+    function _checkNotAdmin(address target) internal view {
+        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+    }
 
     /**
      * @notice Check if an address has valid Keyring credentials (public view)
@@ -447,6 +459,13 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
         if (availableCollateral >= collateralNeeded) {
             // Liquidity available - execute instant redemption
+            if (_isBlacklisted(msg.sender)) {
+                revert OperationNotAllowed();
+            }
+            _checkKeyringCredential(msg.sender);
+            _checkBelowMaxRedeemPerBlock(newAmount);
+
+            redeemedPerBlock[block.number] += newAmount;
 
             // Clear the queued request first
             delete redemptionRequests[msg.sender];

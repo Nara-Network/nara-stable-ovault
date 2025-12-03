@@ -68,25 +68,25 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
 
     /// @notice Ensure input amount is non-zero
     modifier notZero(uint256 amount) {
-        if (amount == 0) revert InvalidAmount();
+        _checkNotZero(amount);
         _;
     }
 
     /// @notice Ensure blacklist target is not admin
     modifier notAdmin(address target) {
-        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+        _checkNotAdmin(target);
         _;
     }
 
     /// @notice Ensure cooldownDuration is zero
     modifier ensureCooldownOff() {
-        if (cooldownDuration != 0) revert OperationNotAllowed();
+        _checkCooldownOff();
         _;
     }
 
     /// @notice Ensure cooldownDuration is gt 0
     modifier ensureCooldownOn() {
-        if (cooldownDuration == 0) revert OperationNotAllowed();
+        _checkCooldownOn();
         _;
     }
 
@@ -447,6 +447,22 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
      */
     function isBlacklisted(address account) external view returns (bool) {
         return _isBlacklisted(account);
+    }
+
+    function _checkNotZero(uint256 amount) internal pure {
+        if (amount == 0) revert InvalidAmount();
+    }
+
+    function _checkNotAdmin(address target) internal view {
+        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+    }
+
+    function _checkCooldownOff() internal view {
+        if (cooldownDuration != 0) revert OperationNotAllowed();
+    }
+
+    function _checkCooldownOn() internal view {
+        if (cooldownDuration == 0) revert OperationNotAllowed();
     }
 
     /**
