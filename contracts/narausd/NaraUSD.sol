@@ -425,10 +425,10 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     /**
      * @notice Update queued redemption request amount
      * @param newAmount The new amount of naraUSD to redeem
-     * @dev Can increase or decrease the queued amount
+     * @dev If liquidity is now available, automatically executes instant redemption instead of keeping queued
      */
     function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
-        RedemptionRequest storage request = redemptionRequests[msg.sender];
+        RedemptionRequest memory request = redemptionRequests[msg.sender];
 
         if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
         if (newAmount == 0) revert InvalidAmount();
@@ -438,23 +438,57 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
             revert BelowMinimumAmount();
         }
 
+        address collateralAsset = request.collateralAsset;
         uint256 currentAmount = request.naraUSDAmount;
 
-        if (newAmount > currentAmount) {
-            // Increasing - transfer additional naraUSD to silo
-            uint256 additionalAmount = newAmount - currentAmount;
-            _transfer(msg.sender, address(redeemSilo), additionalAmount);
-        } else if (newAmount < currentAmount) {
-            // Decreasing - return excess naraUSD from silo to user
-            uint256 excessAmount = currentAmount - newAmount;
-            redeemSilo.withdraw(msg.sender, excessAmount);
+        // Check if instant redemption is now possible
+        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, newAmount);
+        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
+
+        if (availableCollateral >= collateralNeeded) {
+            // Liquidity available - execute instant redemption
+
+            // Clear the queued request first
+            delete redemptionRequests[msg.sender];
+
+            // Withdraw currently escrowed naraUSD from silo to this contract
+            redeemSilo.withdraw(address(this), currentAmount);
+
+            // Adjust balance: if newAmount > currentAmount, need more from user
+            if (newAmount > currentAmount) {
+                uint256 additionalAmount = newAmount - currentAmount;
+                _transfer(msg.sender, address(this), additionalAmount);
+            } else if (newAmount < currentAmount) {
+                // Return excess to user
+                uint256 excessAmount = currentAmount - newAmount;
+                _transfer(address(this), msg.sender, excessAmount);
+            }
+
+            // Now execute instant redemption from this contract's balance
+            _burn(address(this), newAmount);
+
+            // Execute redemption and transfer to user
+            uint256 collateralReceived = _executeRedemption(msg.sender, collateralAsset, newAmount);
+
+            // Emit RedemptionCompleted because this was a queued request that is being fulfilled
+            emit RedemptionCompleted(msg.sender, newAmount, collateralAsset, collateralReceived);
+        } else {
+            // Still no liquidity - update queued amount
+            if (newAmount > currentAmount) {
+                // Increasing - transfer additional naraUSD to silo
+                uint256 additionalAmount = newAmount - currentAmount;
+                _transfer(msg.sender, address(redeemSilo), additionalAmount);
+            } else if (newAmount < currentAmount) {
+                // Decreasing - return excess naraUSD from silo to user
+                uint256 excessAmount = currentAmount - newAmount;
+                redeemSilo.withdraw(msg.sender, excessAmount);
+            }
+
+            // Update stored amount
+            redemptionRequests[msg.sender].naraUSDAmount = uint152(newAmount);
+
+            emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
         }
-        // If newAmount == currentAmount, nothing to do
-
-        // Update stored amount
-        request.naraUSDAmount = uint152(newAmount);
-
-        emit RedemptionRequested(msg.sender, newAmount, request.collateralAsset);
     }
 
     /**
