@@ -514,6 +514,10 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @notice Cancel redemption request and return locked naraUSD to user
      */
     function cancelRedeem() external nonReentrant {
+        if (_isBlacklisted(msg.sender)) {
+            revert OperationNotAllowed();
+        }
+
         RedemptionRequest memory request = redemptionRequests[msg.sender];
 
         if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
@@ -1173,6 +1177,12 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
         uint256 naraUSDAmount = request.naraUSDAmount;
         address collateralAsset = request.collateralAsset;
+
+        // Check per-block redemption limit
+        _checkBelowMaxRedeemPerBlock(naraUSDAmount);
+
+        // Track redeemed amount for per-block limit
+        redeemedPerBlock[block.number] += naraUSDAmount;
 
         // Clear redemption request
         delete redemptionRequests[user];
