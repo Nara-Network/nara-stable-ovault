@@ -9,7 +9,7 @@ import type { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 const arbitrumContract: OmniPointHardhat = {
     eid: EndpointId.ARBITRUM_V2_MAINNET, // 30110
     contractName: 'StakedNaraUSDOFTAdapter',
-    address: '0x87cF5006E1Cbf0D35C622C5f1BE891B2f71878ea',
+    address: '0x4dB3d94BedF3F08891B86486374C3f6DF3A72905',
 }
 
 // Base - Spoke Chain (uses OFT/mint-burn)

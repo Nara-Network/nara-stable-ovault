@@ -208,27 +208,39 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
     /// @notice Ensure minted amount doesn't exceed max per block
     modifier belowMaxMintPerBlock(uint256 mintAmount) {
-        if (mintedPerBlock[block.number] + mintAmount > maxMintPerBlock) {
-            revert MaxMintPerBlockExceeded();
-        }
+        _checkBelowMaxMintPerBlock(mintAmount);
         _;
     }
 
     /// @notice Ensure redeemed amount doesn't exceed max per block
     modifier belowMaxRedeemPerBlock(uint256 redeemAmount) {
-        if (redeemedPerBlock[block.number] + redeemAmount > maxRedeemPerBlock) {
-            revert MaxRedeemPerBlockExceeded();
-        }
+        _checkBelowMaxRedeemPerBlock(redeemAmount);
         _;
     }
 
     /// @notice Ensure blacklist target is not admin
     modifier notAdmin(address target) {
-        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+        _checkNotAdmin(target);
         _;
     }
 
     /* --------------- INTERNAL HELPERS --------------- */
+
+    function _checkBelowMaxMintPerBlock(uint256 mintAmount) internal view {
+        if (mintedPerBlock[block.number] + mintAmount > maxMintPerBlock) {
+            revert MaxMintPerBlockExceeded();
+        }
+    }
+
+    function _checkBelowMaxRedeemPerBlock(uint256 redeemAmount) internal view {
+        if (redeemedPerBlock[block.number] + redeemAmount > maxRedeemPerBlock) {
+            revert MaxRedeemPerBlockExceeded();
+        }
+    }
+
+    function _checkNotAdmin(address target) internal view {
+        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+    }
 
     /**
      * @notice Check if an address has valid Keyring credentials (public view)
@@ -423,9 +435,89 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     }
 
     /**
+     * @notice Update queued redemption request amount
+     * @param newAmount The new amount of naraUSD to redeem
+     * @dev If liquidity is now available, automatically executes instant redemption instead of keeping queued
+     */
+    function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
+        RedemptionRequest memory request = redemptionRequests[msg.sender];
+
+        if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
+        if (newAmount == 0) revert InvalidAmount();
+
+        // Check minimum redeem amount
+        if (minRedeemAmount > 0 && newAmount < minRedeemAmount) {
+            revert BelowMinimumAmount();
+        }
+
+        address collateralAsset = request.collateralAsset;
+        uint256 currentAmount = request.naraUSDAmount;
+
+        // Check if instant redemption is now possible
+        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, newAmount);
+        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
+
+        if (availableCollateral >= collateralNeeded) {
+            // Liquidity available - execute instant redemption
+            if (_isBlacklisted(msg.sender)) {
+                revert OperationNotAllowed();
+            }
+            _checkKeyringCredential(msg.sender);
+            _checkBelowMaxRedeemPerBlock(newAmount);
+
+            redeemedPerBlock[block.number] += newAmount;
+
+            // Clear the queued request first
+            delete redemptionRequests[msg.sender];
+
+            // Withdraw currently escrowed naraUSD from silo to this contract
+            redeemSilo.withdraw(address(this), currentAmount);
+
+            // Adjust balance: if newAmount > currentAmount, need more from user
+            if (newAmount > currentAmount) {
+                uint256 additionalAmount = newAmount - currentAmount;
+                _transfer(msg.sender, address(this), additionalAmount);
+            } else if (newAmount < currentAmount) {
+                // Return excess to user
+                uint256 excessAmount = currentAmount - newAmount;
+                _transfer(address(this), msg.sender, excessAmount);
+            }
+
+            // Now execute instant redemption from this contract's balance
+            _burn(address(this), newAmount);
+
+            // Execute redemption and transfer to user
+            uint256 collateralReceived = _executeRedemption(msg.sender, collateralAsset, newAmount);
+
+            // Emit RedemptionCompleted because this was a queued request that is being fulfilled
+            emit RedemptionCompleted(msg.sender, newAmount, collateralAsset, collateralReceived);
+        } else {
+            // Still no liquidity - update queued amount
+            if (newAmount > currentAmount) {
+                // Increasing - transfer additional naraUSD to silo
+                uint256 additionalAmount = newAmount - currentAmount;
+                _transfer(msg.sender, address(redeemSilo), additionalAmount);
+            } else if (newAmount < currentAmount) {
+                // Decreasing - return excess naraUSD from silo to user
+                uint256 excessAmount = currentAmount - newAmount;
+                redeemSilo.withdraw(msg.sender, excessAmount);
+            }
+
+            // Update stored amount
+            redemptionRequests[msg.sender].naraUSDAmount = uint152(newAmount);
+
+            emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
+        }
+    }
+
+    /**
      * @notice Cancel redemption request and return locked naraUSD to user
      */
     function cancelRedeem() external nonReentrant {
+        if (_isBlacklisted(msg.sender)) {
+            revert OperationNotAllowed();
+        }
+
         RedemptionRequest memory request = redemptionRequests[msg.sender];
 
         if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
@@ -1085,6 +1177,12 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
         uint256 naraUSDAmount = request.naraUSDAmount;
         address collateralAsset = request.collateralAsset;
+
+        // Check per-block redemption limit
+        _checkBelowMaxRedeemPerBlock(naraUSDAmount);
+
+        // Track redeemed amount for per-block limit
+        redeemedPerBlock[block.number] += naraUSDAmount;
 
         // Clear redemption request
         delete redemptionRequests[user];
