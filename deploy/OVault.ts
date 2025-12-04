@@ -256,8 +256,8 @@ const deploy: DeployFunction = async (hre) => {
             console.log(`      Vault (naraUSD): ${naraUSDAddress}`)
             console.log(`      Asset OFT (MCT Adapter): ${mctAssetOFTAddress}`)
             console.log(`      Share OFT (naraUSD Adapter): ${naraUSDAdapter.address}`)
-            console.log(`      Collateral Asset: ${collateralAsset}`)
-            console.log(`      Collateral Asset OFT: ${collateralAssetOFT}`)
+            console.log(`      Collateral Asset (to whitelist): ${collateralAsset}`)
+            console.log(`      Collateral Asset OFT (to whitelist): ${collateralAssetOFT}`)
 
             // Check if addresses are valid contracts
             const vaultCodeSize = await hre.ethers.provider.getCode(naraUSDAddress)
@@ -299,8 +299,6 @@ const deploy: DeployFunction = async (hre) => {
                         naraUSDAddress, // vault (naraUSD)
                         mctAssetOFTAddress, // asset OFT (MCT adapter)
                         naraUSDAdapter.address, // share OFT adapter
-                        collateralAsset, // configured collateral asset (e.g., USDC)
-                        collateralAssetOFT, // USDC OFT address
                     ],
                     log: true,
                     skipIfAlreadyDeployed: true,
@@ -324,6 +322,23 @@ const deploy: DeployFunction = async (hre) => {
             } catch (error) {
                 console.log('   ⚠️  Could not whitelist composer automatically')
                 console.log(`   ℹ️  Manually run: naraUSD.setKeyringWhitelist("${composer.address}", true)`)
+            }
+
+            // Whitelist the collateral asset in the composer
+            try {
+                console.log('   → Whitelisting collateral asset in NaraUSDComposer...')
+                const composerContract = await hre.ethers.getContractAt(
+                    'contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer',
+                    composer.address
+                )
+                const whitelistTx = await composerContract.addWhitelistedCollateral(collateralAsset, collateralAssetOFT)
+                await whitelistTx.wait()
+                console.log(`   ✓ Collateral ${collateralAsset} whitelisted in composer`)
+            } catch (error) {
+                console.log('   ⚠️  Could not whitelist collateral automatically')
+                console.log(
+                    `   ℹ️  Manually run: composer.addWhitelistedCollateral("${collateralAsset}", "${collateralAssetOFT}")`
+                )
             }
         } else {
             console.log('   ⏭️  Skipping NaraUSDComposer (set vault.collateralAssetAddress to deploy).')
@@ -440,11 +455,9 @@ const deploy: DeployFunction = async (hre) => {
                 const naraUSD = await hre.deployments.get('NaraUSD')
                 const mctAdapter = await hre.deployments.get('MCTOFTAdapter')
                 const naraUSDAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
-                const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
-                const collateralAssetOFT = DEPLOYMENT_CONFIG.vault.collateralAssetOFTAddress
                 console.log(`# NaraUSDComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${naraUSD.address}" "${mctAdapter.address}" "${naraUSDAdapter.address}" "${collateralAsset}" "${collateralAssetOFT}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${naraUSD.address}" "${mctAdapter.address}" "${naraUSDAdapter.address}"\n`
                 )
             }
 

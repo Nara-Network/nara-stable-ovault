@@ -24,8 +24,13 @@ contract NaraUSDComposerTest is TestHelper {
             address(naraUSDAdapter),
             "SHARE_OFT should be NaraUSDOFTAdapter"
         );
-        assertEq(naraUSDComposer.collateralAsset(), address(usdc), "Collateral asset should be USDC");
-        assertEq(naraUSDComposer.collateralAssetOFT(), address(usdc), "Collateral asset OFT should be USDC");
+        
+        // Check USDC is whitelisted
+        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUSDComposer.getWhitelistedCollateralsCount(), 1, "Should have 1 whitelisted collateral");
+        assertEq(naraUSDComposer.collateralToOft(address(usdc)), address(usdc), "USDC OFT should be USDC");
+        assertEq(naraUSDComposer.oftToCollateral(address(usdc)), address(usdc), "USDC collateral should be USDC");
+        
         assertEq(address(naraUSDComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
     }
 
@@ -108,7 +113,7 @@ contract NaraUSDComposerTest is TestHelper {
         );
 
         vm.prank(address(endpoints[HUB_EID]));
-        vm.expectRevert(); // Will revert with OnlyValidComposeCaller
+        vm.expectRevert(abi.encodeWithSignature("CollateralOFTNotWhitelisted(address)", address(invalidToken)));
         naraUSDComposer.lzCompose(address(invalidToken), bytes32(0), message, address(0), "");
     }
 
@@ -133,11 +138,12 @@ contract NaraUSDComposerTest is TestHelper {
     }
 
     /**
-     * @notice Test that collateralAssetOFT is accepted as compose sender
+     * @notice Test that whitelisted collateral OFTs are accepted as compose senders
      */
-    function test_LzCompose_AcceptsCollateralAssetOFT() public view {
-        // collateralAssetOFT should be in the valid senders list
-        assertEq(naraUSDComposer.collateralAssetOFT(), address(usdc), "collateralAssetOFT should be USDC");
+    function test_LzCompose_AcceptsWhitelistedCollateralOFTs() public view {
+        // USDC should be whitelisted as a collateral OFT
+        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUSDComposer.oftToCollateral(address(usdc)), address(usdc), "USDC OFT should map to USDC");
     }
 
     /**
@@ -165,8 +171,10 @@ contract NaraUSDComposerTest is TestHelper {
         assertTrue(address(naraUSDComposer.VAULT()) != address(0), "Vault should not be zero");
         assertTrue(address(naraUSDComposer.ASSET_OFT()) != address(0), "ASSET_OFT should not be zero");
         assertTrue(address(naraUSDComposer.SHARE_OFT()) != address(0), "SHARE_OFT should not be zero");
-        assertTrue(naraUSDComposer.collateralAsset() != address(0), "collateralAsset should not be zero");
-        assertTrue(naraUSDComposer.collateralAssetOFT() != address(0), "collateralAssetOFT should not be zero");
+        
+        // Verify USDC was whitelisted
+        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUSDComposer.getWhitelistedCollateralsCount(), 1, "Should have 1 whitelisted collateral");
     }
 
     /**
@@ -176,7 +184,8 @@ contract NaraUSDComposerTest is TestHelper {
         // Composer should have approval set for USDC -> naraUSD
         // This is set during _depositCollateralAndSend via forceApprove
         // We can't directly test internal function, but we verify the pattern in integration tests
-        assertTrue(address(naraUSDComposer.collateralAsset()) == address(usdc), "Collateral should be USDC");
+        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUSDComposer.oftToCollateral(address(usdc)), address(usdc), "Collateral should be USDC");
     }
 
     /**
@@ -247,10 +256,10 @@ contract NaraUSDComposerTest is TestHelper {
         // ASSET_OFT points to MCTOFTAdapter but is never used operationally
         assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT is MCTOFTAdapter");
 
-        // The actual deposit flow uses collateralAsset (USDC), not ASSET_OFT
-        assertEq(naraUSDComposer.collateralAsset(), address(usdc), "Collateral is USDC");
+        // The actual deposit flow uses whitelisted collateral (USDC), not ASSET_OFT
+        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
         assertTrue(
-            address(naraUSDComposer.ASSET_OFT()) != naraUSDComposer.collateralAsset(),
+            address(naraUSDComposer.ASSET_OFT()) != address(usdc),
             "ASSET_OFT != collateral"
         );
     }
