@@ -144,10 +144,12 @@ abstract contract TestHelper is TestHelperOz5 {
         naraUSDComposer = new NaraUSDComposer(
             address(naraUSD),
             address(mctAdapter), // ASSET_OFT for validation (MCT is vault's underlying asset)
-            address(naraUSDAdapter), // SHARE_OFT (naraUSD goes cross-chain)
-            address(usdc),
-            address(usdc) // Using USDC as both collateral and collateral OFT for simplicity
+            address(naraUSDAdapter) // SHARE_OFT (naraUSD goes cross-chain)
         );
+
+        // Whitelist USDC as collateral
+        vm.prank(address(this)); // Test contract has DEFAULT_ADMIN_ROLE
+        naraUSDComposer.addWhitelistedCollateral(address(usdc), address(usdc)); // Using USDC as both asset and OFT for simplicity
 
         stakedNaraUSDComposer = new StakedNaraUSDComposer(
             address(stakedNaraUSD),
