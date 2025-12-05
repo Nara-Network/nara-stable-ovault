@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "./interfaces/IStakedNaraUSDCooldown.sol";
+import "../interfaces/staked-narausd/IStakedNaraUSD.sol";
 import "./StakedNaraUSDSilo.sol";
 import "../interfaces/narausd/INaraUSD.sol";
 
@@ -24,7 +24,7 @@ import "../interfaces/narausd/INaraUSD.sol";
  *      than zero, the ERC4626 withdrawal and redeem functions are disabled, breaking the ERC4626
  *      standard, and enabling the cooldownShares and the cooldownAssets functions.
  */
-contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IStakedNaraUSDCooldown, Pausable {
+contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IStakedNaraUSD, Pausable {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
