@@ -7,13 +7,14 @@ Complete guide for deploying naraUSD and StakedNaraUSD OFT infrastructure for om
 This guide covers deploying LayerZero OFT (Omnichain Fungible Token) infrastructure to enable:
 
 - ✅ Cross-chain naraUSD transfers
-- ✅ Cross-chain MCT transfers
 - ✅ Cross-chain snaraUSD transfers (optional)
+
+**Note**: MCT does NOT go cross-chain. It stays on hub only. See `MCT_ARCHITECTURE.md` for details.
 
 ## 🏗️ Architecture
 
 ```
-Hub Chain (Sepolia)                    Spoke Chain (OP Sepolia, Base Sepolia)
+Hub Chain (Arbitrum)                   Spoke Chain (Base, Ethereum)
 ┌──────────────────────┐              ┌──────────────────────┐
 │ MultiCollateralToken │              │                      │
 │ naraUSD (ERC4626)       │              │                      │
@@ -22,18 +23,21 @@ Hub Chain (Sepolia)                    Spoke Chain (OP Sepolia, Base Sepolia)
          │                                      │
          ▼                                      ▼
 ┌──────────────────────┐              ┌──────────────────────┐
-│ MCTOFTAdapter        │◄────peer────►│ MCTOFT               │
+│ MCTOFTAdapter*       │              │ (No MCTOFT)          │
 │ NaraUSDOFTAdapter       │◄────peer────►│ NaraUSDOFT              │
 │ StakedNaraUSDOFTAdapter │◄────peer────►│ StakedNaraUSDOFT        │
 │ NaraUSDComposer         │              │                      │
 └──────────────────────┘              └──────────────────────┘
+
+* MCTOFTAdapter exists for validation only (NOT wired to spoke chains)
+  See MCT_ARCHITECTURE.md for detailed explanation.
 ```
 
 ## 📦 Deployment Scripts
 
-| Script                        | Purpose                              | Command Tag       |
-| ----------------------------- | ------------------------------------ | ----------------- |
-| `deploy/OVault.ts`            | Deploy naraUSD OFT infrastructure       | `ovault`          |
+| Script                           | Purpose                                 | Command Tag          |
+| -------------------------------- | --------------------------------------- | -------------------- |
+| `deploy/OVault.ts`               | Deploy naraUSD OFT infrastructure       | `ovault`             |
 | `deploy/OVault.StakedNaraUSD.ts` | Deploy StakedNaraUSD OFT infrastructure | `staked-narausd-oft` |
 
 ## ⚙️ Prerequisites
@@ -146,7 +150,7 @@ npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 **Deploys:**
 
-- ✅ `MCTOFTAdapter` - Lockbox for MCT on hub
+- ✅ `MCTOFTAdapter` - Validation only (NOT used for cross-chain!)
 - ✅ `NaraUSDOFTAdapter` - Lockbox for naraUSD on hub
 - ✅ `NaraUSDComposer` - Cross-chain operations coordinator
 
@@ -183,8 +187,8 @@ DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags ovault
 
 **Deploys:**
 
-- ✅ `MCTOFT` - Mint/burn OFT for MCT on spoke
 - ✅ `NaraUSDOFT` - Mint/burn OFT for naraUSD on spoke
+- ❌ NO `MCTOFT` - MCT is hub-only and does NOT go cross-chain
 
 **What it does:**
 
@@ -263,7 +267,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 **Peers that get connected:**
 
-- Hub `MCTOFTAdapter` ↔ Spoke `MCTOFT` (each spoke)
+- ❌ NO MCTOFTAdapter wiring (MCT is hub-only!)
 - Hub `NaraUSDOFTAdapter` ↔ Spoke `NaraUSDOFT` (each spoke)
 - Hub `StakedNaraUSDOFTAdapter` ↔ Spoke `StakedNaraUSDOFT` (each spoke)
 
@@ -291,27 +295,31 @@ npx hardhat console --network arbitrum-sepolia
 ```
 
 ```javascript
-// Get contracts
-const mctAdapter = await ethers.getContractAt(
-  "mct/MCTOFTAdapter",
-  "<MCTOFTAdapter_ADDRESS>",
+// Get contracts (NOTE: MCTOFTAdapter is NOT wired - skip it!)
+// Only wire naraUSD and StakedNaraUSD OFTs
+const narausdAdapter = await ethers.getContractAt(
+  "narausd/NaraUSDOFTAdapter",
+  "<NaraUSDOFTAdapter_ADDRESS>",
 );
 
 // Check peer on OP Sepolia (EID: 40232)
 const OP_SEPOLIA_EID = 40232;
-const peer = await mctAdapter.peers(OP_SEPOLIA_EID);
+const peer = await narausdAdapter.peers(OP_SEPOLIA_EID);
 console.log("Peer on OP Sepolia:", peer);
 
-// Peer should be the addressToBytes32 of MCTOFT on OP Sepolia
+// Peer should be the addressToBytes32 of NaraUSDOFT on OP Sepolia
 ```
 
 ### 3. Test Cross-Chain Transfer
 
 ```javascript
 // On Arbitrum Sepolia (hub)
-const mctAdapter = await ethers.getContractAt("mct/MCTOFTAdapter", "<ADDRESS>");
+const narausdAdapter = await ethers.getContractAt(
+  "narausd/NaraUSDOFTAdapter",
+  "<ADDRESS>",
+);
 
-// Prepare cross-chain transfer
+// Prepare cross-chain transfer (NOTE: MCT does NOT go cross-chain!)
 const sendParam = {
   dstEid: 40232, // OP Sepolia
   to: ethers.utils.zeroPad(recipientAddress, 32),
@@ -390,7 +398,7 @@ Core Contracts:
   StakingRewardsDistributor: 0xjkl...
 
 OFT Infrastructure:
-  MCTOFTAdapter: 0x123...
+  MCTOFTAdapter: 0x123... (validation only - NOT wired!)
   NaraUSDOFTAdapter: 0x456...
   NaraUSDComposer: 0x789...
   StakedNaraUSDOFTAdapter: 0x012...
@@ -400,18 +408,18 @@ OFT Infrastructure:
 
 ```
 OFT Contracts:
-  MCTOFT: 0x234...
   NaraUSDOFT: 0x567...
   StakedNaraUSDOFT: 0x890...
+  (No MCTOFT - MCT is hub-only!)
 ```
 
 #### Spoke Chain 2 (Sepolia)
 
 ```
 OFT Contracts:
-  MCTOFT: 0x345...
   NaraUSDOFT: 0x678...
   StakedNaraUSDOFT: 0x901...
+  (No MCTOFT - MCT is hub-only!)
 ```
 
 ### Mainnet Deployment
@@ -426,7 +434,7 @@ Core Contracts:
   StakingRewardsDistributor: 0xjkl...
 
 OFT Infrastructure:
-  MCTOFTAdapter: 0x123...
+  MCTOFTAdapter: 0x123... (validation only - NOT wired!)
   NaraUSDOFTAdapter: 0x456...
   NaraUSDComposer: 0x789...
   StakedNaraUSDOFTAdapter: 0x012...
@@ -436,18 +444,18 @@ OFT Infrastructure:
 
 ```
 OFT Contracts:
-  MCTOFT: 0x234...
   NaraUSDOFT: 0x567...
   StakedNaraUSDOFT: 0x890...
+  (No MCTOFT - MCT is hub-only!)
 ```
 
 #### Spoke Chain 2 (Ethereum)
 
 ```
 OFT Contracts:
-  MCTOFT: 0x345...
   NaraUSDOFT: 0x678...
   StakedNaraUSDOFT: 0x901...
+  (No MCTOFT - MCT is hub-only!)
 ```
 
 ---
