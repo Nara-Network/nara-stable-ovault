@@ -46,16 +46,9 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         deploymentEids: _spokeEids,
     },
 
-    // Asset OFT configuration (MCT on hub and spoke chains)
-    // Hub uses MCTOFTAdapter (lockbox), spokes use MCTOFT (mint/burn)
-    assetOFT: {
-        contract: 'mct/MCTOFT', // On spokes: MCTOFT, On hub: MCTOFTAdapter (handled in deploy script)
-        metadata: {
-            name: 'MultiCollateralToken',
-            symbol: 'MCT',
-        },
-        deploymentEids: [_hubEid, ..._spokeEids],
-    },
+    // Note: MCT (assetOFT) config removed - MCT is hub-only, not cross-chain.
+    // MCTOFTAdapter is deployed directly by OVault.ts on hub for validation only.
+    // See MCT_ARCHITECTURE.md for details.
 } as const
 
 // ============================================
@@ -90,8 +83,6 @@ export const STAKED_NARAUSD_CONFIG = {
 // Helper functions
 export const isVaultChain = (eid: number): boolean => eid === DEPLOYMENT_CONFIG.vault.deploymentEid
 export const shouldDeployVault = (eid: number): boolean => isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.vaultAddress
-export const shouldDeployAsset = (eid: number): boolean =>
-    !DEPLOYMENT_CONFIG.vault.assetOFTAddress && DEPLOYMENT_CONFIG.assetOFT.deploymentEids.includes(eid)
 export const shouldDeployShare = (eid: number): boolean =>
     !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && DEPLOYMENT_CONFIG.shareOFT.deploymentEids.includes(eid)
 

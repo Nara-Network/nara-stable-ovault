@@ -23,12 +23,10 @@ export interface VaultConfig {
 
 export interface DeploymentConfig {
     vault: VaultConfig
-    assetOFT: TokenConfig
     shareOFT: TokenConfig
 }
 
 export interface DeployedContracts {
-    assetOFT?: string
     shareOFT?: string
     vault?: string
     shareAdapter?: string

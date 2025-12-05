@@ -37,7 +37,6 @@ export const {
     STAKED_NARAUSD_CONFIG,
     isVaultChain,
     shouldDeployVault,
-    shouldDeployAsset,
     shouldDeployShare,
     shouldDeployShareAdapter,
     isStakedNaraUSDVaultChain,

@@ -2,7 +2,7 @@ import assert from 'assert'
 
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-import { DEPLOYMENT_CONFIG, isVaultChain, shouldDeployAsset, shouldDeployShare } from '../devtools'
+import { DEPLOYMENT_CONFIG, isVaultChain, shouldDeployShare } from '../devtools'
 
 import { handleDeploymentWithRetry } from './utils'
 
@@ -11,14 +11,16 @@ import { handleDeploymentWithRetry } from './utils'
  *
  * This script deploys the LayerZero OFT infrastructure for cross-chain functionality:
  *
- * Hub Chain (e.g., Sepolia):
- * - MCTOFTAdapter (lockbox for MCT)
+ * Hub Chain (e.g., Arbitrum):
+ * - MCTOFTAdapter (validation only - NOT used for cross-chain!)
  * - NaraUSDOFTAdapter (lockbox for naraUSD)
  * - NaraUSDComposer (cross-chain operations)
  *
- * Spoke Chains (e.g., OP Sepolia, Base Sepolia):
- * - MCTOFT (mint/burn for MCT)
+ * Spoke Chains (e.g., Base, Ethereum):
  * - NaraUSDOFT (mint/burn for naraUSD)
+ * - StakedNaraUSDOFT (mint/burn for staked naraUSD)
+ *
+ * NOTE: MCT does NOT go cross-chain! Only NaraUSD and StakedNaraUSD are omnichain.
  *
  * Prerequisites:
  * - Core contracts must be deployed first (MCT, naraUSD)
@@ -84,77 +86,40 @@ const deploy: DeployFunction = async (hre) => {
     const deployedContracts: Record<string, string> = {}
 
     // ========================================
-    // ASSET OFT (MCT) - Deploy on all configured chains
+    // MCT ADAPTER (Hub Only - Validation Only)
     // ========================================
-    if (shouldDeployAsset(networkEid)) {
-        console.log('📦 Deploying Asset OFT (MCT)...')
+    // NOTE: MCT does NOT go cross-chain! This adapter exists ONLY to satisfy
+    // VaultComposerSync constructor validation. It is NEVER wired to spoke chains.
+    // See MCT_ARCHITECTURE.md for detailed explanation.
+    if (isVaultChain(networkEid)) {
+        console.log('📦 Deploying MCTOFTAdapter (validation only - NOT for cross-chain)...')
 
-        if (isVaultChain(networkEid)) {
-            // Hub chain: Deploy MCTOFTAdapter (lockbox)
-            console.log('   → Hub chain detected: Deploying MCTOFTAdapter (lockbox)')
-
-            // Get MCT address from previous deployment
-            let mctAddress: string
-            try {
-                const mct = await hre.deployments.get('MultiCollateralToken')
-                mctAddress = mct.address
-            } catch (error) {
-                throw new Error(
-                    'MultiCollateralToken not found. Please deploy core contracts first using FullSystem or naraUSD deployment script.'
-                )
-            }
-
-            const mctAdapter = await handleDeploymentWithRetry(
-                hre,
-                deployments.deploy('MCTOFTAdapter', {
-                    contract: 'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter',
-                    from: deployer,
-                    args: [mctAddress, endpointV2.address, deployer],
-                    log: true,
-                    skipIfAlreadyDeployed: true,
-                }),
-                'MCTOFTAdapter',
-                'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter'
+        // Get MCT address from previous deployment
+        let mctAddress: string
+        try {
+            const mct = await hre.deployments.get('MultiCollateralToken')
+            mctAddress = mct.address
+        } catch (error) {
+            throw new Error(
+                'MultiCollateralToken not found. Please deploy core contracts first using FullSystem or naraUSD deployment script.'
             )
-            deployedContracts.mctAdapter = mctAdapter.address
-            console.log(`   ✓ MCTOFTAdapter deployed at: ${mctAdapter.address}`)
-        } else {
-            // Spoke chain: Deploy MCTOFT (mint/burn)
-            console.log('   → Spoke chain detected: Deploying MCTOFT (mint/burn)')
-            console.log(`      EndpointV2: ${endpointV2.address}`)
-            console.log(`      Deployer: ${deployer}`)
-
-            // Validate addresses before deployment
-            if (!endpointV2.address || endpointV2.address === '0x0000000000000000000000000000000000000000') {
-                throw new Error(
-                    `Invalid EndpointV2 address: ${endpointV2.address}. ` +
-                        `Please deploy EndpointV2 first on ${hre.network.name}`
-                )
-            }
-            if (!deployer || deployer === '0x0000000000000000000000000000000000000000') {
-                throw new Error(`Invalid deployer address: ${deployer}`)
-            }
-
-            const mctOFT = await handleDeploymentWithRetry(
-                hre,
-                deployments.deploy('MCTOFT', {
-                    contract: 'contracts/mct/MCTOFT.sol:MCTOFT',
-                    from: deployer,
-                    args: [
-                        endpointV2.address, // _lzEndpoint
-                        deployer, // _delegate
-                    ],
-                    log: true,
-                    skipIfAlreadyDeployed: true,
-                }),
-                'MCTOFT',
-                'contracts/mct/MCTOFT.sol:MCTOFT'
-            )
-            deployedContracts.mctOFT = mctOFT.address
-            console.log(`   ✓ MCTOFT deployed at: ${mctOFT.address}`)
         }
-    } else if (DEPLOYMENT_CONFIG.vault.assetOFTAddress) {
-        console.log('⏭️  Skipping asset OFT deployment (existing mesh)')
+
+        const mctAdapter = await handleDeploymentWithRetry(
+            hre,
+            deployments.deploy('MCTOFTAdapter', {
+                contract: 'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter',
+                from: deployer,
+                args: [mctAddress, endpointV2.address, deployer],
+                log: true,
+                skipIfAlreadyDeployed: true,
+            }),
+            'MCTOFTAdapter',
+            'contracts/mct/MCTOFTAdapter.sol:MCTOFTAdapter'
+        )
+        deployedContracts.mctAdapter = mctAdapter.address
+        console.log(`   ✓ MCTOFTAdapter deployed at: ${mctAdapter.address}`)
+        console.log(`   ℹ️  This adapter is for validation only - MCT stays on hub chain!`)
     }
 
     console.log('')
@@ -472,12 +437,7 @@ const deploy: DeployFunction = async (hre) => {
             }
         } else {
             // Spoke chain verification commands
-            if (deployedContracts.mctOFT) {
-                console.log(`# MCTOFT`)
-                console.log(
-                    `npx hardhat verify --contract contracts/mct/MCTOFT.sol:MCTOFT --network ${hre.network.name} ${deployedContracts.mctOFT} "${endpointV2.address}" "${deployer}"\n`
-                )
-            }
+            // Note: MCTOFT is not deployed on spoke chains (MCT is hub-only)
 
             if (deployedContracts.naraUSDOFT) {
                 console.log(`# NaraUSDOFT`)
