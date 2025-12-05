@@ -78,7 +78,6 @@ if (ASSET_OFT.token() != address(VAULT.asset())) {
 See detailed explanation in:
 - `contracts/mct/MCTOFTAdapter.sol` (contract documentation)
 - `contracts/narausd/NaraUSDComposer.sol` (constructor documentation)
-- `WHY_MCTOFT_ADAPTER_EXISTS.md` (technical deep-dive)
 
 ---
 
@@ -156,10 +155,11 @@ A: No. Users call `mintWithCollateral(USDC)` directly. MCT is created internally
 
 **Q: What if I want to send MCT cross-chain in the future?**
 A: You would need to:
-1. Deploy MCTOFT on spoke chains
-2. Wire MCTOFTAdapter to spoke chains
-3. Update documentation
-4. Consider security implications (collateral fragmentation)
+1. Create MCTOFT.sol contract for spoke chains (currently removed)
+2. Deploy MCTOFT on spoke chains
+3. Wire MCTOFTAdapter to spoke chains
+4. Update documentation
+5. Consider security implications (collateral fragmentation across chains)
 
 **Q: Is MCTOFTAdapter a security risk?**
 A: No. It's deployed but never configured for cross-chain use. It cannot send/receive cross-chain messages without peer configuration.
@@ -174,7 +174,5 @@ A: No. It's deployed but never configured for cross-chain use. It cannot send/re
 - **Simpler, safer, cheaper** than cross-chain MCT
 
 For detailed technical documentation, see:
-- `WHY_MCTOFT_ADAPTER_EXISTS.md`
-- `FINAL_ARCHITECTURE_SUMMARY.md`
 - `contracts/mct/MCTOFTAdapter.sol`
 - `contracts/narausd/NaraUSDComposer.sol`

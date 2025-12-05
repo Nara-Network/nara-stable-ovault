@@ -18,8 +18,7 @@ This project contains three main modules:
 contracts/
 ├── mct/                              # MultiCollateralToken Module
 │   ├── MultiCollateralToken.sol     # ERC20 token accepting multiple collaterals
-│   ├── MCTOFTAdapter.sol             # Hub chain OFT adapter (lockbox)
-│   └── MCTOFT.sol                    # Spoke chain OFT (mint/burn)
+│   └── MCTOFTAdapter.sol             # Hub chain OFT adapter (validation only - NOT for cross-chain!)
 │
 ├── narausd/                             # naraUSD Module
 │   ├── naraUSD.sol                      # ERC4626 vault with minting
@@ -54,8 +53,9 @@ contracts/
 **Contracts**:
 
 - `MultiCollateralToken.sol`: Core token managing multiple collateral types
-- `MCTOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `MCTOFT.sol`: Spoke chain representation (mint/burn model)
+- `MCTOFTAdapter.sol`: Hub-only adapter for validation (NOT used for cross-chain transfers)
+
+**Important**: MCT is HUB-ONLY and does NOT go cross-chain. See `MCT_ARCHITECTURE.md` for details.
 
 **Key Features**:
 
@@ -256,7 +256,10 @@ Bridge back to Hub
 7. **Deploy OFT Adapters (Lockbox)**
 
    ```solidity
+   // MCTOFTAdapter (validation only - NOT wired to spoke chains!)
    MCTOFTAdapter mctAdapter = new MCTOFTAdapter(mct, lzEndpoint, admin);
+
+   // Actual cross-chain adapters
    NaraUSDOFTAdapter narausdAdapter = new NaraUSDOFTAdapter(narausd, lzEndpoint, admin);
    StakedNaraUSDOFTAdapter stakedNaraUSDAdapter = new StakedNaraUSDOFTAdapter(stakedNaraUSD, lzEndpoint, admin);
    ```
@@ -271,8 +274,7 @@ Bridge back to Hub
 For each spoke chain:
 
 ```solidity
-// 1. Deploy OFTs (Mint/Burn)
-MCTOFT mctOFT = new MCTOFT(lzEndpoint, admin);
+// 1. Deploy OFTs (Mint/Burn) - NOTE: NO MCTOFT! MCT is hub-only
 NaraUSDOFT narausdOFT = new NaraUSDOFT(lzEndpoint, admin);
 StakedNaraUSDOFT stakedNaraUSDOFT = new StakedNaraUSDOFT(lzEndpoint, admin);
 
@@ -327,19 +329,18 @@ await stakedNaraUSDAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNaraUSDOFT.
 
 All contracts compile successfully with Solidity ^0.8.22:
 
-| Contract                  | Module     | Type          |
-| ------------------------- | ---------- | ------------- |
-| MultiCollateralToken      | MCT        | Core Token    |
-| MCTOFTAdapter             | MCT        | Hub Bridge    |
-| MCTOFT                    | MCT        | Spoke Token   |
-| naraUSD                      | naraUSD       | Core Vault    |
-| NaraUSDOFTAdapter            | naraUSD       | Hub Bridge    |
-| NaraUSDOFT                   | naraUSD       | Spoke Token   |
-| NaraUSDComposer              | naraUSD       | Composer      |
-| StakedNaraUSD                | StakedNaraUSD | Staking Vault |
-| StakingRewardsDistributor | StakedNaraUSD | Helper        |
-| StakedNaraUSDOFTAdapter      | StakedNaraUSD | Hub Bridge    |
-| StakedNaraUSDOFT             | StakedNaraUSD | Spoke Token   |
+| Contract                  | Module        | Type                                   |
+| ------------------------- | ------------- | -------------------------------------- |
+| MultiCollateralToken      | MCT           | Core Token                             |
+| MCTOFTAdapter             | MCT           | Hub Validation Only (NOT cross-chain!) |
+| naraUSD                   | naraUSD       | Core Vault                             |
+| NaraUSDOFTAdapter         | naraUSD       | Hub Bridge                             |
+| NaraUSDOFT                | naraUSD       | Spoke Token                            |
+| NaraUSDComposer           | naraUSD       | Composer                               |
+| StakedNaraUSD             | StakedNaraUSD | Staking Vault                          |
+| StakingRewardsDistributor | StakedNaraUSD | Helper                                 |
+| StakedNaraUSDOFTAdapter   | StakedNaraUSD | Hub Bridge                             |
+| StakedNaraUSDOFT          | StakedNaraUSD | Spoke Token                            |
 
 ---
 
@@ -353,15 +354,15 @@ All contracts compile successfully with Solidity ^0.8.22:
 
 ## ✅ Key Improvements Over Original
 
-| Feature      | Original             | OVault Version         |
-| ------------ | -------------------- | ---------------------- |
-| Contracts    | naraUSD + EthenaMinting | naraUSD (merged)          |
-| Cross-chain  | No                   | Full LayerZero support |
-| Architecture | Single chain         | Hub-and-spoke          |
-| Staking      | StakedNaraUSD only      | + Cross-chain snaraUSD    |
-| Collateral   | Single in minting    | Multi-collateral (MCT) |
-| Solidity     | 0.8.20               | ^0.8.22                |
-| OpenZeppelin | 4.x                  | 5.x                    |
+| Feature      | Original                | OVault Version         |
+| ------------ | ----------------------- | ---------------------- |
+| Contracts    | naraUSD + EthenaMinting | naraUSD (merged)       |
+| Cross-chain  | No                      | Full LayerZero support |
+| Architecture | Single chain            | Hub-and-spoke          |
+| Staking      | StakedNaraUSD only      | + Cross-chain snaraUSD |
+| Collateral   | Single in minting       | Multi-collateral (MCT) |
+| Solidity     | 0.8.20                  | ^0.8.22                |
+| OpenZeppelin | 4.x                     | 5.x                    |
 
 ---
 
