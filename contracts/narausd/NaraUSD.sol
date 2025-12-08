@@ -369,13 +369,14 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @param collateralAsset The collateral asset to receive
      * @param naraUSDAmount The amount of naraUSD to redeem
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
+     * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
      */
     function redeem(
         address collateralAsset,
         uint256 naraUSDAmount,
         bool allowQueue
-    ) external nonReentrant whenNotPaused returns (bool wasQueued) {
+    ) external nonReentrant whenNotPaused returns (uint256 collateralAmount, bool wasQueued) {
         if (naraUSDAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
 
@@ -400,13 +401,13 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
         if (availableCollateral >= collateralNeeded) {
             // Instant redemption path
-            _instantRedeem(msg.sender, collateralAsset, naraUSDAmount);
-            return false;
+            collateralAmount = _instantRedeem(msg.sender, collateralAsset, naraUSDAmount);
+            return (collateralAmount, false);
         } else {
             // Queue path
             if (!allowQueue) revert InsufficientCollateral();
             _queueRedeem(msg.sender, collateralAsset, naraUSDAmount);
-            return true;
+            return (0, true);
         }
     }
 

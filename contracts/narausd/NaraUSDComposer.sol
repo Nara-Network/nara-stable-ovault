@@ -15,6 +15,12 @@ interface INaraUSD {
         uint256 collateralAmount
     ) external returns (uint256 naraUSDAmount);
 
+    function redeem(
+        address collateralAsset,
+        uint256 naraUSDAmount,
+        bool allowQueue
+    ) external returns (uint256 collateralAmount, bool wasQueued);
+
     function hasValidCredentials(address account) external view returns (bool);
 
     function isBlacklisted(address account) external view returns (bool);
@@ -26,6 +32,8 @@ interface IMCT {
     function hasRole(bytes32 role, address account) external view returns (bool);
 
     function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
+
+    function collateralBalance(address asset) external view returns (uint256);
 }
 
 /// @notice Error thrown when sender does not have valid Keyring credentials
@@ -45,19 +53,30 @@ error CollateralOFTNotWhitelisted(address oft);
 
 /**
  * @title NaraUSDComposer
- * @notice Composer that enables cross-chain naraUSD minting via collateral deposits
+ * @notice Composer that enables cross-chain naraUSD minting and redemption via collateral deposits
  *
  * @dev Overview:
- * This composer allows users to deposit collateral (USDC/USDT) on any chain and receive
- * naraUSD shares on any destination chain in a single transaction.
+ * This composer allows users to:
+ * - Deposit collateral (USDC/USDT) on any chain and receive naraUSD shares on any destination chain
+ * - Redeem naraUSD shares on any chain and receive collateral on any destination chain (if liquidity available)
  *
- * User Flow:
+ * Deposit Flow:
  * 1. User sends collateral (USDC) from spoke chain via Stargate/collateral OFT
  * 2. NaraUSDComposer receives collateral on hub chain via lzCompose
  * 3. Composer calls naraUSD.mintWithCollateral(collateralAsset, amount)
  * 4. naraUSD internally manages MCT (MultiCollateralToken) - user never sees it
  * 5. Composer sends naraUSD shares cross-chain via SHARE_OFT (NaraUSDOFTAdapter)
  * 6. User receives naraUSD on destination chain
+ *
+ * Redeem Flow:
+ * 1. User sends naraUSD shares from spoke chain via SHARE_OFT
+ * 2. NaraUSDComposer receives shares on hub chain via lzCompose
+ * 3. Composer checks liquidity for requested collateral asset
+ * 4. If liquidity available: Composer calls naraUSD.redeem(collateralAsset, amount, false)
+ *    - This burns naraUSD shares and transfers collateral to composer
+ * 5. Composer sends collateral cross-chain via collateral OFT
+ * 6. User receives collateral on destination chain
+ * 7. If no liquidity: Transaction reverts and naraUSD shares are refunded via SHARE_OFT
  *
  * @dev IMPORTANT - ASSET_OFT Parameter (Validation Only):
  *
@@ -249,11 +268,76 @@ contract NaraUSDComposer is VaultComposerSync {
     }
 
     /**
+     * @notice Internal function to handle naraUSD redemption and cross-chain collateral sending
+     * @dev This implements cross-chain redeem with instant redemption if liquidity is available.
+     *      If no liquidity, it reverts and triggers refund of naraUSD via SHARE_OFT.
+     *
+     * Flow:
+     * 1. Check if original sender has valid credentials
+     * 2. Verify collateral asset is whitelisted (naraUSD shares already in this contract via SHARE_OFT compose)
+     * 3. Call naraUSD.redeem(collateralAsset, amount, false) - reverts if no liquidity
+     *    - This burns naraUSD shares from this contract and transfers collateral to this contract
+     * 4. Send collateral cross-chain via collateral OFT
+     *
+     * @param _redeemer The address requesting the redemption
+     * @param _shareAmount The amount of naraUSD shares to redeem
+     * @param _sendParam Parameters for sending collateral cross-chain
+     * @param _refundAddress Address to refund excess msg.value
+     * @param _collateralAsset The collateral asset to receive
+     */
+    function _redeemCollateralAndSend(
+        bytes32 _redeemer,
+        uint256 _shareAmount,
+        SendParam memory _sendParam,
+        address _refundAddress,
+        address _collateralAsset
+    ) internal {
+        // Check if original sender has valid Keyring credentials
+        address originalSender = address(uint160(uint256(_redeemer)));
+        if (!INaraUSD(address(VAULT)).hasValidCredentials(originalSender)) {
+            revert UnauthorizedSender(originalSender);
+        }
+        if (INaraUSD(address(VAULT)).isBlacklisted(originalSender)) {
+            revert UnauthorizedSender(originalSender);
+        }
+
+        // Verify collateral asset is whitelisted
+        if (!_whitelistedCollaterals.contains(_collateralAsset)) {
+            revert CollateralNotWhitelisted(_collateralAsset);
+        }
+
+        // Get collateral OFT for sending cross-chain
+        address collateralOFT = collateralToOft[_collateralAsset];
+        if (collateralOFT == address(0)) {
+            revert CollateralNotWhitelisted(_collateralAsset);
+        }
+
+        // Redeem naraUSD for collateral - this will revert if no liquidity (allowQueue=false)
+        // The naraUSD contract checks liquidity internally and reverts with InsufficientCollateral if insufficient
+        // This burns naraUSD shares from this contract (shares arrived via SHARE_OFT compose)
+        // and transfers collateral to this contract
+        // Redeem naraUSD for collateral - returns the exact collateral amount received (after fees)
+        // Since allowQueue=false, this will revert with InsufficientCollateral if no liquidity
+        (uint256 collateralAmount, ) = INaraUSD(address(VAULT)).redeem(_collateralAsset, _shareAmount, false);
+
+        _assertSlippage(collateralAmount, _sendParam.minAmountLD);
+
+        // Prepare send param for collateral
+        _sendParam.amountLD = collateralAmount;
+        _sendParam.minAmountLD = 0;
+
+        // Send collateral cross-chain via collateral OFT
+        _send(collateralOFT, _sendParam, _refundAddress);
+    }
+
+    /**
      * @notice Override lzCompose to accept whitelisted collateral assets as valid compose senders
-     * @dev This allows the composer to handle cross-chain deposits of any whitelisted collateral asset
+     * @dev This allows the composer to handle cross-chain deposits and redemptions
      * @param _composeSender The OFT contract address used for refunds, can be ASSET_OFT, SHARE_OFT, or any whitelisted collateral OFT
      * @param _guid LayerZero's unique tx id (created on the source tx)
      * @param _message Decomposable bytes object into [composeHeader][composeMessage]
+     *                  For SHARE_OFT: composeMessage = abi.encode(SendParam, uint256 minMsgValue, address collateralAsset)
+     *                  For others: composeMessage = abi.encode(SendParam, uint256 minMsgValue)
      */
     function lzCompose(
         address _composeSender, // The OFT used on refund, also the vaultIn token.
@@ -298,6 +382,8 @@ contract NaraUSDComposer is VaultComposerSync {
     /**
      * @notice Internal function to handle compose operations
      * @dev This function can only be called by self (self-call restriction)
+     * @dev For SHARE_OFT compose messages, expects: abi.encode(SendParam, uint256 minMsgValue, address collateralAsset)
+     * @dev For other OFTs, expects: abi.encode(SendParam, uint256 minMsgValue)
      */
     function _handleComposeInternal(
         address _oftIn,
@@ -308,18 +394,34 @@ contract NaraUSDComposer is VaultComposerSync {
         /// @dev Can only be called by self
         if (msg.sender != address(this)) revert OnlySelf(msg.sender);
 
-        /// @dev SendParam defines how the composer will handle the user's funds
-        /// @dev The minMsgValue is the minimum amount of msg.value that must be sent, failing to do so will revert and the transaction will be retained in the endpoint for future retries
-        (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
-
-        if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
-
         if (_oftIn == ASSET_OFT) {
+            /// @dev SendParam defines how the composer will handle the user's funds
+            /// @dev The minMsgValue is the minimum amount of msg.value that must be sent
+            (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
+
+            if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
+
             super._depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
         } else if (_oftIn == SHARE_OFT) {
-            super._redeemAndSend(_composeFrom, _amount, sendParam, tx.origin);
+            /// @dev For SHARE_OFT, compose message includes collateral asset address
+            /// @dev Format: abi.encode(SendParam, uint256 minMsgValue, address collateralAsset)
+            (SendParam memory sendParam, uint256 minMsgValue, address collateralAsset) = abi.decode(
+                _composeMsg,
+                (SendParam, uint256, address)
+            );
+
+            if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
+
+            // Custom redeem flow: redeem naraUSD for collateral and send cross-chain
+            _redeemCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin, collateralAsset);
         } else if (oftToCollateral[_oftIn] != address(0)) {
             // It's a whitelisted collateral OFT
+            /// @dev SendParam defines how the composer will handle the user's funds
+            /// @dev The minMsgValue is the minimum amount of msg.value that must be sent
+            (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
+
+            if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
+
             _depositCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin, _oftIn);
         } else {
             revert OnlyValidComposeCaller(_oftIn);
