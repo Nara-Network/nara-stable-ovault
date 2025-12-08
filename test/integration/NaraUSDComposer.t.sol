@@ -28,11 +28,11 @@ contract NaraUSDComposerTest is TestHelper {
         assertEq(address(naraUSDComposer.VAULT()), address(naraUSD));
         assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter)); // MCT is vault's underlying asset
         assertEq(address(naraUSDComposer.SHARE_OFT()), address(naraUSDAdapter)); // naraUSD goes cross-chain
-        
+
         // Check USDC is whitelisted
         assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)));
         assertEq(naraUSDComposer.getWhitelistedCollateralsCount(), 1);
-        
+
         address[] memory collaterals = naraUSDComposer.getWhitelistedCollaterals();
         assertEq(collaterals.length, 1);
         assertEq(collaterals[0], address(usdc));
@@ -297,9 +297,10 @@ contract NaraUSDComposerTest is TestHelper {
 
         // Instant redeem (liquidity available)
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDReceived, false);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), naraUSDReceived, false);
 
         assertEq(wasQueued, false, "Should be instant");
+        assertGt(collateralAmount, 0, "Should receive collateral amount");
         assertGt(usdc.balanceOf(alice) - aliceUsdcBefore, 0, "Should receive collateral");
         vm.stopPrank();
     }
