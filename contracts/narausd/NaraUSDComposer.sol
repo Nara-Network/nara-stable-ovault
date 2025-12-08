@@ -8,6 +8,7 @@ import { VaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/VaultComp
 import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 import { IOFT, SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { IVaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/interfaces/IVaultComposerSync.sol";
+import { ERC4626 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 interface INaraUSD {
     function mintWithCollateral(
@@ -312,13 +313,17 @@ contract NaraUSDComposer is VaultComposerSync {
             revert CollateralNotWhitelisted(_collateralAsset);
         }
 
+        uint256 balanceBefore = IERC20(_collateralAsset).balanceOf(address(this));
+
         // Redeem naraUSD for collateral - this will revert if no liquidity (allowQueue=false)
         // The naraUSD contract checks liquidity internally and reverts with InsufficientCollateral if insufficient
         // This burns naraUSD shares from this contract (shares arrived via SHARE_OFT compose)
         // and transfers collateral to this contract
         // Redeem naraUSD for collateral - returns the exact collateral amount received (after fees)
         // Since allowQueue=false, this will revert with InsufficientCollateral if no liquidity
-        (uint256 collateralAmount, ) = INaraUSD(address(VAULT)).redeem(_collateralAsset, _shareAmount, false);
+        INaraUSD(address(VAULT)).redeem(_collateralAsset, _shareAmount, false);
+        uint256 balanceAfter = IERC20(_collateralAsset).balanceOf(address(this));
+        uint256 collateralAmount = balanceAfter - balanceBefore;
 
         _assertSlippage(collateralAmount, _sendParam.minAmountLD);
 
@@ -443,5 +448,42 @@ contract NaraUSDComposer is VaultComposerSync {
         } else {
             super._refund(_oft, _message, _amount, _refundAddress);
         }
+    }
+
+    /**
+     * @notice Quotes the send operation for the given OFT and SendParam
+     * @dev Revert on slippage will be thrown by the OFT and not _assertSlippage
+     * @param _from The "sender address" used for the quote
+     * @param _targetOFT The OFT contract address to quote
+     * @param _vaultInAmount The amount of tokens to send to the vault
+     * @param _sendParam The parameters for the send operation
+     * @return MessagingFee The estimated fee for the send operation
+     * @dev This function can be overridden to implement custom quoting logic
+     */
+    function quoteSend(
+        address _from,
+        address _targetOFT,
+        uint256 _vaultInAmount,
+        SendParam memory _sendParam
+    ) external view override returns (MessagingFee memory) {
+        /// @dev When quoting the asset OFT, the function input is shares and the SendParam.amountLD into quoteSend() should be assets (and vice versa)
+
+        // when redeeming, the target cannot be MCT as MCT won't be deployed on the spoke chains
+        if (oftToCollateral[_targetOFT] != address(0)) {
+            uint256 maxRedeem = VAULT.maxRedeem(_from);
+            if (_vaultInAmount > maxRedeem) {
+                revert ERC4626.ERC4626ExceededMaxRedeem(_from, _vaultInAmount, maxRedeem);
+            }
+
+            _sendParam.amountLD = VAULT.previewRedeem(_vaultInAmount);
+        } else {
+            uint256 maxDeposit = VAULT.maxDeposit(_from);
+            if (_vaultInAmount > maxDeposit) {
+                revert ERC4626.ERC4626ExceededMaxDeposit(_from, _vaultInAmount, maxDeposit);
+            }
+
+            _sendParam.amountLD = VAULT.previewDeposit(_vaultInAmount);
+        }
+        return IOFT(_targetOFT).quoteSend(_sendParam, false);
     }
 }
