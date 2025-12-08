@@ -313,17 +313,13 @@ contract NaraUSDComposer is VaultComposerSync {
             revert CollateralNotWhitelisted(_collateralAsset);
         }
 
-        uint256 balanceBefore = IERC20(_collateralAsset).balanceOf(address(this));
-
         // Redeem naraUSD for collateral - this will revert if no liquidity (allowQueue=false)
         // The naraUSD contract checks liquidity internally and reverts with InsufficientCollateral if insufficient
         // This burns naraUSD shares from this contract (shares arrived via SHARE_OFT compose)
         // and transfers collateral to this contract
         // Redeem naraUSD for collateral - returns the exact collateral amount received (after fees)
         // Since allowQueue=false, this will revert with InsufficientCollateral if no liquidity
-        INaraUSD(address(VAULT)).redeem(_collateralAsset, _shareAmount, false);
-        uint256 balanceAfter = IERC20(_collateralAsset).balanceOf(address(this));
-        uint256 collateralAmount = balanceAfter - balanceBefore;
+        (uint256 collateralAmount, ) = INaraUSD(address(VAULT)).redeem(_collateralAsset, _shareAmount, false);
 
         _assertSlippage(collateralAmount, _sendParam.minAmountLD);
 
