@@ -180,8 +180,9 @@ contract EndToEndTest is TestHelper {
 
         // Instant redeem (liquidity available)
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, false);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), naraUSDAmount, false);
         assertEq(wasQueued, false, "Should be instant redemption");
+        assertGt(collateralAmount, 0, "Should receive collateral amount");
         assertGt(usdc.balanceOf(alice) - aliceUsdcBefore, 0, "Should receive collateral");
         vm.stopPrank();
     }

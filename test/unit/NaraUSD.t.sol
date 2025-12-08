@@ -106,10 +106,11 @@ contract NaraUSDTest is TestHelper {
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
 
-        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, false);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), naraUSDAmount, false);
 
         // Verify instant redemption
         assertEq(wasQueued, false, "Should be instant redemption");
+        assertEq(collateralAmount, 1000e6, "Should receive correct USDC amount");
         assertEq(usdc.balanceOf(alice) - aliceUsdcBefore, 1000e6, "Should receive USDC instantly");
         assertEq(naraUSD.balanceOf(alice), aliceNaraUSDBefore - naraUSDAmount, "naraUSD burned");
 
@@ -137,10 +138,11 @@ contract NaraUSDTest is TestHelper {
 
         // Step 1: Request redemption (will be queued due to no liquidity)
         vm.startPrank(alice);
-        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, true);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), naraUSDAmount, true);
 
         // Verify it was queued
         assertEq(wasQueued, true, "Should be queued");
+        assertEq(collateralAmount, 0, "Collateral amount should be 0 when queued");
 
         // Verify redemption request
         (uint152 lockedAmount, address collateral) = naraUSD.redemptionRequests(alice);
@@ -216,8 +218,9 @@ contract NaraUSDTest is TestHelper {
 
         // Queue redemption
         vm.startPrank(alice);
-        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, true);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), naraUSDAmount, true);
         assertEq(wasQueued, true, "Should be queued");
+        assertEq(collateralAmount, 0, "Collateral amount should be 0 when queued");
 
         uint256 aliceBalanceAfterRedeem = naraUSD.balanceOf(alice);
         assertEq(aliceBalanceAfterRedeem, aliceBalanceBefore, "naraUSD locked in silo");
@@ -619,9 +622,10 @@ contract NaraUSDTest is TestHelper {
         naraUSD.mintWithCollateral(address(usdt), 1000e6);
 
         // Instant redeem (MCT has liquidity)
-        bool wasQueued = naraUSD.redeem(address(usdt), 1000e18, false);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdt), 1000e18, false);
 
         assertEq(wasQueued, false, "Should be instant");
+        assertGt(collateralAmount, 0, "Should receive collateral amount");
         assertEq(usdt.balanceOf(alice), aliceUsdtBefore, "USDT balance restored");
 
         vm.stopPrank();
@@ -661,9 +665,10 @@ contract NaraUSDTest is TestHelper {
 
         // Instant redeem (liquidity available)
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        bool wasQueued = naraUSD.redeem(address(usdc), naraUSDAmount, false);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), naraUSDAmount, false);
 
         assertEq(wasQueued, false, "Should be instant");
+        assertEq(collateralAmount, amount, "Should receive correct collateral amount");
         assertEq(usdc.balanceOf(alice) - aliceUsdcBefore, amount, "Should receive same amount back");
 
         vm.stopPrank();
@@ -1286,8 +1291,9 @@ contract NaraUSDTest is TestHelper {
 
         // Instant redeem at minimum
         vm.startPrank(alice);
-        bool wasQueued = naraUSD.redeem(address(usdc), minAmount, false);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), minAmount, false);
         assertEq(wasQueued, false, "Should be instant");
+        assertGt(collateralAmount, 0, "Should receive collateral amount");
         vm.stopPrank();
     }
 
@@ -1307,8 +1313,9 @@ contract NaraUSDTest is TestHelper {
 
         // Instant redeem above minimum
         vm.startPrank(alice);
-        bool wasQueued = naraUSD.redeem(address(usdc), 200e18, false);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), 200e18, false);
         assertEq(wasQueued, false, "Should be instant");
+        assertGt(collateralAmount, 0, "Should receive collateral amount");
         vm.stopPrank();
     }
 
