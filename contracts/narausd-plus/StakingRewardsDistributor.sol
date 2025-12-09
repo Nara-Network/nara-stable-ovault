@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "./StakedNaraUSD.sol";
+import "./NaraUSDPlus.sol";
 import "../interfaces/narausd/INaraUSD.sol";
 
 /**
@@ -29,7 +29,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     /* --------------- IMMUTABLES --------------- */
 
     /// @notice Staking vault contract
-    StakedNaraUSD public immutable STAKING_VAULT;
+    NaraUSDPlus public immutable STAKING_VAULT;
 
     /// @notice naraUSD token
     IERC20 public immutable NARAUSD_TOKEN;
@@ -62,7 +62,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
      * @param _admin The admin address (multisig)
      * @param _operator The operator address (delegated signer)
      */
-    constructor(StakedNaraUSD _stakingVault, IERC20 _narausd, address _admin, address _operator) Ownable(msg.sender) {
+    constructor(NaraUSDPlus _stakingVault, IERC20 _narausd, address _admin, address _operator) Ownable(msg.sender) {
         if (address(_stakingVault) == address(0)) revert InvalidZeroAddress();
         if (address(_narausd) == address(0)) revert InvalidZeroAddress();
         if (_admin == address(0)) revert InvalidZeroAddress();
@@ -102,7 +102,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     }
 
     /**
-     * @notice Burn naraUSD assets from the staking contract to decrease snaraUSD exchange rate
+     * @notice Burn naraUSD assets from the staking contract to decrease naraUSD+ exchange rate
      * @param _amount The amount of naraUSD to burn from staking vault
      * @dev Only the operator can call this function
      * @dev This contract must have REWARDER_ROLE in the staking contract

@@ -4,10 +4,10 @@ pragma solidity ^0.8.22;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
- * @title StakedNaraUSDSilo
- * @notice The Silo allows to store staking vault tokens (snaraUSD) during the stake cooldown process.
+ * @title NaraUSDPlusSilo
+ * @notice The Silo allows to store staking vault tokens (naraUSD+) during the stake cooldown process.
  */
-contract StakedNaraUSDSilo {
+contract NaraUSDPlusSilo {
     /// @notice Error emitted when the staking vault is not the caller
     error OnlyStakingVault();
 

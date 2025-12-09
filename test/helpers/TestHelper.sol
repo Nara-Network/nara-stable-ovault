@@ -9,15 +9,15 @@ import { IOFT } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
 import { NaraUSD } from "../../contracts/narausd/NaraUSD.sol";
-import { StakedNaraUSD } from "../../contracts/staked-narausd/StakedNaraUSD.sol";
+import { NaraUSDPlus } from "../../contracts/narausd-plus/NaraUSDPlus.sol";
 
 import { MCTOFTAdapter } from "../../contracts/mct/MCTOFTAdapter.sol";
 import { NaraUSDOFTAdapter } from "../../contracts/narausd/NaraUSDOFTAdapter.sol";
 import { NaraUSDOFT } from "../../contracts/narausd/NaraUSDOFT.sol";
-import { StakedNaraUSDOFTAdapter } from "../../contracts/staked-narausd/StakedNaraUSDOFTAdapter.sol";
-import { StakedNaraUSDOFT } from "../../contracts/staked-narausd/StakedNaraUSDOFT.sol";
+import { NaraUSDPlusOFTAdapter } from "../../contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol";
+import { NaraUSDPlusOFT } from "../../contracts/narausd-plus/NaraUSDPlusOFT.sol";
 import { NaraUSDComposer } from "../../contracts/narausd/NaraUSDComposer.sol";
-import { StakedNaraUSDComposer } from "../../contracts/staked-narausd/StakedNaraUSDComposer.sol";
+import { NaraUSDPlusComposer } from "../../contracts/narausd-plus/NaraUSDPlusComposer.sol";
 
 /**
  * @title TestHelper
@@ -43,18 +43,18 @@ abstract contract TestHelper is TestHelperOz5 {
     // Real contracts
     MultiCollateralToken public mct;
     NaraUSD public naraUSD;
-    StakedNaraUSD public stakedNaraUSD;
+    NaraUSDPlus public naraUSDPlus;
 
     // Hub chain contracts (Arbitrum)
     MCTOFTAdapter public mctAdapter; // Note: MCT doesn't go cross-chain, but adapter needed for composer validation
     NaraUSDOFTAdapter public naraUSDAdapter;
-    StakedNaraUSDOFTAdapter public stakedNaraUSDAdapter;
+    NaraUSDPlusOFTAdapter public naraUSDPlusAdapter;
     NaraUSDComposer public naraUSDComposer;
-    StakedNaraUSDComposer public stakedNaraUSDComposer;
+    NaraUSDPlusComposer public naraUSDPlusComposer;
 
     // Spoke chain contracts (Base, OP, etc.)
     NaraUSDOFT public naraUSDOFT;
-    StakedNaraUSDOFT public stakedNaraUSDOFT;
+    NaraUSDPlusOFT public naraUSDPlusOFT;
 
     // Helper variables
     uint256 public constant INITIAL_BALANCE = 1_000_000e6; // 1M USDC
@@ -122,14 +122,14 @@ abstract contract TestHelper is TestHelperOz5 {
         // Add MCT as minter to itself for naraUSD minting flow
         mct.grantRole(mct.MINTER_ROLE(), address(naraUSD));
 
-        // Deploy real StakedNaraUSD vault
-        stakedNaraUSD = new StakedNaraUSD(
+        // Deploy real NaraUSDPlus vault
+        naraUSDPlus = new NaraUSDPlus(
             naraUSD,
             address(this), // initialRewarder
             address(this) // admin
         );
         // Set cooldown to 0 for easier testing (can be changed in specific tests)
-        stakedNaraUSD.setCooldownDuration(0);
+        naraUSDPlus.setCooldownDuration(0);
 
         // Deploy OFT Adapters
         // Note: MCT adapter exists on hub but MCT never actually goes cross-chain
@@ -138,7 +138,7 @@ abstract contract TestHelper is TestHelperOz5 {
 
         naraUSDAdapter = new NaraUSDOFTAdapter(address(naraUSD), address(endpoints[HUB_EID]), delegate);
 
-        stakedNaraUSDAdapter = new StakedNaraUSDOFTAdapter(address(stakedNaraUSD), address(endpoints[HUB_EID]), delegate);
+        naraUSDPlusAdapter = new NaraUSDPlusOFTAdapter(address(naraUSDPlus), address(endpoints[HUB_EID]), delegate);
 
         // Deploy Composers
         naraUSDComposer = new NaraUSDComposer(
@@ -151,10 +151,10 @@ abstract contract TestHelper is TestHelperOz5 {
         vm.prank(address(this)); // Test contract has DEFAULT_ADMIN_ROLE
         naraUSDComposer.addWhitelistedCollateral(address(usdc), address(usdc)); // Using USDC as both asset and OFT for simplicity
 
-        stakedNaraUSDComposer = new StakedNaraUSDComposer(
-            address(stakedNaraUSD),
+        naraUSDPlusComposer = new NaraUSDPlusComposer(
+            address(naraUSDPlus),
             address(naraUSDAdapter),
-            address(stakedNaraUSDAdapter)
+            address(naraUSDPlusAdapter)
         );
     }
 
@@ -167,7 +167,7 @@ abstract contract TestHelper is TestHelperOz5 {
         // Deploy OFTs on spoke chain
         naraUSDOFT = new NaraUSDOFT(address(endpoints[SPOKE_EID]), delegate);
 
-        stakedNaraUSDOFT = new StakedNaraUSDOFT(address(endpoints[SPOKE_EID]), delegate);
+        naraUSDPlusOFT = new NaraUSDPlusOFT(address(endpoints[SPOKE_EID]), delegate);
     }
 
     /**
@@ -180,11 +180,11 @@ abstract contract TestHelper is TestHelperOz5 {
         naraUSDPath[1] = address(naraUSDOFT);
         this.wireOApps(naraUSDPath);
 
-        // Wire StakedNaraUSD OFT <-> Adapter
-        address[] memory stakedPath = new address[](2);
-        stakedPath[0] = address(stakedNaraUSDAdapter);
-        stakedPath[1] = address(stakedNaraUSDOFT);
-        this.wireOApps(stakedPath);
+        // Wire NaraUSDPlus OFT <-> Adapter
+        address[] memory naraUSDPlusPath = new address[](2);
+        naraUSDPlusPath[0] = address(naraUSDPlusAdapter);
+        naraUSDPlusPath[1] = address(naraUSDPlusOFT);
+        this.wireOApps(naraUSDPlusPath);
     }
 
     /**

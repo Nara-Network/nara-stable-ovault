@@ -6,11 +6,11 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
 
 /**
- * @title StakedNaraUSDOFT
- * @notice OFT for snaraUSD vault shares on spoke chains
- * @dev This is deployed on spoke chains to represent snaraUSD shares cross-chain
+ * @title NaraUSDPlusOFT
+ * @notice OFT for naraUSD+ vault shares on spoke chains
+ * @dev This is deployed on spoke chains to represent naraUSD+ shares cross-chain
  */
-contract StakedNaraUSDOFT is OFT, AccessControl {
+contract NaraUSDPlusOFT is OFT, AccessControl {
     /* --------------- CONSTANTS --------------- */
 
     /// @notice Role that can blacklist and un-blacklist addresses
@@ -34,14 +34,14 @@ contract StakedNaraUSDOFT is OFT, AccessControl {
     }
 
     /**
-     * @notice Constructs the snaraUSD Share OFT contract for spoke chains
+     * @notice Constructs the naraUSD+ Share OFT contract for spoke chains
      * @param _lzEndpoint The address of the LayerZero endpoint on this chain
      * @param _delegate The address that will have owner privileges
      */
     constructor(
         address _lzEndpoint,
         address _delegate
-    ) OFT("Staked naraUSD", "snaraUSD", _lzEndpoint, _delegate) Ownable(_delegate) {
+    ) OFT("NaraUSD+", "naraUSD+", _lzEndpoint, _delegate) Ownable(_delegate) {
         _grantRole(DEFAULT_ADMIN_ROLE, _delegate);
         _grantRole(BLACKLIST_MANAGER_ROLE, _delegate);
     }

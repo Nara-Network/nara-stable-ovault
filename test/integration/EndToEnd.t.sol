@@ -38,58 +38,58 @@ contract EndToEndTest is TestHelper {
         );
 
         // === STEP 2: User stakes naraUSD to earn yield ===
-        naraUSD.approve(address(stakedNaraUSD), naraUSDAmount);
-        uint256 sNaraUSDAmount = stakedNaraUSD.deposit(naraUSDAmount, alice);
-        assertEq(sNaraUSDAmount, naraUSDAmount, "Step 2: Should receive 1:1 snaraUSD initially");
-        assertEq(stakedNaraUSD.balanceOf(alice), sNaraUSDAmount, "Step 2: Alice should have snaraUSD");
+        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
+        uint256 naraUSDPlusAmountAmount = naraUSDPlus.deposit(naraUSDAmount, alice);
+        assertEq(naraUSDPlusAmountAmount, naraUSDAmount, "Step 2: Should receive 1:1 naraUSD+ initially");
+        assertEq(naraUSDPlus.balanceOf(alice), naraUSDPlusAmountAmount, "Step 2: Alice should have naraUSD+");
 
         // === STEP 3: Rewards are distributed (time passes) ===
         vm.stopPrank();
         // Test contract has REWARDER_ROLE
         uint256 rewardsAmount = 100e18; // 10% yield
         naraUSD.mint(address(this), rewardsAmount);
-        naraUSD.approve(address(stakedNaraUSD), rewardsAmount);
-        stakedNaraUSD.transferInRewards(rewardsAmount);
+        naraUSD.approve(address(naraUSDPlus), rewardsAmount);
+        naraUSDPlus.transferInRewards(rewardsAmount);
 
         // Wait for rewards to vest (8 hour vesting period)
         vm.warp(block.timestamp + 8 hours);
 
-        // === STEP 4: User transfers snaraUSD to another chain ===
+        // === STEP 4: User transfers naraUSD+ to another chain ===
         vm.startPrank(alice);
-        uint256 aliceSNaraUSD = stakedNaraUSD.balanceOf(alice);
-        stakedNaraUSD.approve(address(stakedNaraUSDAdapter), aliceSNaraUSD);
+        uint256 aliceSNaraUSD = naraUSDPlus.balanceOf(alice);
+        naraUSDPlus.approve(address(naraUSDPlusAdapter), aliceSNaraUSD);
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSNaraUSD);
-        MessagingFee memory fee = _getMessagingFee(address(stakedNaraUSDAdapter), sendParam);
+        MessagingFee memory fee = _getMessagingFee(address(naraUSDPlusAdapter), sendParam);
 
-        stakedNaraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        naraUSDPlusAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at stakedNaraUSDOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedNaraUSDOFT)));
+        // Deliver packet to SPOKE chain at naraUSDPlusOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDPlusOFT)));
 
-        // === STEP 5: Verify Bob received snaraUSD on spoke chain ===
+        // === STEP 5: Verify Bob received naraUSD+ on spoke chain ===
         _switchToSpoke();
-        assertEq(stakedNaraUSDOFT.balanceOf(bob), aliceSNaraUSD, "Step 5: Bob should have snaraUSD on spoke");
+        assertEq(naraUSDPlusOFT.balanceOf(bob), aliceSNaraUSD, "Step 5: Bob should have naraUSD+ on spoke");
 
-        // === STEP 6: Bob sends snaraUSD back to hub ===
+        // === STEP 6: Bob sends naraUSD+ back to hub ===
         vm.startPrank(bob);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSNaraUSD);
-        MessagingFee memory fee2 = _getMessagingFee(address(stakedNaraUSDOFT), sendParam2);
+        MessagingFee memory fee2 = _getMessagingFee(address(naraUSDPlusOFT), sendParam2);
 
-        stakedNaraUSDOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
+        naraUSDPlusOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
         vm.stopPrank();
 
-        // Deliver packet to HUB chain at stakedNaraUSDAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedNaraUSDAdapter)));
+        // Deliver packet to HUB chain at naraUSDPlusAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(naraUSDPlusAdapter)));
 
         // === STEP 7: Bob unstakes on hub to get naraUSD back ===
         _switchToHub();
-        uint256 bobSNaraUSD = stakedNaraUSD.balanceOf(bob);
-        assertEq(bobSNaraUSD, aliceSNaraUSD, "Step 7: Bob should have snaraUSD on hub");
+        uint256 bobSNaraUSD = naraUSDPlus.balanceOf(bob);
+        assertEq(bobSNaraUSD, aliceSNaraUSD, "Step 7: Bob should have naraUSD+ on hub");
 
         vm.startPrank(bob);
-        uint256 naraUSDRedeemed = stakedNaraUSD.redeem(bobSNaraUSD, bob, bob);
+        uint256 naraUSDRedeemed = naraUSDPlus.redeem(bobSNaraUSD, bob, bob);
         assertGt(naraUSDRedeemed, naraUSDAmount, "Step 7: Should redeem more naraUSD due to rewards");
         assertEq(naraUSD.balanceOf(bob), naraUSDRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have naraUSD");
         vm.stopPrank();
@@ -198,25 +198,25 @@ contract EndToEndTest is TestHelper {
 
         // Alice stakes on hub
         vm.startPrank(alice);
-        naraUSD.approve(address(stakedNaraUSD), stakeAmount);
-        uint256 shares = stakedNaraUSD.deposit(stakeAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), stakeAmount);
+        uint256 shares = naraUSDPlus.deposit(stakeAmount, alice);
         vm.stopPrank();
 
         // Rewards distributed (test contract has REWARDER_ROLE)
         naraUSD.mint(address(this), rewardAmount);
-        naraUSD.approve(address(stakedNaraUSD), rewardAmount);
-        stakedNaraUSD.transferInRewards(rewardAmount);
+        naraUSD.approve(address(naraUSDPlus), rewardAmount);
+        naraUSDPlus.transferInRewards(rewardAmount);
 
         // Alice sends shares to spoke
         vm.startPrank(alice);
-        stakedNaraUSD.approve(address(stakedNaraUSDAdapter), shares);
+        naraUSDPlus.approve(address(naraUSDPlusAdapter), shares);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, shares);
-        MessagingFee memory fee = _getMessagingFee(address(stakedNaraUSDAdapter), sendParam);
-        stakedNaraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
+        MessagingFee memory fee = _getMessagingFee(address(naraUSDPlusAdapter), sendParam);
+        naraUSDPlusAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at stakedNaraUSDOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedNaraUSDOFT)));
+        // Deliver packet to SPOKE chain at naraUSDPlusOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDPlusOFT)));
 
         // More rewards distributed while Alice is on spoke
         _switchToHub();
@@ -225,24 +225,24 @@ contract EndToEndTest is TestHelper {
 
         // Test contract has REWARDER_ROLE
         naraUSD.mint(address(this), rewardAmount);
-        naraUSD.approve(address(stakedNaraUSD), rewardAmount);
-        stakedNaraUSD.transferInRewards(rewardAmount);
+        naraUSD.approve(address(naraUSDPlus), rewardAmount);
+        naraUSDPlus.transferInRewards(rewardAmount);
 
         // Alice sends back to hub
         _switchToSpoke();
         vm.startPrank(alice);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, shares);
-        MessagingFee memory fee2 = _getMessagingFee(address(stakedNaraUSDOFT), sendParam2);
-        stakedNaraUSDOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
+        MessagingFee memory fee2 = _getMessagingFee(address(naraUSDPlusOFT), sendParam2);
+        naraUSDPlusOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
-        // Deliver packet FROM SPOKE TO HUB at stakedNaraUSDAdapter
-        verifyPackets(HUB_EID, addressToBytes32(address(stakedNaraUSDAdapter)));
+        // Deliver packet FROM SPOKE TO HUB at naraUSDPlusAdapter
+        verifyPackets(HUB_EID, addressToBytes32(address(naraUSDPlusAdapter)));
 
         // Alice redeems and should have accumulated rewards
         _switchToHub();
         vm.startPrank(alice);
-        uint256 naraUSDRedeemed = stakedNaraUSD.redeem(shares, alice, alice);
+        uint256 naraUSDRedeemed = naraUSDPlus.redeem(shares, alice, alice);
         assertGt(naraUSDRedeemed, stakeAmount, "Should have earned rewards");
         vm.stopPrank();
     }
@@ -389,18 +389,18 @@ contract EndToEndTest is TestHelper {
 
         // Alice stakes
         vm.startPrank(alice);
-        naraUSD.approve(address(stakedNaraUSD), expectedNaraUSD);
-        stakedNaraUSD.deposit(expectedNaraUSD, alice);
+        naraUSD.approve(address(naraUSDPlus), expectedNaraUSD);
+        naraUSDPlus.deposit(expectedNaraUSD, alice);
         vm.stopPrank();
 
-        // StakedNaraUSD TVL should increase
-        uint256 stakedTVL = stakedNaraUSD.totalAssets();
+        // NaraUSDPlus TVL should increase
+        uint256 stakedTVL = naraUSDPlus.totalAssets();
         assertEq(stakedTVL, expectedNaraUSD, "Staked TVL should match deposit");
     }
 
     /**
      * @notice Test cross-chain consistency with multiple token types
-     * @dev Note: MCT stays on hub only, so we only test naraUSD and snaraUSD cross-chain
+     * @dev Note: MCT stays on hub only, so we only test naraUSD and naraUSD+ cross-chain
      */
     function test_MultiTokenConsistency() public {
         uint256 amount = 100e18;
@@ -418,23 +418,23 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at naraUSDOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
-        // Send snaraUSD to spoke
+        // Send naraUSD+ to spoke
         vm.startPrank(alice);
-        naraUSD.approve(address(stakedNaraUSD), amount);
-        uint256 shares = stakedNaraUSD.deposit(amount, alice);
-        stakedNaraUSD.approve(address(stakedNaraUSDAdapter), shares);
+        naraUSD.approve(address(naraUSDPlus), amount);
+        uint256 shares = naraUSDPlus.deposit(amount, alice);
+        naraUSDPlus.approve(address(naraUSDPlusAdapter), shares);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, shares);
-        MessagingFee memory fee2 = _getMessagingFee(address(stakedNaraUSDAdapter), sendParam2);
-        stakedNaraUSDAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
+        MessagingFee memory fee2 = _getMessagingFee(address(naraUSDPlusAdapter), sendParam2);
+        naraUSDPlusAdapter.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
 
-        // Deliver packet to SPOKE chain at stakedNaraUSDOFT
-        verifyPackets(SPOKE_EID, addressToBytes32(address(stakedNaraUSDOFT)));
+        // Deliver packet to SPOKE chain at naraUSDPlusOFT
+        verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDPlusOFT)));
 
         // Verify tokens on spoke (MCT stays on hub, not cross-chain)
         _switchToSpoke();
         assertEq(naraUSDOFT.balanceOf(bob), amount, "Bob should have naraUSD");
-        assertEq(stakedNaraUSDOFT.balanceOf(bob), shares, "Bob should have snaraUSD");
+        assertEq(naraUSDPlusOFT.balanceOf(bob), shares, "Bob should have naraUSD+");
     }
 
     /**

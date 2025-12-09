@@ -5,15 +5,15 @@ import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
- * @title IStakedNaraUSD
- * @notice Interface for the StakedNaraUSD contract with cooldown functionality
+ * @title INaraUSDPlus
+ * @notice Interface for the NaraUSDPlus contract with cooldown functionality
  */
-interface IStakedNaraUSD is IERC4626, IERC20Permit {
+interface INaraUSDPlus is IERC4626, IERC20Permit {
     /* --------------- STRUCTS --------------- */
 
     struct UserCooldown {
         uint104 cooldownEnd;
-        uint152 sharesAmount; // Amount of snaraUSD shares locked in silo
+        uint152 sharesAmount; // Amount of naraUSD+ shares locked in silo
     }
 
     /* --------------- EVENTS --------------- */
@@ -51,7 +51,7 @@ interface IStakedNaraUSD is IERC4626, IERC20Permit {
     function transferInRewards(uint256 amount) external;
 
     /**
-     * @notice Burn naraUSD from the contract to decrease snaraUSD exchange rate
+     * @notice Burn naraUSD from the contract to decrease naraUSD+ exchange rate
      * @param amount The amount of naraUSD to burn
      */
     function burnAssets(uint256 amount) external;
