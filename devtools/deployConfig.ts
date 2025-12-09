@@ -34,13 +34,13 @@ export default selectedConfig
 // Re-export all named exports using spread (simpler approach)
 export const {
     DEPLOYMENT_CONFIG,
-    STAKED_NARAUSD_CONFIG,
+    NARAUSD_PLUS_CONFIG,
     isVaultChain,
     shouldDeployVault,
     shouldDeployShare,
     shouldDeployShareAdapter,
-    isStakedNaraUSDVaultChain,
-    shouldDeployStakedNaraUSDVault,
-    shouldDeployStakedNaraUSDShare,
-    shouldDeployStakedNaraUSDShareAdapter,
+    isNaraUSDPlusVaultChain,
+    shouldDeployNaraUSDPlusVault,
+    shouldDeployNaraUSDPlusShare,
+    shouldDeployNaraUSDPlusShareAdapter,
 } = selectedConfig

@@ -336,7 +336,7 @@ export default async function () {
 
 ### 2. Configure Share OFT Network
 
-Set up your Share OFT configuration in `layerzero.snarausd.config.ts`. **Critical**: The hub chain must use `MyShareOFTAdapter` (lockbox model):
+Set up your Share OFT configuration in `layerzero.narausd-plus.config.ts`. **Critical**: The hub chain must use `MyShareOFTAdapter` (lockbox model):
 
 ```typescript
 import { EndpointId } from "@layerzerolabs/lz-definitions";
@@ -458,7 +458,7 @@ Configure and wire the Share OFT connections:
 
 ```bash
 # Wire Share OFT network
-pnpm hardhat lz:oapp:wire --oapp-config layerzero.snarausd.config.ts
+pnpm hardhat lz:oapp:wire --oapp-config layerzero.narausd-plus.config.ts
 ```
 
 ## Cross-Chain Operations
@@ -713,7 +713,7 @@ To add additional chains to your OVault:
 
 1. **Update Hardhat Config**: Add new network to `hardhat.config.ts`
 2. **Deploy Contracts**: Deploy Asset OFT and Share OFT to new chain
-3. **Update Configs**: Add new chain to both `layerzero.narausd.config.ts` and `layerzero.snarausd.config.ts`
+3. **Update Configs**: Add new chain to both `layerzero.narausd.config.ts` and `layerzero.narausd-plus.config.ts`
 4. **Add Connections**: Define peer connections from/to new chain
 5. **Wire Networks**: Re-run wiring commands with updated configs
 

@@ -53,7 +53,7 @@ task('lz:ovault:send', 'Sends assets or shares through OVaultComposer with autom
     .addOptionalParam(
         'shareOappConfig',
         'Path to the Share OFT config file',
-        'layerzero.snarausd.config.ts',
+        'layerzero.narausd-plus.config.ts',
         types.string
     )
     .addOptionalParam(
@@ -379,7 +379,7 @@ task('lz:ovault:send', 'Sends assets or shares through OVaultComposer with autom
             // Determine which OFT to quote (opposite of what we're sending)
             const outputTokenConfig =
                 args.tokenType === 'asset'
-                    ? args.shareOappConfig || 'layerzero.snarausd.config.ts' // Asset input → Share output
+                    ? args.shareOappConfig || 'layerzero.narausd-plus.config.ts' // Asset input → Share output
                     : args.assetOappConfig || 'layerzero.asset.config.ts' // Share input → Asset output
 
             const outputLayerZeroConfig = (await import(path.resolve('./', outputTokenConfig))).default

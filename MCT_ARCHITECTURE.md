@@ -53,7 +53,7 @@ Spoke: User receives naraUSD
 |-------|-------------|-----|
 | MCT | ❌ No - Hub only | N/A |
 | naraUSD | ✅ Yes | NaraUSDOFTAdapter (hub) ↔ NaraUSDOFT (spoke) |
-| StakedNaraUSD | ✅ Yes | StakedNaraUSDOFTAdapter (hub) ↔ StakedNaraUSDOFT (spoke) |
+| NaraUSDPlus | ✅ Yes | NaraUSDPlusOFTAdapter (hub) ↔ NaraUSDPlusOFT (spoke) |
 | USDC/USDT | ✅ Yes | Stargate or other collateral OFTs |
 
 ---

@@ -89,14 +89,14 @@ Complete unit test coverage for naraUSD:
 
 ---
 
-### 3. **StakedNaraUSD.t.sol** (NEW - 30+ tests)
+### 3. **NaraUSDPlus.t.sol** (NEW - 30+ tests)
 
-Complete unit test coverage for StakedNaraUSD:
+Complete unit test coverage for NaraUSDPlus:
 
 **Basic Staking (Cooldown OFF):**
 
 - ✅ Deposit naraUSD
-- ✅ Redeem snaraUSD for naraUSD
+- ✅ Redeem naraUSD+ for naraUSD
 
 **Cooldown Flow (Critical - Was NOT Tested):**
 
@@ -146,16 +146,16 @@ Complete unit test coverage for StakedNaraUSD:
 
 ### 4. **Updated Integration Tests**
 
-**StakedNaraUSDComposer.t.sol:**
+**NaraUSDPlusComposer.t.sol:**
 
 - ✅ **FIXED:** `test_CrossChainStaking()` - Now properly verifies:
   - Compose message execution
   - naraUSD staked on hub
-  - snaraUSD sent back to spoke
-  - User receives snaraUSD on spoke
+  - naraUSD+ sent back to spoke
+  - User receives naraUSD+ on spoke
 - ✅ **FIXED:** `test_CrossChainUnstaking()` - Now properly verifies:
   - Compose message execution
-  - snaraUSD redeemed on hub
+  - naraUSD+ redeemed on hub
   - naraUSD sent back to spoke
   - User receives naraUSD on spoke
 
@@ -176,7 +176,7 @@ Complete unit test coverage for StakedNaraUSD:
 | ------------------- | ------------ | ----------- |
 | MCT                 | 0            | 0%          |
 | naraUSD                | 0            | 0%          |
-| StakedNaraUSD          | 0            | 0%          |
+| NaraUSDPlus          | 0            | 0%          |
 | Cross-chain compose | 2 incomplete | ~20%        |
 | **Overall**         | **~50**      | **~40-50%** |
 
@@ -186,7 +186,7 @@ Complete unit test coverage for StakedNaraUSD:
 | ------------------- | ------------------------- | ----------- |
 | MCT                 | 30+                       | ~95%        |
 | naraUSD                | 25+                       | ~90%        |
-| StakedNaraUSD          | 30+                       | ~90%        |
+| NaraUSDPlus          | 30+                       | ~90%        |
 | Cross-chain compose | 2 complete + 1 documented | ~80%        |
 | Cross-chain OFT     | 50+                       | ~95%        |
 | **Overall**         | **~135+**                 | **~85-90%** |
@@ -220,7 +220,7 @@ Foundation of the entire system now tested:
 - Multi-collateral support
 - Redeem mechanics
 
-### 3. **StakedNaraUSD Rewards & Cooldown** ✅
+### 3. **NaraUSDPlus Rewards & Cooldown** ✅
 
 **Before:** NO TESTS  
 **After:** 15+ tests
@@ -277,16 +277,16 @@ forge test
 # Unit tests
 forge test --match-path test/unit/MultiCollateralToken.t.sol
 forge test --match-path test/unit/naraUSD.t.sol
-forge test --match-path test/unit/StakedNaraUSD.t.sol
+forge test --match-path test/unit/NaraUSDPlus.t.sol
 
 # Integration tests
 forge test --match-path test/integration/NaraUSDComposer.t.sol
-forge test --match-path test/integration/StakedNaraUSDComposer.t.sol
+forge test --match-path test/integration/NaraUSDPlusComposer.t.sol
 forge test --match-path test/integration/EndToEnd.t.sol
 
 # OFT tests
 forge test --match-path test/unit/NaraUSDOFT.t.sol
-forge test --match-path test/unit/StakedNaraUSDOFT.t.sol
+forge test --match-path test/unit/NaraUSDPlusOFT.t.sol
 ```
 
 ### Run with Coverage:
@@ -322,13 +322,13 @@ test/
 ├── unit/                        # NEW: Core contract unit tests
 │   ├── MultiCollateralToken.t.sol   # 30+ tests
 │   ├── naraUSD.t.sol                    # 25+ tests
-│   ├── StakedNaraUSD.t.sol              # 30+ tests
+│   ├── NaraUSDPlus.t.sol              # 30+ tests
 │   ├── NaraUSDOFT.t.sol                 # 27 tests (existing)
-│   └── StakedNaraUSDOFT.t.sol           # 25 tests (existing)
+│   └── NaraUSDPlusOFT.t.sol           # 25 tests (existing)
 │
 ├── integration/                 # Cross-chain integration tests
 │   ├── NaraUSDComposer.t.sol           # Updated with explanations
-│   ├── StakedNaraUSDComposer.t.sol     # Fixed compose tests
+│   ├── NaraUSDPlusComposer.t.sol     # Fixed compose tests
 │   └── EndToEnd.t.sol                # 14 end-to-end tests (existing)
 │
 ├── helpers/
@@ -355,22 +355,22 @@ test/
 - [x] naraUSD - Rate limiting
 - [x] naraUSD - Burn functionality
 - [x] naraUSD - Delegated signers
-- [x] StakedNaraUSD - Deposit/redeem
-- [x] StakedNaraUSD - Cooldown flow (shares)
-- [x] StakedNaraUSD - Cooldown flow (assets)
-- [x] StakedNaraUSD - Rewards distribution
-- [x] StakedNaraUSD - Reward vesting
-- [x] StakedNaraUSD - Blacklist functionality
-- [x] StakedNaraUSD - Burn assets
+- [x] NaraUSDPlus - Deposit/redeem
+- [x] NaraUSDPlus - Cooldown flow (shares)
+- [x] NaraUSDPlus - Cooldown flow (assets)
+- [x] NaraUSDPlus - Rewards distribution
+- [x] NaraUSDPlus - Reward vesting
+- [x] NaraUSDPlus - Blacklist functionality
+- [x] NaraUSDPlus - Burn assets
 
 ### Cross-Chain
 
 - [x] naraUSD OFT - Hub to spoke transfers
 - [x] naraUSD OFT - Spoke to hub transfers
 - [x] naraUSD OFT - Round trips
-- [x] StakedNaraUSD OFT - Hub to spoke transfers
-- [x] StakedNaraUSD OFT - Spoke to hub transfers
-- [x] StakedNaraUSD OFT - Exchange rate preservation
+- [x] NaraUSDPlusOFT - Hub to spoke transfers
+- [x] NaraUSDPlusOFT - Spoke to hub transfers
+- [x] NaraUSDPlusOFT - Exchange rate preservation
 - [x] Cross-chain staking (compose)
 - [x] Cross-chain unstaking (compose)
 - [⚠️] Cross-chain minting (requires Stargate)
@@ -467,7 +467,7 @@ test/
 
 - ✅ MCT minting and redemption
 - ✅ naraUSD cooldown redemption
-- ✅ StakedNaraUSD cooldown unstaking
+- ✅ NaraUSDPlus cooldown unstaking
 - ✅ Rewards distribution and vesting
 - ✅ Cross-chain staking/unstaking via compose
 - ✅ Blacklist functionality

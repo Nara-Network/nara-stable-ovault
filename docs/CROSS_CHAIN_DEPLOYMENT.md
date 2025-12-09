@@ -1,13 +1,13 @@
 # 🌐 Cross-Chain Deployment Guide
 
-Complete guide for deploying naraUSD and StakedNaraUSD OFT infrastructure for omnichain functionality.
+Complete guide for deploying naraUSD and NaraUSDPlus OFT infrastructure for omnichain functionality.
 
 ## 📋 Overview
 
 This guide covers deploying LayerZero OFT (Omnichain Fungible Token) infrastructure to enable:
 
 - ✅ Cross-chain naraUSD transfers
-- ✅ Cross-chain snaraUSD transfers (optional)
+- ✅ Cross-chain naraUSD+ transfers (optional)
 
 **Note**: MCT does NOT go cross-chain. It stays on hub only. See `MCT_ARCHITECTURE.md` for details.
 
@@ -18,14 +18,14 @@ Hub Chain (Arbitrum)                   Spoke Chain (Base, Ethereum)
 ┌──────────────────────┐              ┌──────────────────────┐
 │ MultiCollateralToken │              │                      │
 │ naraUSD (ERC4626)       │              │                      │
-│ StakedNaraUSD (ERC4626) │              │                      │
+│ NaraUSDPlus (ERC4626) │              │                      │
 └──────────────────────┘              └──────────────────────┘
          │                                      │
          ▼                                      ▼
 ┌──────────────────────┐              ┌──────────────────────┐
 │ MCTOFTAdapter*       │              │ (No MCTOFT)          │
 │ NaraUSDOFTAdapter       │◄────peer────►│ NaraUSDOFT              │
-│ StakedNaraUSDOFTAdapter │◄────peer────►│ StakedNaraUSDOFT        │
+│ NaraUSDPlusOFTAdapter │◄────peer────►│ NaraUSDPlusOFT        │
 │ NaraUSDComposer         │              │                      │
 └──────────────────────┘              └──────────────────────┘
 
@@ -38,7 +38,7 @@ Hub Chain (Arbitrum)                   Spoke Chain (Base, Ethereum)
 | Script                           | Purpose                                 | Command Tag          |
 | -------------------------------- | --------------------------------------- | -------------------- |
 | `deploy/OVault.ts`               | Deploy naraUSD OFT infrastructure       | `ovault`             |
-| `deploy/OVault.StakedNaraUSD.ts` | Deploy StakedNaraUSD OFT infrastructure | `staked-narausd-oft` |
+| `deploy/OVault.NaraUSDPlus.ts` | Deploy NaraUSDPlus OFT infrastructure | `narausd-plus-oft` |
 
 ## ⚙️ Prerequisites
 
@@ -52,7 +52,7 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 
 # Option B: Deploy step-by-step
 npx hardhat deploy --network arbitrum-sepolia --tags naraUSD
-npx hardhat deploy --network arbitrum-sepolia --tags StakedNaraUSD
+npx hardhat deploy --network arbitrum-sepolia --tags NaraUSDPlus
 ```
 
 ### 2. Configuration
@@ -198,9 +198,9 @@ DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags ovault
 
 ---
 
-### Step 2: (Optional) Deploy StakedNaraUSD OFT Infrastructure
+### Step 2: (Optional) Deploy NaraUSDPlus OFT Infrastructure
 
-Only needed if you want cross-chain snaraUSD transfers.
+Only needed if you want cross-chain naraUSD+ transfers.
 
 #### Hub Chain
 
@@ -218,7 +218,7 @@ DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags staked-narausd-o
 
 **Deploys:**
 
-- ✅ `StakedNaraUSDOFTAdapter` - Lockbox for snaraUSD on hub
+- ✅ `NaraUSDPlusOFTAdapter` - Lockbox for naraUSD+ on hub
 
 #### Spoke Chains
 
@@ -247,7 +247,7 @@ DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags staked-narausd-o
 
 **Deploys:**
 
-- ✅ `StakedNaraUSDOFT` - Mint/burn OFT for snaraUSD on spoke (includes blacklist functionality) (includes blacklist functionality)
+- ✅ `NaraUSDPlusOFT` - Mint/burn OFT for naraUSD+ on spoke (includes blacklist functionality)
 
 ---
 
@@ -269,7 +269,7 @@ npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 
 - ❌ NO MCTOFTAdapter wiring (MCT is hub-only!)
 - Hub `NaraUSDOFTAdapter` ↔ Spoke `NaraUSDOFT` (each spoke)
-- Hub `StakedNaraUSDOFTAdapter` ↔ Spoke `StakedNaraUSDOFT` (each spoke)
+- Hub `NaraUSDPlusOFTAdapter` ↔ Spoke `NaraUSDPlusOFT` (each spoke)
 
 ---
 
@@ -296,7 +296,7 @@ npx hardhat console --network arbitrum-sepolia
 
 ```javascript
 // Get contracts (NOTE: MCTOFTAdapter is NOT wired - skip it!)
-// Only wire naraUSD and StakedNaraUSD OFTs
+// Only wire naraUSD and NaraUSDPlus OFTs
 const narausdAdapter = await ethers.getContractAt(
   "narausd/NaraUSDOFTAdapter",
   "<NaraUSDOFTAdapter_ADDRESS>",
@@ -342,12 +342,12 @@ await mctAdapter.send(sendParam, { value: quote.nativeFee });
 
 ## 🛡️ OFT Blacklist Functionality
 
-The OFT contracts on spoke chains (`NaraUSDOFT` and `StakedNaraUSDOFT`) include blacklist functionality to prevent transfers from or to restricted addresses.
+The OFT contracts on spoke chains (`NaraUSDOFT` and `NaraUSDPlusOFT`) include blacklist functionality to prevent transfers from or to restricted addresses.
 
 ### Features
 
 - **Full Restriction**: Blacklisted addresses cannot send or receive tokens
-- **Consistent with Hub**: Same blacklist system as naraUSD and StakedNaraUSD on hub chain
+- **Consistent with Hub**: Same blacklist system as naraUSD and NaraUSDPlus on hub chain
 - **Admin Protection**: Cannot blacklist addresses with `DEFAULT_ADMIN_ROLE`
 - **Access Control**: Only `BLACKLIST_MANAGER_ROLE` can manage blacklist
 
@@ -394,14 +394,14 @@ After successful deployment, you should have:
 Core Contracts:
   MultiCollateralToken: 0xabc...
   naraUSD: 0xdef...
-  StakedNaraUSD: 0xghi...
+  NaraUSDPlus: 0xghi...
   StakingRewardsDistributor: 0xjkl...
 
 OFT Infrastructure:
   MCTOFTAdapter: 0x123... (validation only - NOT wired!)
   NaraUSDOFTAdapter: 0x456...
   NaraUSDComposer: 0x789...
-  StakedNaraUSDOFTAdapter: 0x012...
+  NaraUSDPlusOFTAdapter: 0x012...
 ```
 
 #### Spoke Chain 1 (Base Sepolia)
@@ -409,7 +409,7 @@ OFT Infrastructure:
 ```
 OFT Contracts:
   NaraUSDOFT: 0x567...
-  StakedNaraUSDOFT: 0x890...
+  NaraUSDPlusOFT: 0x890...
   (No MCTOFT - MCT is hub-only!)
 ```
 
@@ -418,7 +418,7 @@ OFT Contracts:
 ```
 OFT Contracts:
   NaraUSDOFT: 0x678...
-  StakedNaraUSDOFT: 0x901...
+  NaraUSDPlusOFT: 0x901...
   (No MCTOFT - MCT is hub-only!)
 ```
 
@@ -430,14 +430,14 @@ OFT Contracts:
 Core Contracts:
   MultiCollateralToken: 0xabc...
   naraUSD: 0xdef...
-  StakedNaraUSD: 0xghi...
+  NaraUSDPlus: 0xghi...
   StakingRewardsDistributor: 0xjkl...
 
 OFT Infrastructure:
   MCTOFTAdapter: 0x123... (validation only - NOT wired!)
   NaraUSDOFTAdapter: 0x456...
   NaraUSDComposer: 0x789...
-  StakedNaraUSDOFTAdapter: 0x012...
+  NaraUSDPlusOFTAdapter: 0x012...
 ```
 
 #### Spoke Chain 1 (Base)
@@ -445,7 +445,7 @@ OFT Infrastructure:
 ```
 OFT Contracts:
   NaraUSDOFT: 0x567...
-  StakedNaraUSDOFT: 0x890...
+  NaraUSDPlusOFT: 0x890...
   (No MCTOFT - MCT is hub-only!)
 ```
 
@@ -454,7 +454,7 @@ OFT Contracts:
 ```
 OFT Contracts:
   NaraUSDOFT: 0x678...
-  StakedNaraUSDOFT: 0x901...
+  NaraUSDPlusOFT: 0x901...
   (No MCTOFT - MCT is hub-only!)
 ```
 
@@ -505,7 +505,7 @@ npx hardhat deploy --network optimism-sepolia --tags ovault
 npx hardhat deploy --network base-sepolia --tags ovault
 npx hardhat deploy --network sepolia --tags ovault
 
-# 3. Deploy StakedNaraUSD OFTs (optional)
+# 3. Deploy NaraUSDPlus OFTs (optional)
 npx hardhat deploy --network arbitrum-sepolia --tags staked-narausd-oft
 npx hardhat deploy --network optimism-sepolia --tags staked-narausd-oft
 npx hardhat deploy --network base-sepolia --tags staked-narausd-oft
@@ -526,7 +526,7 @@ npx hardhat deploy --network polygon-sepolia --tags staked-narausd-oft
 npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ```
 
-### Pattern 3: naraUSD Only (No StakedNaraUSD)
+### Pattern 3: naraUSD Only (No NaraUSDPlus)
 
 ```bash
 # Deploy core (MCT + naraUSD only)
@@ -562,7 +562,7 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 # Deploy naraUSD OFT infrastructure
 npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
-# Deploy StakedNaraUSD OFT infrastructure
+# Deploy NaraUSDPlus OFT infrastructure
 npx hardhat deploy --network arbitrum-sepolia --tags staked-narausd-oft
 
 # Wire LayerZero peers

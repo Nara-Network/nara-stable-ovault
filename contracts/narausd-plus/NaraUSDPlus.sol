@@ -7,24 +7,24 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "../interfaces/staked-narausd/IStakedNaraUSD.sol";
-import "./StakedNaraUSDSilo.sol";
+import "../interfaces/narausd-plus/INaraUSDPlus.sol";
+import "./NaraUSDPlusSilo.sol";
 import "../interfaces/narausd/INaraUSD.sol";
 
 /**
- * @title StakedNaraUSD
+ * @title NaraUSDPlus
  * @notice Staking contract for naraUSD tokens with OVault integration and cooldown functionality (V2)
  * @dev Users stake naraUSD tokens and earn rewards. The contract uses ERC4626 standard
  *      for vault operations and can be integrated with LayerZero's OVault for omnichain functionality.
  *
  *      Rewards are distributed by REWARDER_ROLE and vest over time to prevent MEV attacks.
  *
- * @dev If cooldown duration is set to zero, the StakedNaraUSD behavior follows ERC4626 standard
+ * @dev If cooldown duration is set to zero, the NaraUSDPlus behavior follows ERC4626 standard
  *      and disables cooldownShares and cooldownAssets methods. If cooldown duration is greater
  *      than zero, the ERC4626 withdrawal and redeem functions are disabled, breaking the ERC4626
  *      standard, and enabling the cooldownShares and the cooldownAssets functions.
  */
-contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IStakedNaraUSD, Pausable {
+contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, INaraUSDPlus, Pausable {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -61,8 +61,8 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
     /// @notice Mapping of user addresses to their cooldown data
     mapping(address => UserCooldown) public cooldowns;
 
-    /// @notice Silo contract for holding snaraUSD during cooldown
-    StakedNaraUSDSilo public immutable silo;
+    /// @notice Silo contract for holding naraUSD+ during cooldown
+    NaraUSDPlusSilo public immutable silo;
 
     /* --------------- MODIFIERS --------------- */
 
@@ -93,7 +93,7 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
     /* --------------- CONSTRUCTOR --------------- */
 
     /**
-     * @notice Constructor for StakedNaraUSD contract
+     * @notice Constructor for NaraUSDPlus contract
      * @param _asset The address of the naraUSD token
      * @param _initialRewarder The address of the initial rewarder
      * @param _admin The address of the admin role
@@ -102,7 +102,7 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
         IERC20 _asset,
         address _initialRewarder,
         address _admin
-    ) ERC20("Staked naraUSD", "snaraUSD") ERC4626(_asset) ERC20Permit("snaraUSD") {
+    ) ERC20("NaraUSD+", "naraUSD+") ERC4626(_asset) ERC20Permit("naraUSD+") {
         if (_admin == address(0) || _initialRewarder == address(0) || address(_asset) == address(0)) {
             revert InvalidZeroAddress();
         }
@@ -111,8 +111,8 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
         _grantRole(REWARDER_ROLE, _initialRewarder);
         _grantRole(BLACKLIST_MANAGER_ROLE, _admin);
 
-        // Silo now holds snaraUSD (this token) during cooldown, which is later redeemed for naraUSD
-        silo = new StakedNaraUSDSilo(address(this), address(this));
+        // Silo now holds naraUSD+ (this token) during cooldown, which is later redeemed for naraUSD
+        silo = new NaraUSDPlusSilo(address(this), address(this));
         cooldownDuration = 7 days;
     }
 
@@ -134,7 +134,7 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
     }
 
     /**
-     * @notice Burn naraUSD from the contract to decrease snaraUSD exchange rate
+     * @notice Burn naraUSD from the contract to decrease naraUSD+ exchange rate
      * @dev This calls naraUSD's burn function which burns both naraUSD and underlying MCT
      * @dev Collateral stays in MCT, making remaining tokens more valuable (deflationary)
      * @dev Unlike transferInRewards, this happens instantly without vesting
@@ -147,7 +147,7 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
         if (contractBalance - amount < 1 ether) revert ReserveTooLowAfterBurn();
 
         // Call naraUSD's burn function to properly burn naraUSD and MCT
-        // naraUSD.burn() burns from msg.sender (this contract), so StakedNaraUSD must own the tokens
+        // naraUSD.burn() burns from msg.sender (this contract), so NaraUSDPlus must own the tokens
         INaraUSD naraUSD = INaraUSD(asset());
         naraUSD.burn(amount);
 
@@ -242,14 +242,14 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
 
     /**
      * @notice Claim the staking amount after the cooldown has finished
-     * @dev When cooldown is on, snaraUSD is locked in the Silo. After cooldown, snaraUSD is redeemed for naraUSD.
+     * @dev When cooldown is on, naraUSD+ is locked in the Silo. After cooldown, naraUSD+ is redeemed for naraUSD.
      *      If cooldown duration is later set to 0, this function can still be used to claim remaining
-     *      snaraUSD locked in the Silo and redeem it for naraUSD.
+     *      naraUSD+ locked in the Silo and redeem it for naraUSD.
      * @param receiver Address to receive the redeemed naraUSD
      */
     function unstake(address receiver) external {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
-        uint256 shares = userCooldown.sharesAmount; // locked snaraUSD shares
+        uint256 shares = userCooldown.sharesAmount; // locked naraUSD+ shares
 
         // Allow claim after cooldown ends, or if cooldown has been globally disabled
         if (shares == 0 || (block.timestamp < userCooldown.cooldownEnd && cooldownDuration != 0)) {
@@ -259,10 +259,10 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
         userCooldown.cooldownEnd = 0;
         userCooldown.sharesAmount = 0;
 
-        // Retrieve locked snaraUSD from the silo back to this contract
+        // Retrieve locked naraUSD+ from the silo back to this contract
         silo.withdraw(address(this), shares);
 
-        // Redeem snaraUSD shares held by this contract into naraUSD for the receiver
+        // Redeem naraUSD+ shares held by this contract into naraUSD for the receiver
         uint256 assets = previewRedeem(shares);
         _withdraw(address(this), receiver, address(this), assets, shares);
     }
@@ -276,11 +276,11 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
 
         shares = previewWithdraw(assets);
 
-        // Lock snaraUSD shares in the silo and record them for the caller
+        // Lock naraUSD+ shares in the silo and record them for the caller
         cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
         cooldowns[msg.sender].sharesAmount += uint152(shares);
 
-        // Transfer snaraUSD from user to silo (locks it)
+        // Transfer naraUSD+ from user to silo (locks it)
         _transfer(msg.sender, address(silo), shares);
     }
 
@@ -293,20 +293,20 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
 
         assets = previewRedeem(shares);
 
-        // Lock snaraUSD shares in the silo and record them for the caller
+        // Lock naraUSD+ shares in the silo and record them for the caller
         cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
         cooldowns[msg.sender].sharesAmount += uint152(shares);
 
-        // Transfer snaraUSD from user to silo (locks it)
+        // Transfer naraUSD+ from user to silo (locks it)
         _transfer(msg.sender, address(silo), shares);
     }
 
     /**
-     * @notice Cancel an active cooldown and return locked snaraUSD to the user
+     * @notice Cancel an active cooldown and return locked naraUSD+ to the user
      */
     function cancelCooldown() external nonReentrant {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
-        uint256 shares = userCooldown.sharesAmount; // locked snaraUSD shares
+        uint256 shares = userCooldown.sharesAmount; // locked naraUSD+ shares
 
         if (shares == 0) {
             revert InvalidCooldown();
@@ -315,7 +315,7 @@ contract StakedNaraUSD is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, 
         userCooldown.cooldownEnd = 0;
         userCooldown.sharesAmount = 0;
 
-        // Return locked snaraUSD from the silo back to the user
+        // Return locked naraUSD+ from the silo back to the user
         silo.withdraw(msg.sender, shares);
     }
 

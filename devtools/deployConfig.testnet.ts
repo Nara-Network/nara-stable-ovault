@@ -52,29 +52,29 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
 } as const
 
 // ============================================
-// StakedNaraUSD Deployment Configuration
+// NaraUSDPlus Deployment Configuration
 // ============================================
-export const STAKED_NARAUSD_CONFIG = {
-    // StakedNaraUSD vault configuration (where the staking vault lives)
+export const NARAUSD_PLUS_CONFIG = {
+    // NaraUSDPlus vault configuration (where the staking vault lives)
     vault: {
         deploymentEid: _hubEid,
         contracts: {
-            vault: 'staked-narausd/StakedNaraUSD',
-            shareAdapter: 'staked-narausd/StakedNaraUSDOFTAdapter',
-            distributor: 'staked-narausd/StakingRewardsDistributor',
+            vault: 'narausd-plus/NaraUSDPlus',
+            shareAdapter: 'narausd-plus/NaraUSDPlusOFTAdapter',
+            distributor: 'narausd-plus/StakingRewardsDistributor',
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
-        vaultAddress: undefined, // Set to '0xabc...' to use existing StakedNaraUSD vault
-        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing StakedNaraUSDOFTAdapter
+        vaultAddress: undefined, // Set to '0xabc...' to use existing NaraUSDPlus vault
+        shareOFTAdapterAddress: undefined, // Set to '0xdef...' to use existing NaraUSDPlusOFTAdapter
         distributorAddress: undefined, // Set to '0xghi...' to use existing StakingRewardsDistributor
     },
 
-    // Share OFT configuration (snaraUSD shares on spoke chains)
+    // Share OFT configuration (naraUSD+ shares on spoke chains)
     shareOFT: {
-        contract: 'staked-narausd/StakedNaraUSDOFT',
+        contract: 'narausd-plus/NaraUSDPlusOFT',
         metadata: {
-            name: 'Staked naraUSD',
-            symbol: 'snaraUSD',
+            name: 'NaraUSD+',
+            symbol: 'naraUSD+',
         },
         deploymentEids: _spokeEids,
     },
@@ -89,10 +89,10 @@ export const shouldDeployShare = (eid: number): boolean =>
 export const shouldDeployShareAdapter = (eid: number): boolean =>
     isVaultChain(eid) && !DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress
 
-export const isStakedNaraUSDVaultChain = (eid: number): boolean => eid === STAKED_NARAUSD_CONFIG.vault.deploymentEid
-export const shouldDeployStakedNaraUSDVault = (eid: number): boolean =>
-    isStakedNaraUSDVaultChain(eid) && !STAKED_NARAUSD_CONFIG.vault.vaultAddress
-export const shouldDeployStakedNaraUSDShare = (eid: number): boolean =>
-    !STAKED_NARAUSD_CONFIG.vault.shareOFTAdapterAddress && STAKED_NARAUSD_CONFIG.shareOFT.deploymentEids.includes(eid)
-export const shouldDeployStakedNaraUSDShareAdapter = (eid: number): boolean =>
-    isStakedNaraUSDVaultChain(eid) && !STAKED_NARAUSD_CONFIG.vault.shareOFTAdapterAddress
+export const isNaraUSDPlusVaultChain = (eid: number): boolean => eid === NARAUSD_PLUS_CONFIG.vault.deploymentEid
+export const shouldDeployNaraUSDPlusVault = (eid: number): boolean =>
+    isNaraUSDPlusVaultChain(eid) && !NARAUSD_PLUS_CONFIG.vault.vaultAddress
+export const shouldDeployNaraUSDPlusShare = (eid: number): boolean =>
+    !NARAUSD_PLUS_CONFIG.vault.shareOFTAdapterAddress && NARAUSD_PLUS_CONFIG.shareOFT.deploymentEids.includes(eid)
+export const shouldDeployNaraUSDPlusShareAdapter = (eid: number): boolean =>
+    isNaraUSDPlusVaultChain(eid) && !NARAUSD_PLUS_CONFIG.vault.shareOFTAdapterAddress

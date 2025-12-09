@@ -2,8 +2,8 @@
 pragma solidity ^0.8.22;
 
 /**
- * @title IStakedNaraUSDComposer
- * @notice Interface for the StakedNaraUSDComposer contract
+ * @title INaraUSDPlusComposer
+ * @notice Interface for the NaraUSDPlusComposer contract
  * @dev Inherits from LayerZero's VaultComposerSync which provides the core cross-chain vault operations
  *
  * The VaultComposerSync provides:
@@ -13,7 +13,7 @@ pragma solidity ^0.8.22;
  *
  * All LayerZero VaultComposerSync functions are available through this interface.
  */
-interface IStakedNaraUSDComposer {
+interface INaraUSDPlusComposer {
     // The interface inherits all functions from VaultComposerSync
     // Key functions include:
     // - function depositRemote(...) external payable

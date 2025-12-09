@@ -412,10 +412,10 @@ await narausd.burn(amount);
 - Burns equivalent MCT from the naraUSD vault
 - Leaves collateral inside MCT → deflationary effect
 
-### 2. StakedNaraUSD Deflation (via `burnAssets`)
+### 2. NaraUSDPlus Deflation (via `burnAssets`)
 
-- `StakedNaraUSD` calls `narausd.burn(amount)` on itself
-- Used by rewards distributor to reduce snaraUSD exchange rate
+- `NaraUSDPlus` calls `narausd.burn(amount)` on itself
+- Used by rewards distributor to reduce naraUSD+ exchange rate
 - Requires naraUSD to grant `MINTER_ROLE` (already done in deployment script)
 
 ---
@@ -482,7 +482,7 @@ This document covers only the hub contracts. For OFT adapters, composers, and wi
 
 - [Cross-Chain Deployment](./CROSS_CHAIN_DEPLOYMENT.md)
 - [LayerZero OVault Guide](./LAYERZERO_OVAULT_GUIDE.md)
-- [StakedNaraUSD Integration](./STAKED_NARAUSD_INTEGRATION.md)
+- [NaraUSDPlus Integration](./STAKED_NARAUSD_INTEGRATION.md)
 
 ---
 
