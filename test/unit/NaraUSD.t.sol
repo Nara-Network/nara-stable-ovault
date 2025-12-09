@@ -158,10 +158,10 @@ contract NaraUSDTest is TestHelper {
         usdc.approve(address(mct), 1000e6);
         mct.depositCollateral(address(usdc), 1000e6);
 
-        // Step 3: Complete redemption
-        vm.startPrank(alice);
+        // Step 3: Complete redemption (admin only)
+        vm.startPrank(owner);
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        uint256 collateralReceived = naraUSD.completeRedeem();
+        uint256 collateralReceived = naraUSD.completeRedeem(alice);
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
         // Verify redemption completed
@@ -267,10 +267,10 @@ contract NaraUSDTest is TestHelper {
      * @notice Test completing redemption without request fails
      */
     function test_RevertIf_NoRedemptionRequest() public {
-        vm.startPrank(alice);
+        vm.startPrank(owner);
 
         vm.expectRevert(NaraUSD.NoRedemptionRequest.selector);
-        naraUSD.completeRedeem();
+        naraUSD.completeRedeem(alice);
 
         vm.stopPrank();
     }

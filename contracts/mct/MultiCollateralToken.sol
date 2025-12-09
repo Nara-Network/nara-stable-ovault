@@ -60,6 +60,7 @@ contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, Reentrancy
     error UnsupportedAsset();
     error InvalidAssetAddress();
     error InsufficientCollateral();
+    error AssetHasCollateral();
     error InvalidToken();
 
     /* --------------- CONSTRUCTOR --------------- */
@@ -204,8 +205,10 @@ contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, Reentrancy
     /**
      * @notice Remove a supported asset
      * @param asset The asset address to remove
+     * @dev Reverts if asset has remaining collateral balance to prevent locking funds
      */
     function removeSupportedAsset(address asset) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (collateralBalance[asset] > 0) revert AssetHasCollateral();
         if (!_supportedAssets.remove(asset)) revert InvalidAssetAddress();
         emit AssetRemoved(asset);
     }

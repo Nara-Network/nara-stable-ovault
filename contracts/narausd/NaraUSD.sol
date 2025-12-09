@@ -58,9 +58,6 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     /// @notice Role that prevents an address from transferring, minting, or redeeming
     bytes32 public constant FULL_RESTRICTED_ROLE = keccak256("FULL_RESTRICTED_ROLE");
 
-    /// @notice Maximum cooldown duration (90 days)
-    uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
-
     /// @notice Maximum fee in basis points (10% = 1000 bps)
     uint16 public constant MAX_FEE_BPS = 1000;
 
@@ -101,13 +98,10 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     /// @notice Delegated signer status for smart contracts
     mapping(address => mapping(address => DelegatedSignerStatus)) public delegatedSigner;
 
-    /// @notice Cooldown duration in seconds for redemptions
-    uint24 public cooldownDuration;
-
     /// @notice Mapping of user addresses to their redemption requests
     mapping(address => RedemptionRequest) public redemptionRequests;
 
-    /// @notice Silo contract for holding locked naraUSD during cooldown
+    /// @notice Silo contract for holding locked naraUSD during redemption queue
     NaraUSDRedeemSilo public immutable redeemSilo;
 
     /// @notice Mint fee in basis points (e.g., 10 = 0.1%)
@@ -161,7 +155,6 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
     event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
     event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
-    event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
     event RedemptionRequested(address indexed user, uint256 naraUSDAmount, address indexed collateralAsset);
     event RedemptionCompleted(
         address indexed user,
@@ -192,9 +185,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     error InvalidSignature();
     error DelegationNotInitiated();
     error CantRenounceOwnership();
-    error InvalidCooldown();
     error NoRedemptionRequest();
-    error CooldownNotFinished();
     error ExistingRedemptionRequest();
     error InvalidFee();
     error OperationNotAllowed();
@@ -309,9 +300,6 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
         // Create silo for holding locked naraUSD during redemption queue
         redeemSilo = new NaraUSDRedeemSilo(address(this), address(this));
-
-        // Default cooldown to 7 days
-        cooldownDuration = 7 days;
     }
 
     /* --------------- EXTERNAL MINT/REDEEM --------------- */
@@ -412,14 +400,18 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     }
 
     /**
-     * @notice Complete redemption after cooldown period - redeems naraUSD for collateral
+     * @notice Complete redemption for a specific user - redeems naraUSD for collateral from queued request
+     * @param user The address whose redemption request should be completed
+     * @dev Only callable by collateral manager
      */
-    function completeRedeem() external nonReentrant whenNotPaused returns (uint256 collateralAmount) {
-        return _completeRedemption(msg.sender);
+    function completeRedeem(
+        address user
+    ) external nonReentrant whenNotPaused onlyRole(COLLATERAL_MANAGER_ROLE) returns (uint256 collateralAmount) {
+        return _completeRedemption(user);
     }
 
     /**
-     * @notice Bulk-complete redemptions for multiple users after cooldown
+     * @notice Bulk-complete redemptions for multiple users
      * @dev Callable by collateral manager to act as a "bulk solver" for escrowed redemption requests
      * @param users Array of user addresses whose redemptions should be completed
      */
@@ -558,20 +550,6 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     function disableMintRedeem() external onlyRole(GATEKEEPER_ROLE) {
         _setMaxMintPerBlock(0);
         _setMaxRedeemPerBlock(0);
-    }
-
-    /**
-     * @notice Set cooldown duration for redemptions
-     * @param duration New cooldown duration (max 90 days)
-     */
-    function setCooldownDuration(uint24 duration) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (duration > MAX_COOLDOWN_DURATION) {
-            revert InvalidCooldown();
-        }
-
-        uint24 previousDuration = cooldownDuration;
-        cooldownDuration = duration;
-        emit CooldownDurationUpdated(previousDuration, cooldownDuration);
     }
 
     /**

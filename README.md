@@ -24,14 +24,9 @@ npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
 
 ## 📚 Documentation
 
-| Document                                                        | Description                                                 |
-| --------------------------------------------------------------- | ----------------------------------------------------------- |
-| **[Quick Start](./DEPLOYMENT_QUICK_START.md)**                  | 🎯 Deploy complete system on Arbitrum Sepolia (recommended) |
-| **[Cross-Chain Deployment](./docs/CROSS_CHAIN_DEPLOYMENT.md)**  | 🌐 Deploy OFT infrastructure for omnichain functionality    |
-| **[naraUSD Integration](./docs/NARAUSD_INTEGRATION.md)**              | 🏦 naraUSD + MCT vault architecture and admin flows            |
-| **[NaraUSDPlus Integration](./docs/STAKED_NARAUSD_INTEGRATION.md)** | 💰 Staking system with rewards and cooldowns                |
-| **[Project Structure](./docs/PROJECT_STRUCTURE.md)**            | 📁 System architecture and contract overview                |
-| **[LayerZero OVault Guide](./docs/LAYERZERO_OVAULT_GUIDE.md)**  | 🔧 Advanced LayerZero integration details                   |
+| Document                                       | Description                                                 |
+| ---------------------------------------------- | ----------------------------------------------------------- |
+| **[Quick Start](./DEPLOYMENT_QUICK_START.md)** | 🎯 Deploy complete system on Arbitrum Sepolia (recommended) |
 
 ---
 
@@ -178,7 +173,7 @@ await narausd.cooldownRedeem(usdc.address, ethers.utils.parseEther("100"));
 // Step 2: Wait 7 days...
 
 // Step 3: Complete redemption (receive USDC)
-await narausd.completeRedeem();
+await narausd.completeRedeem(userAddress); // Admin only
 
 // OR cancel anytime:
 await narausd.cancelRedeem();
@@ -231,43 +226,33 @@ npx hardhat deploy --network base-sepolia --tags ovault
 
 ---
 
-## 📖 Advanced Topics
-
-For detailed technical information, see:
-
-- **[LayerZero OVault Integration](./docs/LAYERZERO_OVAULT_GUIDE.md)** - Deep dive into OVault architecture
-- **[Contract Details](./docs/PROJECT_STRUCTURE.md)** - All contracts explained
-- **[Cross-Chain Setup](./docs/CROSS_CHAIN_DEPLOYMENT.md)** - Multi-chain deployment guide
-
----
-
 ## 🔑 Key Contracts
 
 ### Core Contracts
 
-| Contract                    | Description                   | Location                 |
-| --------------------------- | ----------------------------- | ------------------------ |
-| `MultiCollateralToken`      | Multi-collateral backing      | `contracts/mct/`         |
-| `naraUSD`                      | Stablecoin vault with minting | `contracts/narausd/`        |
-| `NaraUSDPlus`                | Staking vault with cooldowns  | `contracts/narausd-plus/` |
+| Contract                    | Description                   | Location                  |
+| --------------------------- | ----------------------------- | ------------------------- |
+| `MultiCollateralToken`      | Multi-collateral backing      | `contracts/mct/`          |
+| `naraUSD`                   | Stablecoin vault with minting | `contracts/narausd/`      |
+| `NaraUSDPlus`               | Staking vault with cooldowns  | `contracts/narausd-plus/` |
 | `StakingRewardsDistributor` | Automated rewards             | `contracts/narausd-plus/` |
 
 ### OFT Infrastructure
 
-| Contract               | Chain Type | Description                                      |
-| ---------------------- | ---------- | ------------------------------------------------ |
-| `MCTOFTAdapter`        | Hub        | **Validation only** - MCT doesn't go cross-chain |
-| `NaraUSDOFTAdapter`       | Hub        | Lockbox for naraUSD cross-chain transfers           |
-| `NaraUSDPlusOFTAdapter` | Hub        | Lockbox for naraUSD+ cross-chain transfers          |
-| `NaraUSDOFT`              | Spoke      | Mint/burn OFT for naraUSD on spoke chains           |
-| `NaraUSDPlusOFT`        | Spoke      | Mint/burn OFT for naraUSD+ on spoke chains          |
+| Contract                | Chain Type | Description                                      |
+| ----------------------- | ---------- | ------------------------------------------------ |
+| `MCTOFTAdapter`         | Hub        | **Validation only** - MCT doesn't go cross-chain |
+| `NaraUSDOFTAdapter`     | Hub        | Lockbox for naraUSD cross-chain transfers        |
+| `NaraUSDPlusOFTAdapter` | Hub        | Lockbox for naraUSD+ cross-chain transfers       |
+| `NaraUSDOFT`            | Spoke      | Mint/burn OFT for naraUSD on spoke chains        |
+| `NaraUSDPlusOFT`        | Spoke      | Mint/burn OFT for naraUSD+ on spoke chains       |
 
 ### Composers
 
-| Contract             | Description                                                     |
-| -------------------- | --------------------------------------------------------------- |
-| `NaraUSDComposer`       | Cross-chain collateral deposits (USDC → naraUSD), MCT stays on hub |
-| `NaraUSDPlusComposer` | Cross-chain staking operations (naraUSD → naraUSD+)                   |
+| Contract              | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `NaraUSDComposer`     | Cross-chain collateral deposits (USDC → naraUSD), MCT stays on hub |
+| `NaraUSDPlusComposer` | Cross-chain staking operations (naraUSD → naraUSD+)                |
 
 ---
 

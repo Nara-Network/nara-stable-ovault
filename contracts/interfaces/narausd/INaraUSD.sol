@@ -125,10 +125,11 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function redeem(address collateralAsset, uint256 naraUSDAmount, bool allowQueue) external returns (uint256 collateralAmount, bool wasQueued);
 
     /**
-     * @notice Complete queued redemption - redeems naraUSD for collateral
+     * @notice Complete queued redemption for a specific user - redeems naraUSD for collateral
+     * @param user The address whose redemption request should be completed
      * @return collateralAmount The amount of collateral received
      */
-    function completeRedeem() external returns (uint256 collateralAmount);
+    function completeRedeem(address user) external returns (uint256 collateralAmount);
 
     /**
      * @notice Bulk-complete redemptions for multiple users
