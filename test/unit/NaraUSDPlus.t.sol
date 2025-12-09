@@ -26,7 +26,7 @@ contract NaraUSDPlusTest is TestHelper {
      * @notice Test basic setup
      */
     function test_Setup() public {
-        assertEq(naraUSDPlus.name(), "Staked naraUSD");
+        assertEq(naraUSDPlus.name(), "NaraUSD+");
         assertEq(naraUSDPlus.symbol(), "naraUSD+");
         assertEq(naraUSDPlus.decimals(), 18);
         assertEq(address(naraUSDPlus.asset()), address(naraUSD));
@@ -138,7 +138,11 @@ contract NaraUSDPlusTest is TestHelper {
         naraUSDPlus.unstake(alice);
 
         // Should have returned 500 (depositAmount - cooldownAssets is still staked)
-        assertEq(naraUSD.balanceOf(alice), aliceNaraUSDBefore - depositAmount + cooldownAssets, "Partial naraUSD returned");
+        assertEq(
+            naraUSD.balanceOf(alice),
+            aliceNaraUSDBefore - depositAmount + cooldownAssets,
+            "Partial naraUSD returned"
+        );
 
         vm.stopPrank();
     }
@@ -256,7 +260,6 @@ contract NaraUSDPlusTest is TestHelper {
         assertLt(aliceAssets, 1000e18, "Alice's shares worth less after deflationary burn");
         assertApproxEqAbs(aliceAssets, 900e18, 1e18, "Should be ~900 naraUSD (1000 - 10% burn)");
     }
-
 
     /**
      * @notice Test full blacklist (can't transfer)

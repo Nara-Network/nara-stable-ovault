@@ -280,8 +280,8 @@ Update the contract addresses in respective config files. Then, run these comman
 # naraUSD peers (hub adapter ↔ spoke OFT)
 DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd.config.ts
 
-# snaraUSD peers (hub adapter ↔ spoke OFT)
-DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.snarausd.config.ts
+# naraUSD+ peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd-plus.config.ts
 ```
 
 **Mainnet:**
@@ -290,8 +290,8 @@ DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.snarausd.con
 # naraUSD peers (hub adapter ↔ spoke OFT)
 DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd.config.ts
 
-# snaraUSD peers (hub adapter ↔ spoke OFT)
-DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.snarausd.config.ts
+# naraUSD+ peers (hub adapter ↔ spoke OFT)
+DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd-plus.config.ts
 ```
 
 ---
