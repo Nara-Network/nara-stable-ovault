@@ -71,15 +71,6 @@ This document outlines the function call sequences for each user action in the s
 1. Call cancel: `NaraUSDPlus.cancelCooldown()`
    - Returns locked naraUSD+ from silo to user
 
-## Cross-Chain Mint naraUSD
-
-### Mint naraUSD from spoke chain (e.g., Base/Ethereum)
-
-1. Approve collateral OFT: `CollateralOFT.approve(spender: CollateralOFT, amount)` (e.g., USDC OFT or USDT OFT)
-2. Call cross-chain mint: `CollateralOFT.send(...)` with compose message
-   - Uses `NaraUSDComposer` on hub chain
-   - Receives naraUSD on destination chain via `NaraUSDOFT`
-
 ## Admin Operations
 
 ### Manage Collateral (MCT)
@@ -160,6 +151,15 @@ This document outlines the function call sequences for each user action in the s
 
 1. Whitelist collateral OFT: `NaraUSDComposer.whitelistCollateralOFT(oftAddress, status)` (requires DEFAULT_ADMIN_ROLE)
 2. Whitelist collateral asset: `NaraUSDComposer.whitelistCollateral(collateralAddress, status)` (requires DEFAULT_ADMIN_ROLE)
+
+## Cross-Chain Mint naraUSD
+
+### Mint naraUSD from spoke chain (e.g., Base/Ethereum)
+
+1. Approve collateral OFT: `CollateralOFT.approve(spender: CollateralOFT, amount)` (e.g., USDC OFT or USDT OFT)
+2. Call cross-chain mint: `CollateralOFT.send(...)` with compose message
+   - Uses `NaraUSDComposer` on hub chain
+   - Receives naraUSD on destination chain via `NaraUSDOFT`
 
 ## Cross-Chain Staking
 
