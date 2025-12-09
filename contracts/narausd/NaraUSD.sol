@@ -700,23 +700,6 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     }
 
     /**
-     * @notice Rescue tokens accidentally sent to the contract
-     * @dev Cannot rescue MCT (the underlying asset) to prevent breaking the vault
-     * @param token The token to be rescued
-     * @param amount The amount of tokens to be rescued
-     * @param to Where to send rescued tokens
-     */
-    function rescueTokens(
-        address token,
-        uint256 amount,
-        address to
-    ) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (address(token) == asset()) revert InvalidToken();
-        if (address(token) == address(mct)) revert InvalidToken();
-        IERC20(token).safeTransfer(to, amount);
-    }
-
-    /**
      * @notice Redistribute locked amount from full restricted user
      * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_ROLE)
      * @param to The address to mint the entire balance to (or address(0) to burn)
