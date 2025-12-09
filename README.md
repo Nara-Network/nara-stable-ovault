@@ -173,7 +173,7 @@ await narausd.cooldownRedeem(usdc.address, ethers.utils.parseEther("100"));
 // Step 2: Wait 7 days...
 
 // Step 3: Complete redemption (receive USDC)
-await narausd.completeRedeem();
+await narausd.completeRedeem(userAddress); // Admin only
 
 // OR cancel anytime:
 await narausd.cancelRedeem();

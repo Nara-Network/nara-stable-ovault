@@ -400,10 +400,14 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     }
 
     /**
-     * @notice Complete redemption - redeems naraUSD for collateral from queued request
+     * @notice Complete redemption for a specific user - redeems naraUSD for collateral from queued request
+     * @param user The address whose redemption request should be completed
+     * @dev Only callable by collateral manager
      */
-    function completeRedeem() external nonReentrant whenNotPaused returns (uint256 collateralAmount) {
-        return _completeRedemption(msg.sender);
+    function completeRedeem(
+        address user
+    ) external nonReentrant whenNotPaused onlyRole(COLLATERAL_MANAGER_ROLE) returns (uint256 collateralAmount) {
+        return _completeRedemption(user);
     }
 
     /**
