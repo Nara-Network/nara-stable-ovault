@@ -161,6 +161,16 @@ This document outlines the function call sequences for each user action in the s
    - Uses `NaraUSDComposer` on hub chain
    - Receives naraUSD on destination chain via `NaraUSDOFT`
 
+## Cross-Chain Redemption
+
+### Redeem naraUSD from spoke chain and receive collateral on same chain
+
+1. Approve naraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
+2. Call cross-chain redeem: `NaraUSDOFT.send(...)` with compose message
+   - Uses `NaraUSDComposer` on hub chain
+   - Receives collateral (USDC/USDT) on destination chain via collateral OFT
+   - Only works if liquidity is available on the hub chain. If not, the transaction will revert and the user will receive their naraUSD back via `NaraUSDOFT`
+
 ## Cross-Chain Staking
 
 ### Stake naraUSD from spoke chain and receive naraUSD+ on same chain
@@ -170,31 +180,28 @@ This document outlines the function call sequences for each user action in the s
    - Uses `NaraUSDPlusComposer` on hub chain
    - Receives naraUSD+ on destination chain via `NaraUSDPlusOFT`
 
-## Cross-Chain Redemption
-
-### Redeem naraUSD from spoke chain and receive collateral on same chain
-
-1. Approve naraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
-2. Call cross-chain redeem: `NaraUSDOFT.send(...)` with compose message
-   - Uses `NaraUSDComposer` on hub chain
-   - Receives collateral (USDC/USDT) on destination chain via collateral OFT
-
 ## Bridge Operations
 
-### Bridge naraUSD from Base to Hub (Arbitrum)
+### Bridge naraUSD from Spoke chain to Hub
 
-1. Approve naraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on Base)
+1. Approve naraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
 2. Get fee quote: `NaraUSDOFT.quoteSend(sendParam, payInLzToken: false)`
 3. Call bridge: `NaraUSDOFT.send(sendParam, fee, refundAddress)` with native fee
 
-### Bridge naraUSD from Sepolia to Hub (Arbitrum)
+### Bridge naraUSD from Hub to Spoke chain
 
-1. Approve naraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on Sepolia)
-2. Get fee quote: `NaraUSDOFT.quoteSend(sendParam, payInLzToken: false)`
-3. Call bridge: `NaraUSDOFT.send(sendParam, fee, refundAddress)` with native fee
+1. Approve naraUSD: `NaraUSD.approve(spender: NaraUSDAdapter, amount)` (on hub chain)
+2. Get fee quote: `NaraUSDAdapter.quoteSend(sendParam, payInLzToken: false)`
+3. Call bridge: `NaraUSDAdapter.send(sendParam, fee, refundAddress)` with native fee
 
-### Bridge naraUSD+ from Base to Hub (Arbitrum)
+### Bridge naraUSD+ from Spoke chain to Hub
 
-1. Approve naraUSD+ OFT: `NaraUSDPlusOFT.approve(spender: NaraUSDPlusOFT, amount)` (on Base)
+1. Approve naraUSD+ OFT: `NaraUSDPlusOFT.approve(spender: NaraUSDPlusOFT, amount)` (on spoke chain)
 2. Get fee quote: `NaraUSDPlusOFT.quoteSend(sendParam, payInLzToken: false)`
 3. Call bridge: `NaraUSDPlusOFT.send(sendParam, fee, refundAddress)` with native fee
+
+### Bridge naraUSD+ from Hub to Spoke chain
+
+1. Approve naraUSD+: `NaraUSDPlus.approve(spender: NaraUSDPlusAdapter, amount)` (on hub chain)
+2. Get fee quote: `NaraUSDPlusAdapter.quoteSend(sendParam, payInLzToken: false)`
+3. Call bridge: `NaraUSDPlusAdapter.send(sendParam, fee, refundAddress)` with native fee
