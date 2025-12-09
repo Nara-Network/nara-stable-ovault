@@ -1,6 +1,6 @@
 # 📁 Project Structure - naraUSD OVault System
 
-Complete omnichain vault system for naraUSD and StakedNaraUSD with cross-chain functionality powered by LayerZero.
+Complete omnichain vault system for naraUSD and NaraUSDPlus with cross-chain functionality powered by LayerZero.
 
 ## 📊 Overview
 
@@ -8,7 +8,7 @@ This project contains three main modules:
 
 1. **MCT (MultiCollateralToken)**: Multi-collateral backing for naraUSD
 2. **naraUSD**: Omnichain stablecoin vault with minting/redeeming
-3. **StakedNaraUSD**: Staking vault for earning rewards on naraUSD
+3. **NaraUSDPlus**: Staking vault for earning rewards on naraUSD
 
 ---
 
@@ -26,19 +26,19 @@ contracts/
 │   ├── NaraUSDOFT.sol                   # Spoke chain OFT (mint/burn)
 │   └── NaraUSDComposer.sol              # Cross-chain composer
 │
-├── staked-narausd/                      # StakedNaraUSD Module
-│   ├── StakedNaraUSD.sol                # ERC4626 staking vault
-│   ├── StakingRewardsDistributor.sol # Automated rewards distribution
-│   ├── StakedNaraUSDOFTAdapter.sol      # Hub chain OFT adapter (lockbox)
-│   └── StakedNaraUSDOFT.sol             # Spoke chain OFT (mint/burn)
+├── narausd-plus/                        # NaraUSDPlus Module
+│   ├── NaraUSDPlus.sol                  # ERC4626 staking vault
+│   ├── StakingRewardsDistributor.sol     # Automated rewards distribution
+│   ├── NaraUSDPlusOFTAdapter.sol        # Hub chain OFT adapter (lockbox)
+│   └── NaraUSDPlusOFT.sol               # Spoke chain OFT (mint/burn)
 │
 └── interfaces/                       # Interfaces
     ├── mct/
     │   └── IMultiCollateralToken.sol
     ├── narausd/
     │   └── InaraUSD.sol
-    └── staked-narausd/
-        ├── IStakedNaraUSD.sol
+    └── narausd-plus/
+        ├── INaraUSDPlus.sol
         └── IStakingRewardsDistributor.sol
 ```
 
@@ -104,17 +104,17 @@ Deposit USDC → Mint MCT → Receive naraUSD → Transfer cross-chain
 
 ---
 
-### 3️⃣ StakedNaraUSD Module
+### 3️⃣ NaraUSDPlus Module
 
 **Purpose**: Staking vault for naraUSD to earn protocol rewards.
 
 **Contracts**:
 
-- `StakedNaraUSD.sol`: Main ERC4626 staking vault
+- `NaraUSDPlus.sol`: Main ERC4626 staking vault
 - `StakingRewardsDistributor.sol`: Automated rewards helper
-- `StakedNaraUSDOFTAdapter.sol`: Hub chain bridge (lockbox model)
-- `StakedNaraUSDOFT.sol`: Spoke chain representation (mint/burn model)
-- `StakedNaraUSDComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
+- `NaraUSDPlusOFTAdapter.sol`: Hub chain bridge (lockbox model)
+- `NaraUSDPlusOFT.sol`: Spoke chain representation (mint/burn model)
+- `NaraUSDPlusComposer.sol`: Cross-chain staking operations orchestrator ⭐ NEW
 
 **Key Features**:
 
@@ -122,7 +122,7 @@ Deposit USDC → Mint MCT → Receive naraUSD → Transfer cross-chain
 - 8-hour reward vesting (prevents MEV)
 - Blacklist system (full restriction)
 - Minimum shares protection (1 ether)
-- Cross-chain snaraUSD transfers
+- Cross-chain naraUSD+ transfers
 - **Cross-chain staking from any spoke chain** ⭐ NEW (mirrors Ethena)
 - Automated rewards distribution
 
@@ -136,7 +136,7 @@ Deposit USDC → Mint MCT → Receive naraUSD → Transfer cross-chain
 **User Flow**:
 
 ```
-Stake naraUSD → Receive snaraUSD → Earn rewards → Transfer cross-chain
+Stake naraUSD → Receive naraUSD+ → Earn rewards → Transfer cross-chain
 ```
 
 ---
@@ -154,21 +154,21 @@ narausd.mintWithCollateral(usdcAddress, amount);
 // Result: USDC → MCT → naraUSD
 ```
 
-### Flow 2: Stake naraUSD for snaraUSD (Hub Chain)
+### Flow 2: Stake naraUSD for naraUSD+ (Hub Chain)
 
 ```solidity
-// 1. Approve naraUSD to StakedNaraUSD contract
-narausd.approve(stakedNaraUSD, amount);
+// 1. Approve naraUSD to NaraUSDPlus contract
+narausd.approve(naraUSDPlus, amount);
 
-// 2. Deposit to receive snaraUSD
-stakedNaraUSD.deposit(amount, userAddress);
-// Result: naraUSD → snaraUSD (earning rewards)
+// 2. Deposit to receive naraUSD+
+naraUSDPlus.deposit(amount, userAddress);
+// Result: naraUSD → naraUSD+ (earning rewards)
 ```
 
-### Flow 3: Transfer snaraUSD Cross-Chain
+### Flow 3: Transfer naraUSD+ Cross-Chain
 
 ```solidity
-// Transfer snaraUSD from Hub to Spoke Chain
+// Transfer naraUSD+ from Hub to Spoke Chain
 const sendParam = {
     dstEid: SPOKE_EID,
     to: addressToBytes32(receiver),
@@ -179,7 +179,7 @@ const sendParam = {
     oftCmd: '0x'
 };
 
-await stakedNaraUSDOFTAdapter.send(sendParam, { value: nativeFee });
+await naraUSDPlusOFTAdapter.send(sendParam, { value: nativeFee });
 ```
 
 ### Flow 4: Complete Omnichain Flow
@@ -189,8 +189,8 @@ User on Chain A (Spoke)
     ↓ Deposit USDC
 Bridge to Hub Chain
     ↓ Mint naraUSD
-    ↓ Stake for snaraUSD
-Bridge snaraUSD to Chain B (Spoke)
+    ↓ Stake for naraUSD+
+Bridge naraUSD+ to Chain B (Spoke)
     ↓ Hold & Earn Rewards
 Bridge back to Hub
     ↓ Unstake for naraUSD
@@ -226,10 +226,10 @@ Bridge back to Hub
    await mct.grantRole(MINTER_ROLE, narausd.address);
    ```
 
-4. **Deploy StakedNaraUSD**
+4. **Deploy NaraUSDPlus**
 
    ```solidity
-   StakedNaraUSD stakedNaraUSD = new StakedNaraUSD(
+   NaraUSDPlus naraUSDPlus = new NaraUSDPlus(
        narausd,
        rewarder,
        admin
@@ -240,7 +240,7 @@ Bridge back to Hub
 
    ```solidity
    StakingRewardsDistributor distributor = new StakingRewardsDistributor(
-       stakedNaraUSD,
+       naraUSDPlus,
        narausd,
        admin,
        operator
@@ -250,7 +250,7 @@ Bridge back to Hub
 6. **Grant REWARDER_ROLE**
 
    ```solidity
-   await stakedNaraUSD.grantRole(REWARDER_ROLE, distributor.address);
+   await naraUSDPlus.grantRole(REWARDER_ROLE, distributor.address);
    ```
 
 7. **Deploy OFT Adapters (Lockbox)**
@@ -261,7 +261,7 @@ Bridge back to Hub
 
    // Actual cross-chain adapters
    NaraUSDOFTAdapter narausdAdapter = new NaraUSDOFTAdapter(narausd, lzEndpoint, admin);
-   StakedNaraUSDOFTAdapter stakedNaraUSDAdapter = new StakedNaraUSDOFTAdapter(stakedNaraUSD, lzEndpoint, admin);
+   NaraUSDPlusOFTAdapter naraUSDPlusAdapter = new NaraUSDPlusOFTAdapter(naraUSDPlus, lzEndpoint, admin);
    ```
 
 8. **Deploy Composer**
@@ -276,17 +276,17 @@ For each spoke chain:
 ```solidity
 // 1. Deploy OFTs (Mint/Burn) - NOTE: NO MCTOFT! MCT is hub-only
 NaraUSDOFT narausdOFT = new NaraUSDOFT(lzEndpoint, admin);
-StakedNaraUSDOFT stakedNaraUSDOFT = new StakedNaraUSDOFT(lzEndpoint, admin);
+NaraUSDPlusOFT naraUSDPlusOFT = new NaraUSDPlusOFT(lzEndpoint, admin);
 
 // 2. Set peers to hub adapters
 await mctOFT.setPeer(HUB_EID, addressToBytes32(mctAdapter.address));
 await narausdOFT.setPeer(HUB_EID, addressToBytes32(narausdAdapter.address));
-await stakedNaraUSDOFT.setPeer(HUB_EID, addressToBytes32(stakedNaraUSDAdapter.address));
+await naraUSDPlusOFT.setPeer(HUB_EID, addressToBytes32(naraUSDPlusAdapter.address));
 
 // 3. Set peers on hub to spoke OFTs
 await mctAdapter.setPeer(SPOKE_EID, addressToBytes32(mctOFT.address));
 await narausdAdapter.setPeer(SPOKE_EID, addressToBytes32(narausdOFT.address));
-await stakedNaraUSDAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNaraUSDOFT.address));
+await naraUSDPlusAdapter.setPeer(SPOKE_EID, addressToBytes32(naraUSDPlusOFT.address));
 ```
 
 ---
@@ -299,7 +299,7 @@ await stakedNaraUSDAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNaraUSDOFT.
 - `maxRedeemPerBlock`: Limits redeeming per block
 - Emergency disable via `GATEKEEPER_ROLE`
 
-### 2. Reward Vesting (StakedNaraUSD)
+### 2. Reward Vesting (NaraUSDPlus)
 
 - 8-hour vesting period prevents MEV attacks
 - Cannot add new rewards while vesting
@@ -308,14 +308,14 @@ await stakedNaraUSDAdapter.setPeer(SPOKE_EID, addressToBytes32(stakedNaraUSDOFT.
 ### 3. Blacklist System
 
 - **naraUSD**: Full restriction prevents all transfers, minting, and redemptions
-- **StakedNaraUSD**: Full restriction prevents all transfers, staking, and unstaking
-- **OFT Contracts**: Full restriction prevents transfers on spoke chains (NaraUSDOFT, StakedNaraUSDOFT)
+- **NaraUSDPlus**: Full restriction prevents all transfers, staking, and unstaking
+- **OFT Contracts**: Full restriction prevents transfers on spoke chains (NaraUSDOFT, NaraUSDPlusOFT)
 - Admin can redistribute locked funds
 
 ### 4. Minimum Shares Protection
 
 - naraUSD: Prevents donation attacks
-- StakedNaraUSD: 1 ether minimum
+- NaraUSDPlus: 1 ether minimum
 
 ### 5. Access Control
 
@@ -337,17 +337,17 @@ All contracts compile successfully with Solidity ^0.8.22:
 | NaraUSDOFTAdapter         | naraUSD       | Hub Bridge                             |
 | NaraUSDOFT                | naraUSD       | Spoke Token                            |
 | NaraUSDComposer           | naraUSD       | Composer                               |
-| StakedNaraUSD             | StakedNaraUSD | Staking Vault                          |
-| StakingRewardsDistributor | StakedNaraUSD | Helper                                 |
-| StakedNaraUSDOFTAdapter   | StakedNaraUSD | Hub Bridge                             |
-| StakedNaraUSDOFT          | StakedNaraUSD | Spoke Token                            |
+| NaraUSDPlus             | NaraUSDPlus | Staking Vault                          |
+| StakingRewardsDistributor | NaraUSDPlus | Helper                                 |
+| NaraUSDPlusOFTAdapter   | NaraUSDPlus | Hub Bridge                             |
+| NaraUSDPlusOFT          | NaraUSDPlus | Spoke Token                            |
 
 ---
 
 ## 📖 Documentation
 
 - **naraUSD Integration**: See `OVAULT_INTEGRATION.md`
-- **StakedNaraUSD Details**: See `STAKED_NARAUSD_INTEGRATION.md`
+- **NaraUSDPlus Details**: See `STAKED_NARAUSD_INTEGRATION.md`
 - **Deployment Summary**: See `DEPLOYMENT_SUMMARY.md`
 
 ---
@@ -359,7 +359,7 @@ All contracts compile successfully with Solidity ^0.8.22:
 | Contracts    | naraUSD + EthenaMinting | naraUSD (merged)       |
 | Cross-chain  | No                      | Full LayerZero support |
 | Architecture | Single chain            | Hub-and-spoke          |
-| Staking      | StakedNaraUSD only      | + Cross-chain snaraUSD |
+| Staking      | NaraUSDPlus only      | + Cross-chain naraUSD+ |
 | Collateral   | Single in minting       | Multi-collateral (MCT) |
 | Solidity     | 0.8.20                  | ^0.8.22                |
 | OpenZeppelin | 4.x                     | 5.x                    |
@@ -376,10 +376,10 @@ All contracts compile successfully with Solidity ^0.8.22:
 - [ ] naraUSD: Rate limiting
 - [ ] naraUSD: Delegated signers
 - [ ] naraUSD: Cross-chain transfers
-- [ ] StakedNaraUSD: Stake/unstake
-- [ ] StakedNaraUSD: Reward vesting
-- [ ] StakedNaraUSD: Blacklist functionality
-- [ ] StakedNaraUSD: Cross-chain snaraUSD
+- [ ] NaraUSDPlus: Stake/unstake
+- [ ] NaraUSDPlus: Reward vesting
+- [ ] NaraUSDPlus: Blacklist functionality
+- [ ] NaraUSDPlus: Cross-chain naraUSD+
 - [ ] StakingRewardsDistributor: Transfer rewards
 - [ ] NaraUSDComposer: Cross-chain deposit
 - [ ] All: Emergency functions

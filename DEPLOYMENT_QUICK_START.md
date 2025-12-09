@@ -39,7 +39,7 @@ That's it! ✅
 | ------------------------- | --------------------- | -------------------------- |
 | MultiCollateralToken      | Holds USDC collateral | Check console output       |
 | naraUSD                      | Stablecoin vault      | Check console output       |
-| StakedNaraUSD                | Staking vault         | Check console output       |
+| NaraUSDPlus                | Staking vault         | Check console output       |
 | StakingRewardsDistributor | Automated rewards     | Check console output       |
 
 ---
@@ -140,21 +140,21 @@ console.log("naraUSD balance:", ethers.utils.formatEther(balance));
 ### 4. Stake naraUSD
 
 ```javascript
-const stakedNaraUSD = await ethers.getContractAt(
-  "staked-narausd/StakedNaraUSD",
+const naraUSDPlus = await ethers.getContractAt(
+  "narausd-plus/NaraUSDPlus",
   "YOUR_STAKED_NARAUSD_ADDRESS",
 );
 
 // Stake 50 naraUSD
 const stakeAmount = ethers.utils.parseEther("50");
-await narausd.approve(stakedNaraUSD.address, stakeAmount);
-await stakedNaraUSD.deposit(stakeAmount, (await ethers.getSigners())[0].address);
+await narausd.approve(naraUSDPlus.address, stakeAmount);
+await naraUSDPlus.deposit(stakeAmount, (await ethers.getSigners())[0].address);
 
-// Check snaraUSD balance
-const sBalance = await stakedNaraUSD.balanceOf(
+// Check naraUSD+ balance
+const sBalance = await naraUSDPlus.balanceOf(
   (await ethers.getSigners())[0].address,
 );
-console.log("snaraUSD balance:", ethers.utils.formatEther(sBalance));
+console.log("naraUSD+ balance:", ethers.utils.formatEther(sBalance));
 ```
 
 ### 5. Distribute Rewards (as Operator)
@@ -189,7 +189,7 @@ DEPLOYMENT COMPLETE ✅
 📦 Deployed Contracts:
    MultiCollateralToken: 0x1234...
    naraUSD: 0x5678...
-   StakedNaraUSD: 0x9abc...
+   NaraUSDPlus: 0x9abc...
    StakingRewardsDistributor: 0xdef0...
 
 ⚙️  Configuration:
@@ -201,8 +201,8 @@ DEPLOYMENT COMPLETE ✅
 
 🔑 Granted Roles:
    MCT.MINTER_ROLE → naraUSD
-   StakedNaraUSD.REWARDER_ROLE → StakingRewardsDistributor
-   StakedNaraUSD.BLACKLIST_MANAGER_ROLE → Admin
+   NaraUSDPlus.REWARDER_ROLE → StakingRewardsDistributor
+   NaraUSDPlus.BLACKLIST_MANAGER_ROLE → Admin
 ```
 
 ---
@@ -223,7 +223,7 @@ Run these commands to verify each contract on Arbiscan.
 
 ## 🌐 Add Cross-Chain Support (Optional)
 
-To enable cross-chain naraUSD and snaraUSD:
+To enable cross-chain naraUSD and naraUSD+:
 
 ### 1. Configuration
 
@@ -243,10 +243,10 @@ You can update spoke chains and other settings in these files.
 # 1) Deploy naraUSD OFT infra (deploys NaraUSDOFTAdapter and NaraUSDComposer on hub)
 DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
-# 2) Deploy StakedNaraUSD OFT adapter on hub (required for StakedNaraUSDComposer)
-DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags staked-narausd-oft
+# 2) Deploy NaraUSDPlus OFT adapter on hub (required for NaraUSDPlusComposer)
+DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags narausd-plus-oft
 
-# 3) Re-run ovault on hub to deploy StakedNaraUSDComposer once the adapter exists
+# 3) Re-run ovault on hub to deploy NaraUSDPlusComposer once the adapter exists
 DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Base Sepolia (spoke)

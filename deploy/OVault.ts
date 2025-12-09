@@ -18,9 +18,9 @@ import { handleDeploymentWithRetry } from './utils'
  *
  * Spoke Chains (e.g., Base, Ethereum):
  * - NaraUSDOFT (mint/burn for naraUSD)
- * - StakedNaraUSDOFT (mint/burn for staked naraUSD)
+ * - NaraUSDPlusOFT (mint/burn for naraUSD+)
  *
- * NOTE: MCT does NOT go cross-chain! Only NaraUSD and StakedNaraUSD are omnichain.
+ * NOTE: MCT does NOT go cross-chain! Only NaraUSD and NaraUSDPlus are omnichain.
  *
  * Prerequisites:
  * - Core contracts must be deployed first (MCT, naraUSD)
@@ -309,63 +309,63 @@ const deploy: DeployFunction = async (hre) => {
             console.log('   ⏭️  Skipping NaraUSDComposer (set vault.collateralAssetAddress to deploy).')
         }
 
-        // Deploy StakedNaraUSDComposer (cross-chain staking operations)
-        console.log('   → Deploying StakedNaraUSDComposer...')
+        // Deploy NaraUSDPlusComposer (cross-chain staking operations)
+        console.log('   → Deploying NaraUSDPlusComposer...')
 
-        // Get StakedNaraUSD address
-        let stakedNaraUSDAddress: string
+        // Get NaraUSDPlus address
+        let naraUSDPlusAddress: string
         try {
-            const stakedNaraUSD = await hre.deployments.get('StakedNaraUSD')
-            stakedNaraUSDAddress = stakedNaraUSD.address
+            const naraUSDPlus = await hre.deployments.get('NaraUSDPlus')
+            naraUSDPlusAddress = naraUSDPlus.address
         } catch (error) {
-            console.log('   ⚠️  StakedNaraUSD not found, skipping StakedNaraUSDComposer')
-            console.log('   ℹ️  Deploy StakedNaraUSD first if you need cross-chain staking')
+            console.log('   ⚠️  NaraUSDPlus not found, skipping NaraUSDPlusComposer')
+            console.log('   ℹ️  Deploy NaraUSDPlus first if you need cross-chain staking')
             return
         }
 
-        // Get StakedNaraUSDOFTAdapter address
-        let stakedNaraUSDAdapterAddress: string
+        // Get NaraUSDPlusOFTAdapter address
+        let naraUSDPlusAdapterAddress: string
         try {
-            const adapter = await hre.deployments.get('StakedNaraUSDOFTAdapter')
-            stakedNaraUSDAdapterAddress = adapter.address
+            const adapter = await hre.deployments.get('NaraUSDPlusOFTAdapter')
+            naraUSDPlusAdapterAddress = adapter.address
         } catch (error) {
-            console.log('   ⚠️  StakedNaraUSDOFTAdapter not found, skipping StakedNaraUSDComposer')
-            console.log('   ℹ️  Run: npx hardhat deploy --network arbitrum-sepolia --tags staked-naraUSD-oft')
+            console.log('   ⚠️  NaraUSDPlusOFTAdapter not found, skipping NaraUSDPlusComposer')
+            console.log('   ℹ️  Run: npx hardhat deploy --network arbitrum-sepolia --tags narausd-plus-oft')
             return
         }
 
-        const stakedComposer = await handleDeploymentWithRetry(
+        const naraUSDPlusComposer = await handleDeploymentWithRetry(
             hre,
-            deployments.deploy('StakedNaraUSDComposer', {
-                contract: 'contracts/staked-narausd/StakedNaraUSDComposer.sol:StakedNaraUSDComposer',
+            deployments.deploy('NaraUSDPlusComposer', {
+                contract: 'contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer',
                 from: deployer,
                 args: [
-                    stakedNaraUSDAddress, // StakedNaraUSD vault
+                    naraUSDPlusAddress, // NaraUSDPlus vault
                     naraUSDAdapter.address, // naraUSD OFT adapter (asset)
-                    stakedNaraUSDAdapterAddress, // snaraUSD OFT adapter (share)
+                    naraUSDPlusAdapterAddress, // naraUSD+ OFT adapter (share)
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,
             }),
-            'StakedNaraUSDComposer',
-            'contracts/staked-narausd/StakedNaraUSDComposer.sol:StakedNaraUSDComposer'
+            'NaraUSDPlusComposer',
+            'contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer'
         )
-        deployedContracts.stakedComposer = stakedComposer.address
-        console.log(`   ✓ StakedNaraUSDComposer deployed at: ${stakedComposer.address}`)
+        deployedContracts.naraUSDPlusComposer = naraUSDPlusComposer.address
+        console.log(`   ✓ NaraUSDPlusComposer deployed at: ${naraUSDPlusComposer.address}`)
 
         // Whitelist the composer in naraUSD (it handles naraUSD deposits for cross-chain staking)
         try {
-            console.log('   → Whitelisting StakedNaraUSDComposer in naraUSD...')
+            console.log('   → Whitelisting NaraUSDPlusComposer in naraUSD...')
             const naraUSDContract = await hre.ethers.getContractAt(
                 'contracts/narausd/NaraUSD.sol:NaraUSD',
                 naraUSDAddress
             )
-            const tx = await naraUSDContract.setKeyringWhitelist(stakedComposer.address, true)
+            const tx = await naraUSDContract.setKeyringWhitelist(naraUSDPlusComposer.address, true)
             await tx.wait()
-            console.log(`   ✓ StakedNaraUSDComposer whitelisted in naraUSD`)
+            console.log(`   ✓ NaraUSDPlusComposer whitelisted in naraUSD`)
         } catch (error) {
-            console.log('   ⚠️  Could not whitelist StakedNaraUSDComposer automatically')
-            console.log(`   ℹ️  Manually run: naraUSD.setKeyringWhitelist("${stakedComposer.address}", true)`)
+            console.log('   ⚠️  Could not whitelist NaraUSDPlusComposer automatically')
+            console.log(`   ℹ️  Manually run: naraUSD.setKeyringWhitelist("${naraUSDPlusComposer.address}", true)`)
         }
     }
 
@@ -426,13 +426,13 @@ const deploy: DeployFunction = async (hre) => {
                 )
             }
 
-            if (deployedContracts.stakedComposer) {
-                const stakedNaraUSD = await hre.deployments.get('StakedNaraUSD')
+            if (deployedContracts.naraUSDPlusComposer) {
+                const naraUSDPlus = await hre.deployments.get('NaraUSDPlus')
                 const naraUSDAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
-                const stakedNaraUSDAdapter = await hre.deployments.get('StakedNaraUSDOFTAdapter')
-                console.log(`# StakedNaraUSDComposer`)
+                const naraUSDPlusAdapter = await hre.deployments.get('NaraUSDPlusOFTAdapter')
+                console.log(`# NaraUSDPlusComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/staked-narausd/StakedNaraUSDComposer.sol:StakedNaraUSDComposer --network ${hre.network.name} ${deployedContracts.stakedComposer} "${stakedNaraUSD.address}" "${naraUSDAdapter.address}" "${stakedNaraUSDAdapter.address}"\n`
+                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer --network ${hre.network.name} ${deployedContracts.naraUSDPlusComposer} "${naraUSDPlus.address}" "${naraUSDAdapter.address}" "${naraUSDPlusAdapter.address}"\n`
                 )
             }
         } else {
