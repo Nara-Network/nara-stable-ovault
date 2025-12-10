@@ -86,14 +86,13 @@ contract StakingRewardsDistributor is
         if (_admin == address(0)) revert InvalidZeroAddress();
         if (_operator == address(0)) revert InvalidZeroAddress();
 
+        __Ownable_init(_admin);
         __Ownable2Step_init();
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
 
         stakingVault = _stakingVault;
         narausdToken = _narausd;
-
-        _transferOwnership(_admin);
 
         // Set the operator
         setOperator(_operator);
