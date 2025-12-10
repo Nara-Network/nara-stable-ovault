@@ -1,7 +1,15 @@
 /**
- * Example: Upgrade NaraUSD Contract
+ * Upgrade NaraUSD Contract to V2
  *
- * This script demonstrates how to upgrade the NaraUSD contract to a new implementation.
+ * This is an example of how to create a versioned upgrade script.
+ * Copy this file and rename it to UpgradeNaraUSD.v2.ts (or v3, v4, etc.) for each upgrade.
+ *
+ * IMPORTANT: Document what this upgrade does in the header comments!
+ *
+ * Upgrade V2 Changes:
+ * - Added new feature: [describe what changed]
+ * - Fixed bug: [describe bug fix]
+ * - Migration: [if any migration logic is needed]
  *
  * IMPORTANT SAFETY CHECKS BEFORE UPGRADING:
  * 1. ✅ Test the new implementation thoroughly on testnet
@@ -11,18 +19,22 @@
  * 5. ✅ Have a rollback plan ready
  *
  * Usage:
- *   npx hardhat run deploy/UpgradeNaraUSD.example.ts --network arbitrum-sepolia
+ *   # Using hardhat-deploy (recommended):
+ *   npx hardhat deploy --network arbitrum-sepolia --tags UpgradeNaraUSD-V2
  *
- * Or create a task:
- *   npx hardhat upgrade:narausd --network arbitrum-sepolia
+ *   # Or using hardhat run:
+ *   npx hardhat run deploy/upgrades/UpgradeNaraUSD.v2.ts --network arbitrum-sepolia
  */
 
-import hre, { upgrades } from 'hardhat'
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { upgrades } from 'hardhat'
+import { type HardhatRuntimeEnvironment } from 'hardhat/types'
+import { type DeployFunction } from 'hardhat-deploy/types'
 
-import { prepareUpgrade, upgradeContract } from '../devtools/utils'
+// Note: If this file is in deploy/upgrades/templates/, use '../../../devtools/utils'
+// If in deploy/upgrades/, also use '../../devtools/utils'
+import { prepareUpgrade, upgradeContract } from '../../../devtools/utils'
 
-async function main(hre: HardhatRuntimeEnvironment) {
+const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     const { getNamedAccounts } = hre
     const { deployer } = await getNamedAccounts()
 
@@ -31,7 +43,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
     }
 
     console.log('\n========================================')
-    console.log('NaraUSD Upgrade Script')
+    console.log('NaraUSD Upgrade Script - V2')
     console.log('========================================')
     console.log(`Network: ${hre.network.name}`)
     console.log(`Deployer: ${deployer}`)
@@ -76,8 +88,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
     try {
         const result = await upgradeContract(hre, proxyAddress, 'NaraUSD', {
             // Optional: If your new implementation has a migration function, call it here
+            // Example: Call migrateToV2() after upgrade
             // call: {
-            //     fn: 'migrate',
+            //     fn: 'migrateToV2',
             //     args: [],
             // },
             log: true,
@@ -110,6 +123,11 @@ async function main(hre: HardhatRuntimeEnvironment) {
             const symbol = await naraUSD.symbol()
             console.log(`   ✓ Contract is responsive`)
             console.log(`   ✓ Name: ${name}, Symbol: ${symbol}`)
+
+            // Test any new functions added in this upgrade
+            // Example: if you added a new function, test it here
+            // const newValue = await naraUSD.newFunction()
+            // console.log(`   ✓ New function works: ${newValue}`)
         } catch (error) {
             console.error('   ⚠️  Warning: Could not verify contract functionality')
             console.error('   Error:', error)
@@ -120,6 +138,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
         console.log(`2. Test all critical functions`)
         console.log(`3. Monitor contract for any issues`)
         console.log(`4. Update documentation with new implementation address`)
+        console.log(`5. Record this upgrade in your upgrade history/log`)
     } catch (error) {
         console.error('\n❌ Upgrade failed!')
         console.error('Error:', error)
@@ -127,10 +146,11 @@ async function main(hre: HardhatRuntimeEnvironment) {
     }
 }
 
-// This allows the script to be run directly with `npx hardhat run`
-main(hre).catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-})
+export default upgradeNaraUSDV2
 
-export default main
+// ⚠️  IMPORTANT: Uncomment and update the tags below when creating your actual upgrade script!
+// 1. Copy this file to UpgradeNaraUSD.v2.ts (or v3.ts, v4.ts, etc.)
+// 2. Uncomment the line below
+// 3. Update 'UpgradeNaraUSD-V2' to match your version (V3, V4, etc.)
+// 4. This allows you to run specific upgrades: --tags UpgradeNaraUSD-V2
+// upgradeNaraUSDV2.tags = ['UpgradeNaraUSD-V2', 'Upgrade', 'NaraUSD']
