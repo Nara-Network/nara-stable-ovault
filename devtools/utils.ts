@@ -59,13 +59,55 @@ export async function deployUpgradeableContract(
         initializer?: string
         kind?: 'uups' | 'transparent'
         log?: boolean
+        skipIfAlreadyDeployed?: boolean
     } = {}
 ): Promise<{
     proxyAddress: string
     implementationAddress: string
     proxy: Contract
 }> {
-    const { initializer = 'initialize', kind = 'uups', log = true } = options
+    const { initializer = 'initialize', kind = 'uups', log = true, skipIfAlreadyDeployed = true } = options
+
+    // Check if deployment already exists
+    if (skipIfAlreadyDeployed) {
+        const existingDeployment = await hre.deployments.getOrNull(contractName)
+        if (existingDeployment) {
+            // Verify the contract exists on-chain
+            const code = await hre.ethers.provider.getCode(existingDeployment.address)
+            if (code !== '0x' && code !== '0x0') {
+                if (log) {
+                    console.log(`⏭️  ${contractName} already deployed at: ${existingDeployment.address}`)
+                }
+
+                // Get the implementation address from the proxy
+                const implementationAddress = await upgrades.erc1967.getImplementationAddress(
+                    existingDeployment.address
+                )
+
+                // Get the proxy contract instance
+                const ContractFactory = await hre.ethers.getContractFactory(contractName)
+                const proxy = ContractFactory.attach(existingDeployment.address)
+
+                if (log) {
+                    console.log(`   ✓ Using existing proxy: ${existingDeployment.address}`)
+                    console.log(`   ✓ Implementation: ${implementationAddress}`)
+                }
+
+                return {
+                    proxyAddress: existingDeployment.address,
+                    implementationAddress,
+                    proxy,
+                }
+            } else {
+                // Deployment record exists but contract is not on-chain, proceed with deployment
+                if (log) {
+                    console.log(
+                        `⚠️  Deployment record exists but contract not found on-chain. Deploying new instance...`
+                    )
+                }
+            }
+        }
+    }
 
     if (log) {
         console.log(`Deploying upgradeable ${contractName} (${kind.toUpperCase()} proxy)...`)
