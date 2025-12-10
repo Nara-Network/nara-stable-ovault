@@ -26,13 +26,17 @@ contract NaraUSDRedeemSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgrad
 
     /**
      * @notice Initialize the contract
+     * @param _owner The owner address (can be address(0) to use msg.sender)
      * @param _vault The vault address that can withdraw
      * @param _narausd The NaraUSD token address
      */
-    function initialize(address _vault, address _narausd) public initializer {
+    function initialize(address _owner, address _vault, address _narausd) public initializer {
         if (_vault == address(0) || _narausd == address(0)) revert InvalidZeroAddress();
 
-        __Ownable_init(msg.sender);
+        address owner = _owner != address(0) ? _owner : msg.sender;
+        if (owner == address(0)) revert InvalidZeroAddress();
+
+        __Ownable_init(owner);
         __Ownable2Step_init();
         __UUPSUpgradeable_init();
 

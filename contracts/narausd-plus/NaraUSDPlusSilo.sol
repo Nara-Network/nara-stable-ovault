@@ -26,13 +26,17 @@ contract NaraUSDPlusSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgradea
 
     /**
      * @notice Initialize the contract
+     * @param _owner The owner address (can be address(0) to use msg.sender)
      * @param _stakingVault The staking vault address that can withdraw
      * @param _token The token address (NaraUSD+)
      */
-    function initialize(address _stakingVault, address _token) public initializer {
+    function initialize(address _owner, address _stakingVault, address _token) public initializer {
         if (_stakingVault == address(0) || _token == address(0)) revert InvalidZeroAddress();
 
-        __Ownable_init(msg.sender);
+        address owner = _owner != address(0) ? _owner : msg.sender;
+        if (owner == address(0)) revert InvalidZeroAddress();
+
+        __Ownable_init(owner);
         __Ownable2Step_init();
         __UUPSUpgradeable_init();
 

@@ -104,6 +104,14 @@ contract MultiCollateralToken is
     }
 
     /**
+     * @notice Get the default admin role (for interface compatibility with NaraUSDComposer)
+     * @return The DEFAULT_ADMIN_ROLE bytes32 value
+     */
+    function defaultAdminRole() external pure returns (bytes32) {
+        return DEFAULT_ADMIN_ROLE;
+    }
+
+    /**
      * @notice Authorize upgrade (UUPS pattern)
      * @dev Only DEFAULT_ADMIN_ROLE can authorize upgrades
      */

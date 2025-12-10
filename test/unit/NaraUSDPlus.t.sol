@@ -26,7 +26,7 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_Setup() public view {
         assertEq(naraUsdPlus.name(), "NaraUSD+");
-        assertEq(naraUsdPlus.symbol(), "naraUsd+");
+        assertEq(naraUsdPlus.symbol(), "NaraUSD+");
         assertEq(naraUsdPlus.decimals(), 18);
         assertEq(address(naraUsdPlus.asset()), address(naraUsd));
         assertEq(naraUsdPlus.cooldownDuration(), 0); // Set to 0 in TestHelper

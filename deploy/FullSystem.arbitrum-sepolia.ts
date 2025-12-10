@@ -110,7 +110,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         hre,
         'NaraUSDRedeemSilo',
         deployer,
-        [deployer, deployer], // Temporary: vault = deployer, naraUsd = deployer (will update after naraUsd deployment)
+        [ADMIN_ADDRESS, deployer, deployer], // owner, vault (temp), naraUsd (temp)
         {
             initializer: 'initialize',
             kind: 'uups',
@@ -194,7 +194,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         hre,
         'NaraUSDPlusSilo',
         deployer,
-        [deployer, deployer], // Temporary: stakingVault = deployer, token = deployer (will update after NaraUSDPlus deployment)
+        [ADMIN_ADDRESS, deployer, deployer], // owner, stakingVault (temp), token (temp)
         {
             initializer: 'initialize',
             kind: 'uups',

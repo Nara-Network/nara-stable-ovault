@@ -122,6 +122,7 @@ abstract contract TestHelper is TestHelperOz5 {
         NaraUSDRedeemSilo redeemSiloImpl = new NaraUSDRedeemSilo();
         bytes memory redeemSiloInitData = abi.encodeWithSelector(
             NaraUSDRedeemSilo.initialize.selector,
+            address(this), // owner
             address(this), // Temporary placeholder vault
             address(this) // Temporary placeholder naraUsd
         );
@@ -154,6 +155,7 @@ abstract contract TestHelper is TestHelperOz5 {
         NaraUSDPlusSilo plusSiloImpl = new NaraUSDPlusSilo();
         bytes memory plusSiloInitData = abi.encodeWithSelector(
             NaraUSDPlusSilo.initialize.selector,
+            address(this), // owner
             address(this), // Temporary placeholder stakingVault
             address(this) // Temporary placeholder token
         );
