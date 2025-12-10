@@ -109,6 +109,7 @@ export async function upgradeContract(
     proxyAddress: string,
     newContractName: string,
     options: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         call?: { fn: string; args: any[] } // Optional call to make after upgrade (for migrations)
         log?: boolean
     } = {}
@@ -136,6 +137,7 @@ export async function upgradeContract(
     const ContractFactory = await hre.ethers.getContractFactory(newContractName)
 
     // Prepare upgrade options
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const upgradeOptions: any = {}
     if (call) {
         upgradeOptions.call = {
