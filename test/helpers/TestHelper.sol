@@ -144,6 +144,7 @@ abstract contract TestHelper is TestHelperOz5 {
         // Grant necessary roles
         naraUsd.grantRole(naraUsd.MINTER_ROLE(), address(this));
         naraUsd.grantRole(naraUsd.COLLATERAL_MANAGER_ROLE(), address(this));
+        naraUsd.grantRole(naraUsd.COLLATERAL_MANAGER_ROLE(), owner); // Grant to owner for tests
         // Add MCT as minter to itself for NaraUSD minting flow
         mct.grantRole(mct.MINTER_ROLE(), address(naraUsd));
 

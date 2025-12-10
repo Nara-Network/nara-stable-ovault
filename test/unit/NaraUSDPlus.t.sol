@@ -25,7 +25,7 @@ contract NaraUSDPlusTest is TestHelper {
      * @notice Test basic setup
      */
     function test_Setup() public view {
-        assertEq(naraUsdPlus.name(), "NaraUSD+");
+        assertEq(naraUsdPlus.name(), "Nara USD+");
         assertEq(naraUsdPlus.symbol(), "NaraUSD+");
         assertEq(naraUsdPlus.decimals(), 18);
         assertEq(address(naraUsdPlus.asset()), address(naraUsd));
@@ -127,6 +127,7 @@ contract NaraUSDPlusTest is TestHelper {
 
         // Cooldown specific amount of assets
         uint256 cooldownAssets = 500e18;
+        naraUsdPlus.cooldownAssets(cooldownAssets);
 
         (uint104 cooldownEnd, uint152 underlyingAmount) = naraUsdPlus.cooldowns(alice);
         assertEq(underlyingAmount, cooldownAssets, "Correct assets locked");
