@@ -1,20 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title MultiCollateralToken (MCT)
  * @notice Multi-collateral token that can accept various assets and mint MCT tokens
  * @dev This token serves as the underlying asset for NaraUSD OVault
+ * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, ReentrancyGuard {
+contract MultiCollateralToken is
+    Initializable,
+    ERC20Upgradeable,
+    ERC20BurnableUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -63,10 +73,26 @@ contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, Reentrancy
     error AssetHasCollateral();
     error InvalidToken();
 
-    /* --------------- CONSTRUCTOR --------------- */
+    /* --------------- INITIALIZER --------------- */
 
-    constructor(address admin, address[] memory initialAssets) ERC20("MultiCollateralToken", "MCT") {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @notice Initialize the contract
+     * @param admin Admin address
+     * @param initialAssets Array of initial supported asset addresses
+     */
+    function initialize(address admin, address[] memory initialAssets) public initializer {
         if (admin == address(0)) revert ZeroAddressException();
+
+        __ERC20_init("MultiCollateralToken", "MCT");
+        __ERC20Burnable_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(COLLATERAL_MANAGER_ROLE, admin);
@@ -76,6 +102,12 @@ contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, Reentrancy
             _addSupportedAsset(initialAssets[i]);
         }
     }
+
+    /**
+     * @notice Authorize upgrade (UUPS pattern)
+     * @dev Only DEFAULT_ADMIN_ROLE can authorize upgrades
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /* --------------- EXTERNAL --------------- */
 
