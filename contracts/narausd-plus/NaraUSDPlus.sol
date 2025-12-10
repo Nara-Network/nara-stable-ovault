@@ -141,8 +141,8 @@ contract NaraUSDPlus is
         }
 
         __ERC20_init("Nara USD+", "NaraUSD+");
-        __ERC20Permit_init("NaraUSD+");
         __ERC4626_init(_asset);
+        __ERC20Permit_init("NaraUSD+");
         __AccessControl_init();
         __ReentrancyGuard_init();
         __Pausable_init();
@@ -460,7 +460,9 @@ contract NaraUSDPlus is
     }
 
     /// @dev Override nonces to resolve conflict between ERC20Permit and other base classes
-    function nonces(address owner) public view virtual override(ERC20PermitUpgradeable, IERC20Permit) returns (uint256) {
+    function nonces(
+        address owner
+    ) public view virtual override(ERC20PermitUpgradeable, IERC20Permit) returns (uint256) {
         return super.nonces(owner);
     }
 

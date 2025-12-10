@@ -32,6 +32,7 @@ contract NaraUSDPlusSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgradea
     function initialize(address _stakingVault, address _token) public initializer {
         if (_stakingVault == address(0) || _token == address(0)) revert InvalidZeroAddress();
 
+        __Ownable_init(msg.sender);
         __Ownable2Step_init();
         __UUPSUpgradeable_init();
 

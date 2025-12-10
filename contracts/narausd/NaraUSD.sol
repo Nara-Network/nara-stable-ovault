@@ -313,8 +313,8 @@ contract NaraUSD is
         if (address(_redeemSilo) == address(0)) revert ZeroAddressException();
 
         __ERC20_init("Nara USD", "NaraUSD");
-        __ERC20Permit_init("NaraUSD");
         __ERC4626_init(IERC20(address(_mct)));
+        __ERC20Permit_init("NaraUSD");
         __AccessControl_init();
         __ReentrancyGuard_init();
         __Pausable_init();

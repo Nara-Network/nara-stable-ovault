@@ -32,6 +32,7 @@ contract NaraUSDRedeemSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgrad
     function initialize(address _vault, address _narausd) public initializer {
         if (_vault == address(0) || _narausd == address(0)) revert InvalidZeroAddress();
 
+        __Ownable_init(msg.sender);
         __Ownable2Step_init();
         __UUPSUpgradeable_init();
 
