@@ -7,8 +7,8 @@ import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
 
 /**
  * @title NaraUSDOFT
- * @notice OFT for naraUSD vault shares on spoke chains
- * @dev This is deployed on spoke chains to represent naraUSD shares cross-chain
+ * @notice OFT for NaraUSD vault shares on spoke chains
+ * @dev This is deployed on spoke chains to represent NaraUSD shares cross-chain
  */
 contract NaraUSDOFT is OFT, AccessControl {
     /* --------------- CONSTANTS --------------- */
@@ -34,7 +34,7 @@ contract NaraUSDOFT is OFT, AccessControl {
     }
 
     /**
-     * @notice Constructs the naraUSD Share OFT contract for spoke chains
+     * @notice Constructs the NaraUSD Share OFT contract for spoke chains
      * @param _lzEndpoint The address of the LayerZero endpoint on this chain
      * @param _delegate The address that will have owner privileges
      */

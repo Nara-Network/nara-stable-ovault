@@ -53,37 +53,37 @@ error CollateralOFTNotWhitelisted(address oft);
 
 /**
  * @title NaraUSDComposer
- * @notice Composer that enables cross-chain naraUSD minting and redemption via collateral deposits
+ * @notice Composer that enables cross-chain NaraUSD minting and redemption via collateral deposits
  *
  * @dev Overview:
  * This composer allows users to:
- * - Deposit collateral (USDC/USDT) on any chain and receive naraUSD shares on any destination chain
- * - Redeem naraUSD shares on any chain and receive collateral on any destination chain (if liquidity available)
+ * - Deposit collateral (USDC/USDT) on any chain and receive NaraUSD shares on any destination chain
+ * - Redeem NaraUSD shares on any chain and receive collateral on any destination chain (if liquidity available)
  *
  * Deposit Flow:
  * 1. User sends collateral (USDC) from spoke chain via Stargate/collateral OFT
  * 2. NaraUSDComposer receives collateral on hub chain via lzCompose
- * 3. Composer calls naraUSD.mintWithCollateral(collateralAsset, amount)
- * 4. naraUSD internally manages MCT (MultiCollateralToken) - user never sees it
- * 5. Composer sends naraUSD shares cross-chain via SHARE_OFT (NaraUSDOFTAdapter)
- * 6. User receives naraUSD on destination chain
+ * 3. Composer calls NaraUSD.mintWithCollateral(collateralAsset, amount)
+ * 4. NaraUSD internally manages MCT (MultiCollateralToken) - user never sees it
+ * 5. Composer sends NaraUSD shares cross-chain via SHARE_OFT (NaraUSDOFTAdapter)
+ * 6. User receives NaraUSD on destination chain
  *
  * Redeem Flow:
- * 1. User sends naraUSD shares from spoke chain via SHARE_OFT
+ * 1. User sends NaraUSD shares from spoke chain via SHARE_OFT
  * 2. NaraUSDComposer receives shares on hub chain via lzCompose
  * 3. Composer checks liquidity for requested collateral asset
- * 4. If liquidity available: Composer calls naraUSD.redeem(collateralAsset, amount, false)
- *    - This burns naraUSD shares and transfers collateral to composer
+ * 4. If liquidity available: Composer calls NaraUSD.redeem(collateralAsset, amount, false)
+ *    - This burns NaraUSD shares and transfers collateral to composer
  * 5. Composer sends collateral cross-chain via collateral OFT
  * 6. User receives collateral on destination chain
- * 7. If no liquidity: Transaction reverts and naraUSD shares are refunded via SHARE_OFT
+ * 7. If no liquidity: Transaction reverts and NaraUSD shares are refunded via SHARE_OFT
  *
  * @dev IMPORTANT - ASSET_OFT Parameter (Validation Only):
  *
  * This contract inherits from VaultComposerSync which requires an ASSET_OFT parameter
  * that must satisfy: ASSET_OFT.token() == VAULT.asset()
  *
- * For naraUSD vault:
+ * For NaraUSD vault:
  * - VAULT.asset() = MCT (MultiCollateralToken)
  * - Therefore ASSET_OFT must be MCTOFTAdapter
  * - BUT: MCT NEVER goes cross-chain! It's hub-only and invisible to users.
@@ -94,7 +94,7 @@ error CollateralOFTNotWhitelisted(address oft);
  * Actual Flow Uses:
  * ✅ collateralAsset - What users actually deposit (USDC/USDT)
  * ✅ collateralAssetOFT - For cross-chain collateral (Stargate USDC OFT)
- * ✅ SHARE_OFT - For sending naraUSD cross-chain (NaraUSDOFTAdapter)
+ * ✅ SHARE_OFT - For sending NaraUSD cross-chain (NaraUSDOFTAdapter)
  * ❌ ASSET_OFT - Only for validation, never used in operations
  *
  * See _depositCollateralAndSend() for the actual deposit logic that uses
@@ -122,9 +122,9 @@ contract NaraUSDComposer is VaultComposerSync {
     event CollateralRemoved(address indexed collateral, address indexed oft);
 
     /**
-     * @notice Creates a new NaraUSDComposer for cross-chain naraUSD minting
+     * @notice Creates a new NaraUSDComposer for cross-chain NaraUSD minting
      *
-     * @param _vault The naraUSD vault contract implementing ERC4626
+     * @param _vault The NaraUSD vault contract implementing ERC4626
      *
      * @param _assetOFT VALIDATION ONLY - MCTOFTAdapter that satisfies vault.asset() check
      *                  This is NEVER used for actual cross-chain operations!
@@ -132,8 +132,8 @@ contract NaraUSDComposer is VaultComposerSync {
      *                  Passed only to satisfy VaultComposerSync constructor validation.
      *                  See contract-level documentation for detailed explanation.
      *
-     * @param _shareOFT The naraUSD OFT adapter for cross-chain share transfers (ACTUALLY USED)
-     *                  This is what sends naraUSD cross-chain to users.
+     * @param _shareOFT The NaraUSD OFT adapter for cross-chain share transfers (ACTUALLY USED)
+     *                  This is what sends NaraUSD cross-chain to users.
      *
      * @dev Key Point: _assetOFT (MCT) is required by base class but never used.
      *      The actual flow uses whitelisted collateral assets and _shareOFT.
@@ -225,9 +225,9 @@ contract NaraUSDComposer is VaultComposerSync {
      *
      * Flow:
      * 1. Determine which collateral asset was sent via its OFT
-     * 2. Approve naraUSD to pull collateral
-     * 3. Call naraUSD.mintWithCollateral(collateralAsset, amount) - MCT handled internally
-     * 4. Receive naraUSD shares
+     * 2. Approve NaraUSD to pull collateral
+     * 3. Call NaraUSD.mintWithCollateral(collateralAsset, amount) - MCT handled internally
+     * 4. Receive NaraUSD shares
      * 5. Send shares cross-chain via SHARE_OFT (not ASSET_OFT!)
      *
      * @param _depositor The address requesting the deposit
@@ -255,9 +255,9 @@ contract NaraUSDComposer is VaultComposerSync {
         // Get the actual collateral asset from the OFT
         address collateralAsset = oftToCollateral[_collateralOFT];
 
-        // Approve naraUSD to pull collateral from this composer
+        // Approve NaraUSD to pull collateral from this composer
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);
-        // Mint naraUSD to this contract
+        // Mint NaraUSD to this contract
         uint256 shareAmount = INaraUSD(address(VAULT)).mintWithCollateral(collateralAsset, _assetAmount);
         _assertSlippage(shareAmount, _sendParam.minAmountLD);
 
@@ -268,19 +268,19 @@ contract NaraUSDComposer is VaultComposerSync {
     }
 
     /**
-     * @notice Internal function to handle naraUSD redemption and cross-chain collateral sending
+     * @notice Internal function to handle NaraUSD redemption and cross-chain collateral sending
      * @dev This implements cross-chain redeem with instant redemption if liquidity is available.
-     *      If no liquidity, it reverts and triggers refund of naraUSD via SHARE_OFT.
+     *      If no liquidity, it reverts and triggers refund of NaraUSD via SHARE_OFT.
      *
      * Flow:
      * 1. Check if original sender has valid credentials
-     * 2. Verify collateral asset is whitelisted (naraUSD shares already in this contract via SHARE_OFT compose)
-     * 3. Call naraUSD.redeem(collateralAsset, amount, false) - reverts if no liquidity
-     *    - This burns naraUSD shares from this contract and transfers collateral to this contract
+     * 2. Verify collateral asset is whitelisted (NaraUSD shares already in this contract via SHARE_OFT compose)
+     * 3. Call NaraUSD.redeem(collateralAsset, amount, false) - reverts if no liquidity
+     *    - This burns NaraUSD shares from this contract and transfers collateral to this contract
      * 4. Send collateral cross-chain via collateral OFT
      *
      * @param _redeemer The address requesting the redemption
-     * @param _shareAmount The amount of naraUSD shares to redeem
+     * @param _shareAmount The amount of NaraUSD shares to redeem
      * @param _sendParam Parameters for sending collateral cross-chain
      * @param _refundAddress Address to refund excess msg.value
      * @param _collateralAsset The collateral asset to receive
@@ -312,11 +312,11 @@ contract NaraUSDComposer is VaultComposerSync {
             revert CollateralNotWhitelisted(_collateralAsset);
         }
 
-        // Redeem naraUSD for collateral - this will revert if no liquidity (allowQueue=false)
-        // The naraUSD contract checks liquidity internally and reverts with InsufficientCollateral if insufficient
-        // This burns naraUSD shares from this contract (shares arrived via SHARE_OFT compose)
+        // Redeem NaraUSD for collateral - this will revert if no liquidity (allowQueue=false)
+        // The NaraUSD contract checks liquidity internally and reverts with InsufficientCollateral if insufficient
+        // This burns NaraUSD shares from this contract (shares arrived via SHARE_OFT compose)
         // and transfers collateral to this contract
-        // Redeem naraUSD for collateral - returns the exact collateral amount received (after fees)
+        // Redeem NaraUSD for collateral - returns the exact collateral amount received (after fees)
         // Since allowQueue=false, this will revert with InsufficientCollateral if no liquidity
         (uint256 collateralAmount, ) = INaraUSD(address(VAULT)).redeem(_collateralAsset, _shareAmount, false);
 
@@ -412,7 +412,7 @@ contract NaraUSDComposer is VaultComposerSync {
 
             if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
 
-            // Custom redeem flow: redeem naraUSD for collateral and send cross-chain
+            // Custom redeem flow: redeem NaraUSD for collateral and send cross-chain
             _redeemCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin, collateralAsset);
         } else if (oftToCollateral[_oftIn] != address(0)) {
             // It's a whitelisted collateral OFT

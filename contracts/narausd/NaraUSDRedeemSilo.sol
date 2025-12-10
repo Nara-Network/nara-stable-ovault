@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title NaraUSDRedeemSilo
- * @notice Holds locked naraUSD tokens during redemption queue period
+ * @notice Holds locked NaraUSD tokens during redemption queue period
  */
 contract NaraUSDRedeemSilo {
     /// @notice Error when caller is not the vault
@@ -24,7 +24,7 @@ contract NaraUSDRedeemSilo {
         _;
     }
 
-    /// @notice Withdraw naraUSD from silo (only callable by vault)
+    /// @notice Withdraw NaraUSD from silo (only callable by vault)
     function withdraw(address to, uint256 amount) external onlyVault {
         naraUSD.transfer(to, amount);
     }

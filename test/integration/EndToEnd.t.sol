@@ -17,7 +17,7 @@ contract EndToEndTest is TestHelper {
     }
 
     /**
-     * @notice Test complete flow: collateral -> naraUSD -> stake -> cross-chain
+     * @notice Test complete flow: collateral -> NaraUSD -> stake -> cross-chain
      */
     function test_CompleteUserJourney() public {
         uint256 usdcAmount = 1000e6;
@@ -25,23 +25,23 @@ contract EndToEndTest is TestHelper {
 
         _switchToHub();
 
-        // === STEP 1: User deposits collateral to mint naraUSD ===
+        // === STEP 1: User deposits collateral to mint NaraUSD ===
         vm.startPrank(alice);
         uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
         usdc.approve(address(naraUSD), usdcAmount);
         uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(naraUSDAmount, expectedNaraUSD, "Step 1: Should mint correct naraUSD");
+        assertEq(naraUSDAmount, expectedNaraUSD, "Step 1: Should mint correct NaraUSD");
         assertEq(
             naraUSD.balanceOf(alice) - aliceNaraUSDBefore,
             expectedNaraUSD,
-            "Step 1: Alice should have additional naraUSD"
+            "Step 1: Alice should have additional NaraUSD"
         );
 
-        // === STEP 2: User stakes naraUSD to earn yield ===
+        // === STEP 2: User stakes NaraUSD to earn yield ===
         naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
         uint256 naraUSDPlusAmountAmount = naraUSDPlus.deposit(naraUSDAmount, alice);
-        assertEq(naraUSDPlusAmountAmount, naraUSDAmount, "Step 2: Should receive 1:1 naraUSD+ initially");
-        assertEq(naraUSDPlus.balanceOf(alice), naraUSDPlusAmountAmount, "Step 2: Alice should have naraUSD+");
+        assertEq(naraUSDPlusAmountAmount, naraUSDAmount, "Step 2: Should receive 1:1 NaraUSD+ initially");
+        assertEq(naraUSDPlus.balanceOf(alice), naraUSDPlusAmountAmount, "Step 2: Alice should have NaraUSD+");
 
         // === STEP 3: Rewards are distributed (time passes) ===
         vm.stopPrank();
@@ -54,7 +54,7 @@ contract EndToEndTest is TestHelper {
         // Wait for rewards to vest (8 hour vesting period)
         vm.warp(block.timestamp + 8 hours);
 
-        // === STEP 4: User transfers naraUSD+ to another chain ===
+        // === STEP 4: User transfers NaraUSD+ to another chain ===
         vm.startPrank(alice);
         uint256 aliceSNaraUSD = naraUSDPlus.balanceOf(alice);
         naraUSDPlus.approve(address(naraUSDPlusAdapter), aliceSNaraUSD);
@@ -68,11 +68,11 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at naraUSDPlusOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDPlusOFT)));
 
-        // === STEP 5: Verify Bob received naraUSD+ on spoke chain ===
+        // === STEP 5: Verify Bob received NaraUSD+ on spoke chain ===
         _switchToSpoke();
-        assertEq(naraUSDPlusOFT.balanceOf(bob), aliceSNaraUSD, "Step 5: Bob should have naraUSD+ on spoke");
+        assertEq(naraUSDPlusOFT.balanceOf(bob), aliceSNaraUSD, "Step 5: Bob should have NaraUSD+ on spoke");
 
-        // === STEP 6: Bob sends naraUSD+ back to hub ===
+        // === STEP 6: Bob sends NaraUSD+ back to hub ===
         vm.startPrank(bob);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSNaraUSD);
         MessagingFee memory fee2 = _getMessagingFee(address(naraUSDPlusOFT), sendParam2);
@@ -83,15 +83,15 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to HUB chain at naraUSDPlusAdapter
         verifyPackets(HUB_EID, addressToBytes32(address(naraUSDPlusAdapter)));
 
-        // === STEP 7: Bob unstakes on hub to get naraUSD back ===
+        // === STEP 7: Bob unstakes on hub to get NaraUSD back ===
         _switchToHub();
         uint256 bobSNaraUSD = naraUSDPlus.balanceOf(bob);
-        assertEq(bobSNaraUSD, aliceSNaraUSD, "Step 7: Bob should have naraUSD+ on hub");
+        assertEq(bobSNaraUSD, aliceSNaraUSD, "Step 7: Bob should have NaraUSD+ on hub");
 
         vm.startPrank(bob);
         uint256 naraUSDRedeemed = naraUSDPlus.redeem(bobSNaraUSD, bob, bob);
-        assertGt(naraUSDRedeemed, naraUSDAmount, "Step 7: Should redeem more naraUSD due to rewards");
-        assertEq(naraUSD.balanceOf(bob), naraUSDRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have naraUSD");
+        assertGt(naraUSDRedeemed, naraUSDAmount, "Step 7: Should redeem more NaraUSD due to rewards");
+        assertEq(naraUSD.balanceOf(bob), naraUSDRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have NaraUSD");
         vm.stopPrank();
     }
 
@@ -103,7 +103,7 @@ contract EndToEndTest is TestHelper {
 
         _switchToHub();
 
-        // Alice sends naraUSD to spoke
+        // Alice sends NaraUSD to spoke
         vm.startPrank(alice);
         naraUSD.approve(address(naraUSDAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, alice, amount);
@@ -114,7 +114,7 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at naraUSDOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
-        // Bob sends naraUSD to spoke
+        // Bob sends NaraUSD to spoke
         vm.startPrank(bob);
         naraUSD.approve(address(naraUSDAdapter), amount);
         SendParam memory sendParam2 = _buildBasicSendParam(SPOKE_EID, bob, amount);
@@ -125,10 +125,10 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at naraUSDOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
-        // Verify both have naraUSD on spoke
+        // Verify both have NaraUSD on spoke
         _switchToSpoke();
-        assertEq(naraUSDOFT.balanceOf(alice), amount, "Alice should have naraUSD on spoke");
-        assertEq(naraUSDOFT.balanceOf(bob), amount, "Bob should have naraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(alice), amount, "Alice should have NaraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(bob), amount, "Bob should have NaraUSD on spoke");
 
         // Alice sends to Bob on spoke (local transfer)
         vm.startPrank(alice);
@@ -147,7 +147,7 @@ contract EndToEndTest is TestHelper {
 
         _switchToHub();
 
-        // User mints naraUSD with USDC collateral on hub
+        // User mints NaraUSD with USDC collateral on hub
         vm.startPrank(alice);
         uint256 usdcAmount = 100e6; // 100 USDC
         usdc.approve(address(naraUSD), usdcAmount);
@@ -174,7 +174,7 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to HUB chain at naraUSDAdapter
         verifyPackets(HUB_EID, addressToBytes32(address(naraUSDAdapter)));
 
-        // Back on hub, redeem naraUSD
+        // Back on hub, redeem NaraUSD
         _switchToHub();
         vm.startPrank(alice);
 
@@ -262,7 +262,7 @@ contract EndToEndTest is TestHelper {
         naraUSD.deposit(amount, alice);
         vm.stopPrank();
 
-        // Send naraUSD to spoke for Bob
+        // Send NaraUSD to spoke for Bob
         vm.startPrank(alice);
         naraUSD.approve(address(naraUSDAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
@@ -283,7 +283,7 @@ contract EndToEndTest is TestHelper {
         _switchToSpoke();
 
         // Bob receives and stakes
-        assertEq(naraUSDOFT.balanceOf(bob), amount, "Bob should have naraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(bob), amount, "Bob should have NaraUSD on spoke");
 
         // === Verify total supply consistency ===
         _switchToHub();
@@ -400,14 +400,14 @@ contract EndToEndTest is TestHelper {
 
     /**
      * @notice Test cross-chain consistency with multiple token types
-     * @dev Note: MCT stays on hub only, so we only test naraUSD and naraUSD+ cross-chain
+     * @dev Note: MCT stays on hub only, so we only test NaraUSD and NaraUSD+ cross-chain
      */
     function test_MultiTokenConsistency() public {
         uint256 amount = 100e18;
 
         _switchToHub();
 
-        // Send naraUSD to spoke
+        // Send NaraUSD to spoke
         vm.startPrank(alice);
         naraUSD.approve(address(naraUSDAdapter), amount);
         SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, amount);
@@ -418,7 +418,7 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at naraUSDOFT
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
-        // Send naraUSD+ to spoke
+        // Send NaraUSD+ to spoke
         vm.startPrank(alice);
         naraUSD.approve(address(naraUSDPlus), amount);
         uint256 shares = naraUSDPlus.deposit(amount, alice);
@@ -433,8 +433,8 @@ contract EndToEndTest is TestHelper {
 
         // Verify tokens on spoke (MCT stays on hub, not cross-chain)
         _switchToSpoke();
-        assertEq(naraUSDOFT.balanceOf(bob), amount, "Bob should have naraUSD");
-        assertEq(naraUSDPlusOFT.balanceOf(bob), shares, "Bob should have naraUSD+");
+        assertEq(naraUSDOFT.balanceOf(bob), amount, "Bob should have NaraUSD");
+        assertEq(naraUSDPlusOFT.balanceOf(bob), shares, "Bob should have NaraUSD+");
     }
 
     /**
@@ -467,6 +467,6 @@ contract EndToEndTest is TestHelper {
 
         _switchToSpoke();
         // Use approximate equality for fuzz tests due to potential rounding in mock OFT (0.1% tolerance)
-        assertApproxEqAbs(naraUSDOFT.balanceOf(recipientAddr), amount, amount / 1000, "Recipient should have ~naraUSD");
+        assertApproxEqAbs(naraUSDOFT.balanceOf(recipientAddr), amount, amount / 1000, "Recipient should have ~NaraUSD");
     }
 }

@@ -18,15 +18,15 @@ import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
  * @dev Architecture Explanation:
  *
  * User Flow:
- * - Users deposit collateral (USDC/USDT) via naraUSD.mintWithCollateral()
- * - MCT is created internally by naraUSD contract (users never see it)
- * - Users receive naraUSD shares
+ * - Users deposit collateral (USDC/USDT) via NaraUSD.mintWithCollateral()
+ * - MCT is created internally by NaraUSD contract (users never see it)
+ * - Users receive NaraUSD shares
  * - MCT NEVER leaves the hub chain
  *
  * Why This Contract Exists:
  * - NaraUSDComposer inherits from LayerZero's VaultComposerSync
  * - VaultComposerSync validates: ASSET_OFT.token() == VAULT.asset()
- * - naraUSD vault's underlying asset is MCT
+ * - NaraUSD vault's underlying asset is MCT
  * - Therefore, we need an adapter that returns token() = MCT
  * - BUT MCT never actually goes cross-chain!
  *
@@ -45,10 +45,10 @@ import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
  * Actual Cross-Chain Flow (without using this adapter):
  * 1. User sends USDC via Stargate/collateral OFT
  * 2. NaraUSDComposer receives USDC on hub
- * 3. Composer calls naraUSD.mintWithCollateral(USDC, amount)
- * 4. naraUSD internally manages MCT (user never sees it)
- * 5. Composer sends naraUSD shares cross-chain via NaraUSDOFTAdapter
- * 6. User receives naraUSD on destination chain
+ * 3. Composer calls NaraUSD.mintWithCollateral(USDC, amount)
+ * 4. NaraUSD internally manages MCT (user never sees it)
+ * 5. Composer sends NaraUSD shares cross-chain via NaraUSDOFTAdapter
+ * 6. User receives NaraUSD on destination chain
  *
  * Notice: MCTOFTAdapter is never used in steps 1-6!
  *

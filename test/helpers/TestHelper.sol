@@ -109,7 +109,7 @@ abstract contract TestHelper is TestHelperOz5 {
         // Grant MINTER_ROLE to test contract for minting without collateral
         mct.grantRole(mct.MINTER_ROLE(), address(this));
 
-        // Deploy real naraUSD vault
+        // Deploy real NaraUSD vault
         naraUSD = new NaraUSD(
             mct,
             address(this), // admin
@@ -119,7 +119,7 @@ abstract contract TestHelper is TestHelperOz5 {
         // Grant necessary roles
         naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(this));
         naraUSD.grantRole(naraUSD.COLLATERAL_MANAGER_ROLE(), address(this));
-        // Add MCT as minter to itself for naraUSD minting flow
+        // Add MCT as minter to itself for NaraUSD minting flow
         mct.grantRole(mct.MINTER_ROLE(), address(naraUSD));
 
         // Deploy real NaraUSDPlus vault
@@ -144,7 +144,7 @@ abstract contract TestHelper is TestHelperOz5 {
         naraUSDComposer = new NaraUSDComposer(
             address(naraUSD),
             address(mctAdapter), // ASSET_OFT for validation (MCT is vault's underlying asset)
-            address(naraUSDAdapter) // SHARE_OFT (naraUSD goes cross-chain)
+            address(naraUSDAdapter) // SHARE_OFT (NaraUSD goes cross-chain)
         );
 
         // Whitelist USDC as collateral
@@ -174,7 +174,7 @@ abstract contract TestHelper is TestHelperOz5 {
      * @notice Wire all OApps together for cross-chain communication
      */
     function _wireOApps() internal {
-        // Wire naraUSD OFT <-> Adapter
+        // Wire NaraUSD OFT <-> Adapter
         address[] memory naraUSDPath = new address[](2);
         naraUSDPath[0] = address(naraUSDAdapter);
         naraUSDPath[1] = address(naraUSDOFT);
@@ -207,8 +207,8 @@ abstract contract TestHelper is TestHelperOz5 {
         mct.mintWithoutCollateral(alice, INITIAL_BALANCE_18);
         mct.mintWithoutCollateral(bob, INITIAL_BALANCE_18);
 
-        // Mint naraUSD to test accounts for staking tests
-        // First mint MCT, then deposit to get naraUSD
+        // Mint NaraUSD to test accounts for staking tests
+        // First mint MCT, then deposit to get NaraUSD
         mct.mintWithoutCollateral(address(this), INITIAL_BALANCE_18 * 2);
         mct.approve(address(naraUSD), INITIAL_BALANCE_18 * 2);
         naraUSD.deposit(INITIAL_BALANCE_18, alice);

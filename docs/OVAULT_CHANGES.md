@@ -13,10 +13,10 @@ This document outlines the custom features added on top of the base OVault contr
 ## NaraUSD
 
 - **KYC validation using Keyring Network** - Validates user credentials before minting and redeeming operations
-- **Redemption queue** - When liquidity is insufficient at the time of redemption request, naraUSD tokens are locked in a silo and the request is queued. If liquidity is available at request time, redemption executes instantly. Queued redemptions can only be completed by admins via `completeRedeem(user)` or `bulkCompleteRedeem(users[])` once liquidity is restored - they do not complete automatically.
+- **Redemption queue** - When liquidity is insufficient at the time of redemption request, NaraUSD tokens are locked in a silo and the request is queued. If liquidity is available at request time, redemption executes instantly. Queued redemptions can only be completed by admins via `completeRedeem(user)` or `bulkCompleteRedeem(users[])` once liquidity is restored - they do not complete automatically.
 - **Redemption request update** - Users can update their redemption request amount anytime before it is completed by admins. If the liquidity is available at the time of update, redemption executes instantly.
-- **Redemption request cancellation** - Users can cancel their redemption request anytime before it is completed by admins. The locked naraUSD tokens are returned to the user.
-- **Mint and redeem with MCT as underlying asset** - MCT is used as the underlying asset for naraUSD, allowing for multiple collateral assets to be supported.
+- **Redemption request cancellation** - Users can cancel their redemption request anytime before it is completed by admins. The locked NaraUSD tokens are returned to the user.
+- **Mint and redeem with MCT as underlying asset** - MCT is used as the underlying asset for NaraUSD, allowing for multiple collateral assets to be supported.
 - **Mint and redeem fees** - Configurable percentage fees (max 10%) and minimum fee amounts
 - **Unbacked minting** - Admin-controlled minting without collateral backing for protocol operations
 - **Per-block rate limiting** - Maximum mint and redeem amounts per block to prevent attacks
@@ -29,11 +29,11 @@ This document outlines the custom features added on top of the base OVault contr
 
 - **Staking with cooldown periods** - Configurable cooldown duration (default 7 days, max 90 days) before unstaking
 - **Reward vesting** - 8-hour vesting period for rewards to prevent MEV attacks
-- **Deflationary burn mechanism** - Ability to burn naraUSD assets to decrease naraUSD+ exchange rate
+- **Deflationary burn mechanism** - Ability to burn NaraUSD assets to decrease NaraUSD+ exchange rate
 - **Blacklist functionality** - Ability to blacklist addresses from staking, unstaking, and transferring
 - **Cooldown cancellation** - Users can cancel active cooldowns and retrieve locked tokens
 - **Minimum shares protection** - Prevents donation attacks by enforcing minimum share amounts
-- **Staking silo** - Holds locked naraUSD+ tokens during cooldown period
+- **Staking silo** - Holds locked NaraUSD+ tokens during cooldown period
 
 ## StakingRewardsDistributor
 
@@ -42,20 +42,20 @@ This document outlines the custom features added on top of the base OVault contr
 
 ## NaraUSDRedeemSilo
 
-- **Redemption token escrow** - Holds naraUSD tokens locked during redemption queue period
+- **Redemption token escrow** - Holds NaraUSD tokens locked during redemption queue period
 
 ## NaraUSDPlusSilo
 
-- **Staking token escrow** - Holds naraUSD+ tokens locked during unstaking cooldown period
+- **Staking token escrow** - Holds NaraUSD+ tokens locked during unstaking cooldown period
 
 ## NaraUSDComposer
 
-- **Cross-chain collateral deposits** - Enables depositing collateral on any chain and receiving naraUSD on destination chain
-- **Cross-chain redemption** - Enables redeeming naraUSD on any chain and receiving collateral on destination chain
+- **Cross-chain collateral deposits** - Enables depositing collateral on any chain and receiving NaraUSD on destination chain
+- **Cross-chain redemption** - Enables redeeming NaraUSD on any chain and receiving collateral on destination chain
 - **Collateral OFT whitelist** - Manages whitelist of collateral OFT contracts for cross-chain operations
 - **KYC validation integration** - Validates Keyring credentials for cross-chain operations
 
 ## NaraUSDPlusComposer
 
-- **Cross-chain staking** - Enables depositing naraUSD on any chain and receiving naraUSD+ on destination chain
-- **Cross-chain unstaking** - Enables redeeming naraUSD+ on any chain and receiving naraUSD on destination chain
+- **Cross-chain staking** - Enables depositing NaraUSD on any chain and receiving NaraUSD+ on destination chain
+- **Cross-chain unstaking** - Enables redeeming NaraUSD+ on any chain and receiving NaraUSD on destination chain

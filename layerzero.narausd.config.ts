@@ -1,5 +1,5 @@
 /**
- * LayerZero naraUSD Configuration Selector
+ * LayerZero NaraUSD Configuration Selector
  *
  * This file exports the appropriate LayerZero configuration based on the DEPLOY_ENV environment variable.
  *

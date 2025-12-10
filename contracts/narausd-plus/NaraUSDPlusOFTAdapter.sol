@@ -6,13 +6,13 @@ import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
 
 /**
  * @title NaraUSDPlusOFTAdapter
- * @notice OFT adapter for naraUSD+ vault shares on hub chain (lockbox model)
+ * @notice OFT adapter for NaraUSD+ vault shares on hub chain (lockbox model)
  * @dev The share token MUST be an OFT adapter (lockbox) to maintain proper vault accounting
  * @dev A mint-burn adapter would not work since it transforms totalSupply()
  */
 contract NaraUSDPlusOFTAdapter is OFTAdapter {
     /**
-     * @notice Creates a new OFT adapter for naraUSD+ vault shares
+     * @notice Creates a new OFT adapter for NaraUSD+ vault shares
      * @param _token The NaraUSDPlus token address
      * @param _lzEndpoint The LayerZero endpoint for this chain
      * @param _delegate The account with administrative privileges

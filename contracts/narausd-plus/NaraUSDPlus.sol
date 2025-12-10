@@ -13,8 +13,8 @@ import "../interfaces/narausd/INaraUSD.sol";
 
 /**
  * @title NaraUSDPlus
- * @notice Staking contract for naraUSD tokens with OVault integration and cooldown functionality (V2)
- * @dev Users stake naraUSD tokens and earn rewards. The contract uses ERC4626 standard
+ * @notice Staking contract for NaraUSD tokens with OVault integration and cooldown functionality (V2)
+ * @dev Users stake NaraUSD tokens and earn rewards. The contract uses ERC4626 standard
  *      for vault operations and can be integrated with LayerZero's OVault for omnichain functionality.
  *
  *      Rewards are distributed by REWARDER_ROLE and vest over time to prevent MEV attacks.
@@ -38,14 +38,14 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     /// @notice Role that prevents an address from transferring, staking, or unstaking
     bytes32 public constant FULL_RESTRICTED_STAKER_ROLE = keccak256("FULL_RESTRICTED_STAKER_ROLE");
 
-    /// @notice Vesting period for rewards (8 hours)
-    uint256 public constant VESTING_PERIOD = 8 hours;
-
     /// @notice Minimum non-zero shares to prevent donation attack
     uint256 public constant MIN_SHARES = 1 ether;
 
     /// @notice Maximum cooldown duration (90 days)
     uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
+
+    /// @notice Maximum vesting period (90 days)
+    uint256 public constant MAX_VESTING_PERIOD = 90 days;
 
     /* --------------- STATE VARIABLES --------------- */
 
@@ -55,13 +55,16 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     /// @notice Timestamp of the last asset distribution
     uint256 public lastDistributionTimestamp;
 
+    /// @notice Vesting period for rewards in seconds
+    uint256 public vestingPeriod;
+
     /// @notice Cooldown duration in seconds
     uint24 public cooldownDuration;
 
     /// @notice Mapping of user addresses to their cooldown data
     mapping(address => UserCooldown) public cooldowns;
 
-    /// @notice Silo contract for holding naraUSD+ during cooldown
+    /// @notice Silo contract for holding NaraUSD+ during cooldown
     NaraUSDPlusSilo public immutable silo;
 
     /* --------------- MODIFIERS --------------- */
@@ -94,7 +97,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
 
     /**
      * @notice Constructor for NaraUSDPlus contract
-     * @param _asset The address of the naraUSD token
+     * @param _asset The address of the NaraUSD token
      * @param _initialRewarder The address of the initial rewarder
      * @param _admin The address of the admin role
      */
@@ -102,7 +105,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         IERC20 _asset,
         address _initialRewarder,
         address _admin
-    ) ERC20("NaraUSD+", "naraUSD+") ERC4626(_asset) ERC20Permit("naraUSD+") {
+    ) ERC20("Nara USD+", "NaraUSD+") ERC4626(_asset) ERC20Permit("NaraUSD+") {
         if (_admin == address(0) || _initialRewarder == address(0) || address(_asset) == address(0)) {
             revert InvalidZeroAddress();
         }
@@ -111,9 +114,10 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         _grantRole(REWARDER_ROLE, _initialRewarder);
         _grantRole(BLACKLIST_MANAGER_ROLE, _admin);
 
-        // Silo now holds naraUSD+ (this token) during cooldown, which is later redeemed for naraUSD
+        // Silo now holds NaraUSD+ (this token) during cooldown, which is later redeemed for NaraUSD
         silo = new NaraUSDPlusSilo(address(this), address(this));
         cooldownDuration = 7 days;
+        vestingPeriod = 8 hours;
     }
 
     /* --------------- EXTERNAL --------------- */
@@ -134,20 +138,20 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     }
 
     /**
-     * @notice Burn naraUSD from the contract to decrease naraUSD+ exchange rate
-     * @dev This calls naraUSD's burn function which burns both naraUSD and underlying MCT
+     * @notice Burn NaraUSD from the contract to decrease NaraUSD+ exchange rate
+     * @dev This calls NaraUSD's burn function which burns both NaraUSD and underlying MCT
      * @dev Collateral stays in MCT, making remaining tokens more valuable (deflationary)
      * @dev Unlike transferInRewards, this happens instantly without vesting
-     * @param amount The amount of naraUSD to burn
+     * @param amount The amount of NaraUSD to burn
      */
     function burnAssets(uint256 amount) external nonReentrant onlyRole(REWARDER_ROLE) notZero(amount) {
-        // Verify contract has enough naraUSD balance
+        // Verify contract has enough NaraUSD balance
         uint256 contractBalance = IERC20(asset()).balanceOf(address(this));
         if (contractBalance < amount) revert InvalidAmount();
         if (contractBalance - amount < 1 ether) revert ReserveTooLowAfterBurn();
 
-        // Call naraUSD's burn function to properly burn naraUSD and MCT
-        // naraUSD.burn() burns from msg.sender (this contract), so NaraUSDPlus must own the tokens
+        // Call NaraUSD's burn function to properly burn NaraUSD and MCT
+        // NaraUSD.burn() burns from msg.sender (this contract), so NaraUSDPlus must own the tokens
         INaraUSD naraUSD = INaraUSD(asset());
         naraUSD.burn(amount);
 
@@ -175,7 +179,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
 
     /**
      * @notice Rescue tokens accidentally sent to the contract
-     * @dev Cannot rescue the underlying asset (naraUSD)
+     * @dev Cannot rescue the underlying asset (NaraUSD)
      * @param token The token to be rescued
      * @param amount The amount of tokens to be rescued
      * @param to Where to send rescued tokens
@@ -242,14 +246,14 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
 
     /**
      * @notice Claim the staking amount after the cooldown has finished
-     * @dev When cooldown is on, naraUSD+ is locked in the Silo. After cooldown, naraUSD+ is redeemed for naraUSD.
+     * @dev When cooldown is on, NaraUSD+ is locked in the Silo. After cooldown, NaraUSD+ is redeemed for NaraUSD.
      *      If cooldown duration is later set to 0, this function can still be used to claim remaining
-     *      naraUSD+ locked in the Silo and redeem it for naraUSD.
-     * @param receiver Address to receive the redeemed naraUSD
+     *      NaraUSD+ locked in the Silo and redeem it for NaraUSD.
+     * @param receiver Address to receive the redeemed NaraUSD
      */
     function unstake(address receiver) external {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
-        uint256 shares = userCooldown.sharesAmount; // locked naraUSD+ shares
+        uint256 shares = userCooldown.sharesAmount; // locked NaraUSD+ shares
 
         // Allow claim after cooldown ends, or if cooldown has been globally disabled
         if (shares == 0 || (block.timestamp < userCooldown.cooldownEnd && cooldownDuration != 0)) {
@@ -259,10 +263,10 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         userCooldown.cooldownEnd = 0;
         userCooldown.sharesAmount = 0;
 
-        // Retrieve locked naraUSD+ from the silo back to this contract
+        // Retrieve locked NaraUSD+ from the silo back to this contract
         silo.withdraw(address(this), shares);
 
-        // Redeem naraUSD+ shares held by this contract into naraUSD for the receiver
+        // Redeem NaraUSD+ shares held by this contract into NaraUSD for the receiver
         uint256 assets = previewRedeem(shares);
         _withdraw(address(this), receiver, address(this), assets, shares);
     }
@@ -276,11 +280,11 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
 
         shares = previewWithdraw(assets);
 
-        // Lock naraUSD+ shares in the silo and record them for the caller
+        // Lock NaraUSD+ shares in the silo and record them for the caller
         cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
         cooldowns[msg.sender].sharesAmount += uint152(shares);
 
-        // Transfer naraUSD+ from user to silo (locks it)
+        // Transfer NaraUSD+ from user to silo (locks it)
         _transfer(msg.sender, address(silo), shares);
     }
 
@@ -293,20 +297,20 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
 
         assets = previewRedeem(shares);
 
-        // Lock naraUSD+ shares in the silo and record them for the caller
+        // Lock NaraUSD+ shares in the silo and record them for the caller
         cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
         cooldowns[msg.sender].sharesAmount += uint152(shares);
 
-        // Transfer naraUSD+ from user to silo (locks it)
+        // Transfer NaraUSD+ from user to silo (locks it)
         _transfer(msg.sender, address(silo), shares);
     }
 
     /**
-     * @notice Cancel an active cooldown and return locked naraUSD+ to the user
+     * @notice Cancel an active cooldown and return locked NaraUSD+ to the user
      */
     function cancelCooldown() external nonReentrant {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
-        uint256 shares = userCooldown.sharesAmount; // locked naraUSD+ shares
+        uint256 shares = userCooldown.sharesAmount; // locked NaraUSD+ shares
 
         if (shares == 0) {
             revert InvalidCooldown();
@@ -315,7 +319,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         userCooldown.cooldownEnd = 0;
         userCooldown.sharesAmount = 0;
 
-        // Return locked naraUSD+ from the silo back to the user
+        // Return locked NaraUSD+ from the silo back to the user
         silo.withdraw(msg.sender, shares);
     }
 
@@ -338,6 +342,23 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     }
 
     /**
+     * @notice Set vesting period for rewards
+     * @dev Cannot be changed while there's an active vesting period to prevent calculation errors
+     * @dev Setting period to 0 disables vesting (rewards vest instantly)
+     * @param period Vesting period in seconds (0 to disable vesting)
+     */
+    function setVestingPeriod(uint256 period) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (period > MAX_VESTING_PERIOD) {
+            revert InvalidAmount();
+        }
+        if (getUnvestedAmount() > 0) revert StillVesting();
+
+        uint256 previousPeriod = vestingPeriod;
+        vestingPeriod = period;
+        emit VestingPeriodUpdated(previousPeriod, vestingPeriod);
+    }
+
+    /**
      * @notice Pause all deposits, withdrawals, and cooldown operations
      */
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -354,7 +375,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     /* --------------- PUBLIC --------------- */
 
     /**
-     * @notice Returns the amount of naraUSD tokens that are vested in the contract
+     * @notice Returns the amount of NaraUSD tokens that are vested in the contract
      * @return The total vested assets
      */
     function totalAssets() public view override(ERC4626, IERC4626) returns (uint256) {
@@ -362,21 +383,31 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     }
 
     /**
-     * @notice Returns the amount of naraUSD tokens that are unvested in the contract
+     * @notice Returns the amount of NaraUSD tokens that are unvested in the contract
      * @return The unvested amount
      */
     function getUnvestedAmount() public view returns (uint256) {
+        // If no vesting period or no vesting amount, return 0
+        if (vestingPeriod == 0 || vestingAmount == 0 || lastDistributionTimestamp == 0) {
+            return 0;
+        }
+
+        // Prevent underflow if lastDistributionTimestamp is somehow in the future
+        if (block.timestamp < lastDistributionTimestamp) {
+            return vestingAmount;
+        }
+
         uint256 timeSinceLastDistribution = block.timestamp - lastDistributionTimestamp;
 
-        if (timeSinceLastDistribution >= VESTING_PERIOD) {
+        if (timeSinceLastDistribution >= vestingPeriod) {
             return 0;
         }
 
         uint256 deltaT;
         unchecked {
-            deltaT = (VESTING_PERIOD - timeSinceLastDistribution);
+            deltaT = (vestingPeriod - timeSinceLastDistribution);
         }
-        return (deltaT * vestingAmount) / VESTING_PERIOD;
+        return (deltaT * vestingAmount) / vestingPeriod;
     }
 
     /// @dev Necessary because both ERC20 (from ERC20Permit) and ERC4626 declare decimals()

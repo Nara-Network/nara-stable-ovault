@@ -13,7 +13,7 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
 
     struct UserCooldown {
         uint104 cooldownEnd;
-        uint152 sharesAmount; // Amount of naraUSD+ shares locked in silo
+        uint152 sharesAmount; // Amount of NaraUSD+ shares locked in silo
     }
 
     /* --------------- EVENTS --------------- */
@@ -23,6 +23,8 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
     event AssetsBurned(uint256 amount);
     /// @notice Event emitted when cooldown duration updates
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
+    /// @notice Event emitted when vesting period updates
+    event VestingPeriodUpdated(uint256 previousPeriod, uint256 newPeriod);
 
     /* --------------- ERRORS --------------- */
 
@@ -51,8 +53,8 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
     function transferInRewards(uint256 amount) external;
 
     /**
-     * @notice Burn naraUSD from the contract to decrease naraUSD+ exchange rate
-     * @param amount The amount of naraUSD to burn
+     * @notice Burn NaraUSD from the contract to decrease NaraUSD+ exchange rate
+     * @param amount The amount of NaraUSD to burn
      */
     function burnAssets(uint256 amount) external;
 
@@ -86,7 +88,7 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
     /* --------------- VIEW FUNCTIONS --------------- */
 
     /**
-     * @notice Returns the amount of naraUSD tokens that are unvested
+     * @notice Returns the amount of NaraUSD tokens that are unvested
      * @return The unvested amount
      */
     function getUnvestedAmount() external view returns (uint256);
@@ -104,10 +106,10 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
     function lastDistributionTimestamp() external view returns (uint256);
 
     /**
-     * @notice Get vesting period constant
-     * @return uint256 The vesting period
+     * @notice Get vesting period
+     * @return uint256 The vesting period in seconds
      */
-    function VESTING_PERIOD() external view returns (uint256);
+    function vestingPeriod() external view returns (uint256);
 
     /**
      * @notice Get minimum shares constant
@@ -133,7 +135,7 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
 
     /**
      * @notice Claim the staking amount after the cooldown has finished
-     * @param receiver Address to receive the redeemed naraUSD
+     * @param receiver Address to receive the redeemed NaraUSD
      */
     function unstake(address receiver) external;
 
@@ -142,6 +144,12 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
      * @param duration The cooldown duration in seconds
      */
     function setCooldownDuration(uint24 duration) external;
+
+    /**
+     * @notice Set vesting period for rewards
+     * @param period The vesting period in seconds
+     */
+    function setVestingPeriod(uint256 period) external;
 
     /* --------------- COOLDOWN VIEW FUNCTIONS --------------- */
 
