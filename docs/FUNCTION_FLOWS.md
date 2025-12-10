@@ -2,7 +2,7 @@
 
 This document outlines the function call sequences for each user action in the system, based on the frontend implementation.
 
-## Mint naraUSD (Hub Chain)
+## Mint NaraUSD (Hub Chain)
 
 ### Mint with USDC collateral
 
@@ -18,13 +18,13 @@ This document outlines the function call sequences for each user action in the s
 
 1. Call admin mint: `NaraUSD.mint(to, amount)` (requires MINTER_ROLE)
 
-## Redeem naraUSD (Hub Chain)
+## Redeem NaraUSD (Hub Chain)
 
 ### Instant or queued redemption
 
 1. Call redeem: `NaraUSD.redeem(collateralAsset, naraUSDAmount, allowQueue)`
    - If liquidity is available: executes instantly and returns collateral
-   - If liquidity is insufficient and `allowQueue=true`: queues the request and locks naraUSD in silo
+   - If liquidity is insufficient and `allowQueue=true`: queues the request and locks NaraUSD in silo
 
 ### Update queued redemption request
 
@@ -35,18 +35,18 @@ This document outlines the function call sequences for each user action in the s
 ### Cancel queued redemption request
 
 1. Call cancel: `NaraUSD.cancelRedeem()`
-   - Returns locked naraUSD from silo to user
+   - Returns locked NaraUSD from silo to user
 
 ### Complete queued redemption (Admin only)
 
 1. Call complete: `NaraUSD.completeRedeem(user)` (requires COLLATERAL_MANAGER_ROLE)
    - Or bulk complete: `NaraUSD.bulkCompleteRedeem(users[])` (requires COLLATERAL_MANAGER_ROLE)
 
-## Stake naraUSD (Hub Chain)
+## Stake NaraUSD (Hub Chain)
 
-### Stake naraUSD to get naraUSD+
+### Stake NaraUSD to get NaraUSD+
 
-1. Approve naraUSD spending: `NaraUSD.approve(spender: NaraUSDPlus, amount)`
+1. Approve NaraUSD spending: `NaraUSD.approve(spender: NaraUSDPlus, amount)`
 2. Call deposit: `NaraUSDPlus.deposit(assets: amount, receiver)`
 
 ## Unstake naraUSD+ (Hub Chain)
@@ -54,7 +54,7 @@ This document outlines the function call sequences for each user action in the s
 ### Start cooldown (by shares)
 
 1. Call cooldown: `NaraUSDPlus.cooldownShares(shares)`
-   - Locks naraUSD+ shares in silo and starts cooldown timer
+   - Locks NaraUSD+ shares in silo and starts cooldown timer
 
 ### Start cooldown (by assets)
 
@@ -64,12 +64,12 @@ This document outlines the function call sequences for each user action in the s
 ### Complete unstaking after cooldown
 
 1. Call unstake: `NaraUSDPlus.unstake(receiver)`
-   - Redeems naraUSD+ shares for naraUSD after cooldown period has ended
+   - Redeems NaraUSD+ shares for NaraUSD after cooldown period has ended
 
 ### Cancel cooldown
 
 1. Call cancel: `NaraUSDPlus.cancelCooldown()`
-   - Returns locked naraUSD+ from silo to user
+   - Returns locked NaraUSD+ from silo to user
 
 ## Admin Operations
 
@@ -84,13 +84,13 @@ This document outlines the function call sequences for each user action in the s
 
 ### Distribute Rewards
 
-1. Transfer naraUSD to distributor: `NaraUSD.transfer(to: StakingRewardsDistributor, amount)`
+1. Transfer NaraUSD to distributor: `NaraUSD.transfer(to: StakingRewardsDistributor, amount)`
 2. Distribute rewards: `StakingRewardsDistributor.transferInRewards(amount)` (requires REWARDER_ROLE/operator)
    - Rewards vest over 8 hours
 
 ### Deflationary Burn
 
-1. Transfer naraUSD to staking vault: `NaraUSD.transfer(to: NaraUSDPlus, amount)`
+1. Transfer NaraUSD to staking vault: `NaraUSD.transfer(to: NaraUSDPlus, amount)`
 2. Burn assets: `NaraUSDPlus.burnAssets(amount)` (requires REWARDER_ROLE)
    - Or via distributor: `StakingRewardsDistributor.burnAssets(amount)` (operator only)
 
@@ -152,56 +152,56 @@ This document outlines the function call sequences for each user action in the s
 1. Whitelist collateral OFT: `NaraUSDComposer.whitelistCollateralOFT(oftAddress, status)` (requires DEFAULT_ADMIN_ROLE)
 2. Whitelist collateral asset: `NaraUSDComposer.whitelistCollateral(collateralAddress, status)` (requires DEFAULT_ADMIN_ROLE)
 
-## Cross-Chain Mint naraUSD
+## Cross-Chain Mint NaraUSD
 
-### Mint naraUSD from spoke chain (e.g., Base/Ethereum)
+### Mint NaraUSD from spoke chain (e.g., Base/Ethereum)
 
 1. Approve collateral OFT: `CollateralOFT.approve(spender: CollateralOFT, amount)` (e.g., USDC OFT or USDT OFT)
 2. Call cross-chain mint: `CollateralOFT.send(...)` with compose message
    - Uses `NaraUSDComposer` on hub chain
-   - Receives naraUSD on destination chain via `NaraUSDOFT`
+   - Receives NaraUSD on destination chain via `NaraUSDOFT`
 
 ## Cross-Chain Redemption
 
-### Redeem naraUSD from spoke chain and receive collateral on same chain
+### Redeem NaraUSD from spoke chain and receive collateral on same chain
 
-1. Approve naraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
+1. Approve NaraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
 2. Call cross-chain redeem: `NaraUSDOFT.send(...)` with compose message
    - Uses `NaraUSDComposer` on hub chain
    - Receives collateral (USDC/USDT) on destination chain via collateral OFT
-   - Only works if liquidity is available on the hub chain. If not, the transaction will revert and the user will receive their naraUSD back via `NaraUSDOFT`
+   - Only works if liquidity is available on the hub chain. If not, the transaction will revert and the user will receive their NaraUSD back via `NaraUSDOFT`
 
 ## Cross-Chain Staking
 
-### Stake naraUSD from spoke chain and receive naraUSD+ on same chain
+### Stake NaraUSD from spoke chain and receive NaraUSD+ on same chain
 
-1. Approve naraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
+1. Approve NaraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
 2. Call cross-chain stake: `NaraUSDOFT.send(...)` with compose message
    - Uses `NaraUSDPlusComposer` on hub chain
-   - Receives naraUSD+ on destination chain via `NaraUSDPlusOFT`
+   - Receives NaraUSD+ on destination chain via `NaraUSDPlusOFT`
 
 ## Bridge Operations
 
-### Bridge naraUSD from Spoke chain to Hub
+### Bridge NaraUSD from Spoke chain to Hub
 
-1. Approve naraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
+1. Approve NaraUSD OFT: `NaraUSDOFT.approve(spender: NaraUSDOFT, amount)` (on spoke chain)
 2. Get fee quote: `NaraUSDOFT.quoteSend(sendParam, payInLzToken: false)`
 3. Call bridge: `NaraUSDOFT.send(sendParam, fee, refundAddress)` with native fee
 
-### Bridge naraUSD from Hub to Spoke chain
+### Bridge NaraUSD from Hub to Spoke chain
 
-1. Approve naraUSD: `NaraUSD.approve(spender: NaraUSDAdapter, amount)` (on hub chain)
+1. Approve NaraUSD: `NaraUSD.approve(spender: NaraUSDAdapter, amount)` (on hub chain)
 2. Get fee quote: `NaraUSDAdapter.quoteSend(sendParam, payInLzToken: false)`
 3. Call bridge: `NaraUSDAdapter.send(sendParam, fee, refundAddress)` with native fee
 
-### Bridge naraUSD+ from Spoke chain to Hub
+### Bridge NaraUSD+ from Spoke chain to Hub
 
-1. Approve naraUSD+ OFT: `NaraUSDPlusOFT.approve(spender: NaraUSDPlusOFT, amount)` (on spoke chain)
+1. Approve NaraUSD+ OFT: `NaraUSDPlusOFT.approve(spender: NaraUSDPlusOFT, amount)` (on spoke chain)
 2. Get fee quote: `NaraUSDPlusOFT.quoteSend(sendParam, payInLzToken: false)`
 3. Call bridge: `NaraUSDPlusOFT.send(sendParam, fee, refundAddress)` with native fee
 
-### Bridge naraUSD+ from Hub to Spoke chain
+### Bridge NaraUSD+ from Hub to Spoke chain
 
-1. Approve naraUSD+: `NaraUSDPlus.approve(spender: NaraUSDPlusAdapter, amount)` (on hub chain)
+1. Approve NaraUSD+: `NaraUSDPlus.approve(spender: NaraUSDPlusAdapter, amount)` (on hub chain)
 2. Get fee quote: `NaraUSDPlusAdapter.quoteSend(sendParam, payInLzToken: false)`
 3. Call bridge: `NaraUSDPlusAdapter.send(sendParam, fee, refundAddress)` with native fee
