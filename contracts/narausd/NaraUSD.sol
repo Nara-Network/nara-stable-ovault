@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../mct/MultiCollateralToken.sol";
 import "./NaraUSDRedeemSilo.sol";
 
@@ -39,18 +37,8 @@ interface IKeyring {
  * - Collateral is converted to MCT, then NaraUSD shares are minted
  * - Redemptions: instant if liquidity available, otherwise queued for solver execution
  * - Users can cancel queued redemption requests anytime
- * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract NaraUSD is
-    Initializable,
-    ERC20Upgradeable,
-    IERC4626,
-    ERC20PermitUpgradeable,
-    AccessControlUpgradeable,
-    ReentrancyGuardUpgradeable,
-    PausableUpgradeable,
-    UUPSUpgradeable
-{
+contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -87,7 +75,7 @@ contract NaraUSD is
     /* --------------- STATE VARIABLES --------------- */
 
     /// @notice The MCT token (underlying asset)
-    MultiCollateralToken public mct;
+    MultiCollateralToken public immutable mct;
 
     /// @notice NaraUSD minted per block
     mapping(uint256 => uint256) public mintedPerBlock;
@@ -114,7 +102,7 @@ contract NaraUSD is
     mapping(address => RedemptionRequest) public redemptionRequests;
 
     /// @notice Silo contract for holding locked NaraUSD during redemption queue
-    NaraUSDRedeemSilo public redeemSilo;
+    NaraUSDRedeemSilo public immutable redeemSilo;
 
     /// @notice Mint fee in basis points (e.g., 10 = 0.1%)
     uint16 public mintFeeBps;
@@ -288,42 +276,16 @@ contract NaraUSD is
         }
     }
 
-    /* --------------- INITIALIZER --------------- */
+    /* --------------- CONSTRUCTOR --------------- */
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * @notice Initialize the contract
-     * @param _mct The MCT token address
-     * @param admin Admin address
-     * @param _maxMintPerBlock Maximum mint per block
-     * @param _maxRedeemPerBlock Maximum redeem per block
-     * @param _redeemSilo The redeem silo address (must be deployed separately as upgradeable proxy)
-     */
-    function initialize(
+    constructor(
         MultiCollateralToken _mct,
         address admin,
         uint256 _maxMintPerBlock,
-        uint256 _maxRedeemPerBlock,
-        NaraUSDRedeemSilo _redeemSilo
-    ) public initializer {
+        uint256 _maxRedeemPerBlock
+    ) ERC20("Nara USD", "NaraUSD") ERC4626(IERC20(address(_mct))) ERC20Permit("NaraUSD") {
         if (address(_mct) == address(0)) revert ZeroAddressException();
         if (admin == address(0)) revert ZeroAddressException();
-        if (address(_redeemSilo) == address(0)) revert ZeroAddressException();
-
-        __ERC20_init("Nara USD", "NaraUSD");
-        __ERC20Permit_init("NaraUSD");
-        __AccessControl_init();
-        __ReentrancyGuard_init();
-        __Pausable_init();
-        __UUPSUpgradeable_init();
-
-        // Initialize ERC4626 with MCT as underlying asset
-        // Note: ERC4626 constructor requires IERC20, but we need to set it after initialization
-        // We'll override asset() to return mct address
 
         mct = _mct;
 
@@ -336,22 +298,8 @@ contract NaraUSD is
         _setMaxMintPerBlock(_maxMintPerBlock);
         _setMaxRedeemPerBlock(_maxRedeemPerBlock);
 
-        // Set redeem silo (must be deployed separately as upgradeable proxy)
-        redeemSilo = _redeemSilo;
-    }
-
-    /**
-     * @notice Authorize upgrade (UUPS pattern)
-     * @dev Only DEFAULT_ADMIN_ROLE can authorize upgrades
-     */
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
-
-    /**
-     * @notice Override asset() to return MCT address
-     * @dev ERC4626 requires this function to return the underlying asset
-     */
-    function asset() public view override returns (address) {
-        return address(mct);
+        // Create silo for holding locked NaraUSD during redemption queue
+        redeemSilo = new NaraUSDRedeemSilo(address(this), address(this));
     }
 
     /* --------------- EXTERNAL MINT/REDEEM --------------- */
@@ -393,7 +341,7 @@ contract NaraUSD is
      * @param amount The amount of NaraUSD to mint
      * @dev Intended for protocol-controlled operations such as incentive programs
      */
-    function mintWithoutCollateral(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused {
+    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused {
         if (to == address(0)) revert ZeroAddressException();
         if (amount == 0) revert InvalidAmount();
         _mint(to, amount);
@@ -1012,90 +960,9 @@ contract NaraUSD is
         revert("Use redeem(collateralAsset, naraUSDAmount, allowQueue)");
     }
 
-    /**
-     * @notice ERC4626 totalAssets - returns MCT balance
-     */
-    function totalAssets() public view override returns (uint256) {
-        return IERC20(asset()).balanceOf(address(this));
-    }
-
-    /**
-     * @notice ERC4626 deposit - disabled, use mintWithCollateral instead
-     */
-    function deposit(uint256, address) public pure override returns (uint256) {
-        revert("Use mintWithCollateral()");
-    }
-
-    /**
-     * @notice ERC4626 mint - disabled, use mintWithCollateral instead
-     */
-    function mint(uint256, address) public pure override returns (uint256) {
-        revert("Use mintWithCollateral()");
-    }
-
-    /**
-     * @notice ERC4626 convertToShares
-     */
-    function convertToShares(uint256 assets) public view override returns (uint256) {
-        return _convertToShares(assets, Math.Rounding.Floor);
-    }
-
-    /**
-     * @notice ERC4626 convertToAssets
-     */
-    function convertToAssets(uint256 shares) public view override returns (uint256) {
-        return _convertToAssets(shares, Math.Rounding.Floor);
-    }
-
-    /**
-     * @notice ERC4626 maxDeposit
-     */
-    function maxDeposit(address) public view override returns (uint256) {
-        return type(uint256).max;
-    }
-
-    /**
-     * @notice ERC4626 maxMint
-     */
-    function maxMint(address) public view override returns (uint256) {
-        return type(uint256).max;
-    }
-
-    /**
-     * @notice ERC4626 maxWithdraw
-     */
-    function maxWithdraw(address owner) public view override returns (uint256) {
-        return balanceOf(owner);
-    }
-
-    /**
-     * @notice ERC4626 maxRedeem
-     */
-    function maxRedeem(address owner) public view override returns (uint256) {
-        return balanceOf(owner);
-    }
-
     /// @dev Override decimals to ensure 18 decimals
-    function decimals() public pure override(ERC20Upgradeable, IERC20Metadata) returns (uint8) {
+    function decimals() public pure override(ERC4626, ERC20) returns (uint8) {
         return 18;
-    }
-
-    /**
-     * @notice Convert assets to shares (ERC4626 internal function)
-     * @dev Since NaraUSD maintains 1:1 ratio with MCT, conversion is straightforward
-     */
-    function _convertToShares(uint256 assets, Math.Rounding rounding) internal view returns (uint256) {
-        // 1:1 ratio with MCT
-        return assets;
-    }
-
-    /**
-     * @notice Convert shares to assets (ERC4626 internal function)
-     * @dev Since NaraUSD maintains 1:1 ratio with MCT, conversion is straightforward
-     */
-    function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view returns (uint256) {
-        // 1:1 ratio with MCT
-        return shares;
     }
 
     /**

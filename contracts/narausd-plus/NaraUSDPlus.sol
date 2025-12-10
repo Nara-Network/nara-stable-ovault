@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/narausd-plus/INaraUSDPlus.sol";
 import "./NaraUSDPlusSilo.sol";
 import "../interfaces/narausd/INaraUSD.sol";
@@ -27,19 +23,8 @@ import "../interfaces/narausd/INaraUSD.sol";
  *      and disables cooldownShares and cooldownAssets methods. If cooldown duration is greater
  *      than zero, the ERC4626 withdrawal and redeem functions are disabled, breaking the ERC4626
  *      standard, and enabling the cooldownShares and the cooldownAssets functions.
- * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract NaraUSDPlus is
-    Initializable,
-    ERC20Upgradeable,
-    IERC4626,
-    ERC20PermitUpgradeable,
-    AccessControlUpgradeable,
-    ReentrancyGuardUpgradeable,
-    PausableUpgradeable,
-    UUPSUpgradeable,
-    INaraUSDPlus
-{
+contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, INaraUSDPlus, Pausable {
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -80,7 +65,7 @@ contract NaraUSDPlus is
     mapping(address => UserCooldown) public cooldowns;
 
     /// @notice Silo contract for holding NaraUSD+ during cooldown
-    NaraUSDPlusSilo public silo;
+    NaraUSDPlusSilo public immutable silo;
 
     /* --------------- MODIFIERS --------------- */
 
@@ -108,73 +93,32 @@ contract NaraUSDPlus is
         _;
     }
 
-    /* --------------- INITIALIZER --------------- */
-
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
+    /* --------------- CONSTRUCTOR --------------- */
 
     /**
-     * @notice Initialize the contract
+     * @notice Constructor for NaraUSDPlus contract
      * @param _asset The address of the NaraUSD token
      * @param _initialRewarder The address of the initial rewarder
      * @param _admin The address of the admin role
-     * @param _silo The silo address (must be deployed separately as upgradeable proxy)
      */
-    function initialize(
+    constructor(
         IERC20 _asset,
         address _initialRewarder,
-        address _admin,
-        NaraUSDPlusSilo _silo
-    ) public initializer {
+        address _admin
+    ) ERC20("Nara USD+", "NaraUSD+") ERC4626(_asset) ERC20Permit("NaraUSD+") {
         if (_admin == address(0) || _initialRewarder == address(0) || address(_asset) == address(0)) {
             revert InvalidZeroAddress();
         }
-        if (address(_silo) == address(0)) {
-            revert InvalidZeroAddress();
-        }
-
-        __ERC20_init("Nara USD+", "NaraUSD+");
-        __ERC20Permit_init("NaraUSD+");
-        __AccessControl_init();
-        __ReentrancyGuard_init();
-        __Pausable_init();
-        __UUPSUpgradeable_init();
-
-        // Store asset address for asset() override
-        _assetAddress = _asset;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(REWARDER_ROLE, _initialRewarder);
         _grantRole(BLACKLIST_MANAGER_ROLE, _admin);
 
-        // Set silo (must be deployed separately as upgradeable proxy)
-        silo = _silo;
+        // Silo now holds NaraUSD+ (this token) during cooldown, which is later redeemed for NaraUSD
+        silo = new NaraUSDPlusSilo(address(this), address(this));
         cooldownDuration = 7 days;
         vestingPeriod = 8 hours;
     }
-
-    /**
-     * @notice Authorize upgrade (UUPS pattern)
-     * @dev Only DEFAULT_ADMIN_ROLE can authorize upgrades
-     */
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
-
-    /**
-     * @notice Override asset() to return the underlying asset address
-     * @dev ERC4626 requires this function to return the underlying asset
-     */
-    function asset() public view override returns (address) {
-        // Store asset address in a state variable set during initialization
-        // For now, we'll need to add a state variable to store it
-        // Actually, we can use the ERC4626's internal _asset if we set it properly
-        // But since ERC4626 stores it as immutable, we need to store it ourselves
-        return address(_assetAddress);
-    }
-
-    /// @notice Store the asset address (since ERC4626's is immutable)
-    IERC20 private _assetAddress;
 
     /* --------------- EXTERNAL --------------- */
 
@@ -284,10 +228,8 @@ contract NaraUSDPlus is
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused ensureCooldownOff returns (uint256) {
-        uint256 shares = previewWithdraw(assets);
-        _withdraw(_msgSender(), receiver, owner, assets, shares);
-        return shares;
+    ) public virtual override(ERC4626, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
+        return super.withdraw(assets, receiver, owner);
     }
 
     /**
@@ -298,10 +240,8 @@ contract NaraUSDPlus is
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused ensureCooldownOff returns (uint256) {
-        uint256 assets = previewRedeem(shares);
-        _withdraw(_msgSender(), receiver, owner, assets, shares);
-        return assets;
+    ) public virtual override(ERC4626, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
+        return super.redeem(shares, receiver, owner);
     }
 
     /**
@@ -328,7 +268,7 @@ contract NaraUSDPlus is
 
         // Redeem NaraUSD+ shares held by this contract into NaraUSD for the receiver
         uint256 assets = previewRedeem(shares);
-        _executeWithdraw(address(this), receiver, address(this), assets, shares);
+        _withdraw(address(this), receiver, address(this), assets, shares);
     }
 
     /**
@@ -438,7 +378,7 @@ contract NaraUSDPlus is
      * @notice Returns the amount of NaraUSD tokens that are vested in the contract
      * @return The total vested assets
      */
-    function totalAssets() public view override returns (uint256) {
+    function totalAssets() public view override(ERC4626, IERC4626) returns (uint256) {
         return IERC20(asset()).balanceOf(address(this)) - getUnvestedAmount();
     }
 
@@ -470,15 +410,13 @@ contract NaraUSDPlus is
         return (deltaT * vestingAmount) / vestingPeriod;
     }
 
-    /// @dev Necessary because both ERC20PermitUpgradeable and IERC20Metadata declare decimals()
-    function decimals() public pure override(ERC20Upgradeable, IERC20Metadata) returns (uint8) {
+    /// @dev Necessary because both ERC20 (from ERC20Permit) and ERC4626 declare decimals()
+    function decimals() public pure override(ERC4626, ERC20, IERC20Metadata) returns (uint8) {
         return 18;
     }
 
-    /// @dev Override nonces to resolve conflict between ERC20PermitUpgradeable and other base classes
-    function nonces(
-        address owner
-    ) public view virtual override(ERC20PermitUpgradeable, IERC20Permit) returns (uint256) {
+    /// @dev Override nonces to resolve conflict between ERC20Permit and other base classes
+    function nonces(address owner) public view virtual override(ERC20Permit, IERC20Permit) returns (uint256) {
         return super.nonces(owner);
     }
 
@@ -498,11 +436,11 @@ contract NaraUSDPlus is
         address receiver,
         uint256 assets,
         uint256 shares
-    ) internal nonReentrant whenNotPaused notZero(assets) notZero(shares) {
+    ) internal override nonReentrant whenNotPaused notZero(assets) notZero(shares) {
         if (_isBlacklisted(caller) || _isBlacklisted(receiver)) {
             revert OperationNotAllowed();
         }
-        _executeDeposit(caller, receiver, assets, shares);
+        super._deposit(caller, receiver, assets, shares);
         _checkMinShares();
     }
 
@@ -515,152 +453,13 @@ contract NaraUSDPlus is
         address owner,
         uint256 assets,
         uint256 shares
-    ) internal nonReentrant whenNotPaused notZero(assets) notZero(shares) {
+    ) internal override nonReentrant whenNotPaused notZero(assets) notZero(shares) {
         if (_isBlacklisted(caller) || _isBlacklisted(receiver) || _isBlacklisted(owner)) {
             revert OperationNotAllowed();
         }
 
-        _executeWithdraw(caller, receiver, owner, assets, shares);
+        super._withdraw(caller, receiver, owner, assets, shares);
         _checkMinShares();
-    }
-
-    /**
-     * @dev Internal function to execute deposit
-     */
-    function _executeDeposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
-        IERC20(asset()).safeTransferFrom(caller, address(this), assets);
-        _mint(receiver, shares);
-        emit Deposit(caller, receiver, assets, shares);
-    }
-
-    /**
-     * @dev Internal function to execute withdraw
-     */
-    function _executeWithdraw(
-        address caller,
-        address receiver,
-        address owner,
-        uint256 assets,
-        uint256 shares
-    ) internal {
-        if (caller != owner) {
-            _spendAllowance(owner, caller, shares);
-        }
-        _burn(owner, shares);
-        IERC20(asset()).safeTransfer(receiver, assets);
-        emit Withdraw(caller, receiver, owner, assets, shares);
-    }
-
-    /**
-     * @notice ERC4626 deposit
-     */
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) public override whenNotPaused ensureCooldownOff returns (uint256) {
-        uint256 shares = previewDeposit(assets);
-        _deposit(_msgSender(), receiver, assets, shares);
-        return shares;
-    }
-
-    /**
-     * @notice ERC4626 mint
-     */
-    function mint(uint256 shares, address receiver) public override whenNotPaused ensureCooldownOff returns (uint256) {
-        uint256 assets = previewMint(shares);
-        _deposit(_msgSender(), receiver, assets, shares);
-        return assets;
-    }
-
-    /**
-     * @notice ERC4626 convertToShares
-     */
-    function convertToShares(uint256 assets) public view override returns (uint256) {
-        return _convertToShares(assets, Math.Rounding.Floor);
-    }
-
-    /**
-     * @notice ERC4626 convertToAssets
-     */
-    function convertToAssets(uint256 shares) public view override returns (uint256) {
-        return _convertToAssets(shares, Math.Rounding.Floor);
-    }
-
-    /**
-     * @notice ERC4626 maxDeposit
-     */
-    function maxDeposit(address) public view override returns (uint256) {
-        return type(uint256).max;
-    }
-
-    /**
-     * @notice ERC4626 maxMint
-     */
-    function maxMint(address) public view override returns (uint256) {
-        return type(uint256).max;
-    }
-
-    /**
-     * @notice ERC4626 maxWithdraw
-     */
-    function maxWithdraw(address owner) public view override returns (uint256) {
-        return convertToAssets(balanceOf(owner));
-    }
-
-    /**
-     * @notice ERC4626 maxRedeem
-     */
-    function maxRedeem(address owner) public view override returns (uint256) {
-        return balanceOf(owner);
-    }
-
-    /**
-     * @notice ERC4626 previewDeposit
-     */
-    function previewDeposit(uint256 assets) public view override returns (uint256) {
-        return _convertToShares(assets, Math.Rounding.Floor);
-    }
-
-    /**
-     * @notice ERC4626 previewMint
-     */
-    function previewMint(uint256 shares) public view override returns (uint256) {
-        return _convertToAssets(shares, Math.Rounding.Ceil);
-    }
-
-    /**
-     * @notice ERC4626 previewWithdraw
-     */
-    function previewWithdraw(uint256 assets) public view override returns (uint256) {
-        return _convertToShares(assets, Math.Rounding.Ceil);
-    }
-
-    /**
-     * @notice ERC4626 previewRedeem
-     */
-    function previewRedeem(uint256 shares) public view override returns (uint256) {
-        return _convertToAssets(shares, Math.Rounding.Floor);
-    }
-
-    /**
-     * @notice Convert assets to shares (ERC4626 internal function)
-     */
-    /**
-     * @notice Convert assets to shares (ERC4626 internal function)
-     */
-    function _convertToShares(uint256 assets, Math.Rounding rounding) internal view returns (uint256) {
-        uint256 supply = totalSupply();
-        uint256 _totalAssets = totalAssets();
-        return supply == 0 ? assets : Math.mulDiv(assets, supply, _totalAssets, rounding);
-    }
-
-    /**
-     * @notice Convert shares to assets (ERC4626 internal function)
-     */
-    function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view returns (uint256) {
-        uint256 supply = totalSupply();
-        uint256 _totalAssets = totalAssets();
-        return supply == 0 ? shares : Math.mulDiv(shares, _totalAssets, supply, rounding);
     }
 
     /**
