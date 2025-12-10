@@ -16,8 +16,8 @@ contract NaraUSDRedeemSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgrad
     error OnlyVault();
     error InvalidZeroAddress();
 
-    address public VAULT;
-    IERC20 public naraUSD;
+    address public vault;
+    IERC20 public naraUsd;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -26,17 +26,17 @@ contract NaraUSDRedeemSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgrad
 
     /**
      * @notice Initialize the contract
-     * @param vault The vault address that can withdraw
-     * @param narausd The NaraUSD token address
+     * @param _vault The vault address that can withdraw
+     * @param _narausd The NaraUSD token address
      */
-    function initialize(address vault, address narausd) public initializer {
-        if (vault == address(0) || narausd == address(0)) revert InvalidZeroAddress();
+    function initialize(address _vault, address _narausd) public initializer {
+        if (_vault == address(0) || _narausd == address(0)) revert InvalidZeroAddress();
 
         __Ownable2Step_init();
         __UUPSUpgradeable_init();
 
-        VAULT = vault;
-        naraUSD = IERC20(narausd);
+        vault = _vault;
+        naraUsd = IERC20(_narausd);
     }
 
     /**
@@ -47,29 +47,29 @@ contract NaraUSDRedeemSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgrad
 
     /**
      * @notice Update vault address (only owner, for deployment flexibility)
-     * @param vault The new vault address
+     * @param _vault The new vault address
      */
-    function setVault(address vault) external onlyOwner {
-        if (vault == address(0)) revert InvalidZeroAddress();
-        VAULT = vault;
+    function setVault(address _vault) external onlyOwner {
+        if (_vault == address(0)) revert InvalidZeroAddress();
+        vault = _vault;
     }
 
     /**
      * @notice Update naraUSD token address (only owner, for deployment flexibility)
      * @param narausd The new naraUSD token address
      */
-    function setNaraUSD(address narausd) external onlyOwner {
+    function setNaraUsd(address narausd) external onlyOwner {
         if (narausd == address(0)) revert InvalidZeroAddress();
-        naraUSD = IERC20(narausd);
+        naraUsd = IERC20(narausd);
     }
 
     modifier onlyVault() {
-        if (msg.sender != VAULT) revert OnlyVault();
+        if (msg.sender != vault) revert OnlyVault();
         _;
     }
 
     /// @notice Withdraw NaraUSD from silo (only callable by vault)
     function withdraw(address to, uint256 amount) external onlyVault {
-        naraUSD.transfer(to, amount);
+        naraUsd.transfer(to, amount);
     }
 }

@@ -31,7 +31,7 @@ interface INaraUSD {
 interface IMCT {
     function hasRole(bytes32 role, address account) external view returns (bool);
 
-    function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
+    function defaultAdminRole() external view returns (bytes32);
 
     function collateralBalance(address asset) external view returns (uint256);
 }
@@ -149,7 +149,7 @@ contract NaraUSDComposer is VaultComposerSync {
      */
     function addWhitelistedCollateral(address asset, address assetOFT) external {
         address mct = INaraUSD(address(VAULT)).asset();
-        bytes32 adminRole = IMCT(mct).DEFAULT_ADMIN_ROLE();
+        bytes32 adminRole = IMCT(mct).defaultAdminRole();
         if (!IMCT(mct).hasRole(adminRole, msg.sender)) {
             revert Unauthorized();
         }
@@ -174,7 +174,7 @@ contract NaraUSDComposer is VaultComposerSync {
      */
     function removeWhitelistedCollateral(address asset) external {
         address mct = INaraUSD(address(VAULT)).asset();
-        bytes32 adminRole = IMCT(mct).DEFAULT_ADMIN_ROLE();
+        bytes32 adminRole = IMCT(mct).defaultAdminRole();
         if (!IMCT(mct).hasRole(adminRole, msg.sender)) {
             revert Unauthorized();
         }

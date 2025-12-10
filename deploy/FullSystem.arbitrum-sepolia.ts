@@ -150,7 +150,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         const tx1 = await redeemSilo.setVault(naraUSDAddress)
         await tx1.wait()
         console.log('   ✓ Updated silo vault address to naraUSD')
-        const tx2 = await redeemSilo.setNaraUSD(naraUSDAddress)
+        const tx2 = await redeemSilo.setNaraUsd(naraUSDAddress)
         await tx2.wait()
         console.log('   ✓ Updated silo naraUSD token address')
     } catch (error) {

@@ -16,8 +16,8 @@ contract NaraUSDPlusSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgradea
     error OnlyStakingVault();
     error InvalidZeroAddress();
 
-    address public STAKING_VAULT;
-    IERC20 public TOKEN;
+    address public stakingVault;
+    IERC20 public token;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -26,17 +26,17 @@ contract NaraUSDPlusSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgradea
 
     /**
      * @notice Initialize the contract
-     * @param stakingVault The staking vault address that can withdraw
-     * @param token The token address (NaraUSD+)
+     * @param _stakingVault The staking vault address that can withdraw
+     * @param _token The token address (NaraUSD+)
      */
-    function initialize(address stakingVault, address token) public initializer {
-        if (stakingVault == address(0) || token == address(0)) revert InvalidZeroAddress();
+    function initialize(address _stakingVault, address _token) public initializer {
+        if (_stakingVault == address(0) || _token == address(0)) revert InvalidZeroAddress();
 
         __Ownable2Step_init();
         __UUPSUpgradeable_init();
 
-        STAKING_VAULT = stakingVault;
-        TOKEN = IERC20(token);
+        stakingVault = _stakingVault;
+        token = IERC20(_token);
     }
 
     /**
@@ -47,28 +47,28 @@ contract NaraUSDPlusSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgradea
 
     /**
      * @notice Update staking vault address (only owner, for deployment flexibility)
-     * @param stakingVault The new staking vault address
+     * @param _stakingVault The new staking vault address
      */
-    function setStakingVault(address stakingVault) external onlyOwner {
-        if (stakingVault == address(0)) revert InvalidZeroAddress();
-        STAKING_VAULT = stakingVault;
+    function setStakingVault(address _stakingVault) external onlyOwner {
+        if (_stakingVault == address(0)) revert InvalidZeroAddress();
+        stakingVault = _stakingVault;
     }
 
     /**
      * @notice Update token address (only owner, for deployment flexibility)
-     * @param token The new token address
+     * @param _token The new token address
      */
-    function setToken(address token) external onlyOwner {
-        if (token == address(0)) revert InvalidZeroAddress();
-        TOKEN = IERC20(token);
+    function setToken(address _token) external onlyOwner {
+        if (_token == address(0)) revert InvalidZeroAddress();
+        token = IERC20(_token);
     }
 
     modifier onlyStakingVault() {
-        if (msg.sender != STAKING_VAULT) revert OnlyStakingVault();
+        if (msg.sender != stakingVault) revert OnlyStakingVault();
         _;
     }
 
     function withdraw(address to, uint256 amount) external onlyStakingVault {
-        TOKEN.transfer(to, amount);
+        token.transfer(to, amount);
     }
 }

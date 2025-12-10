@@ -128,7 +128,7 @@ contract MultiCollateralToken is
         if (beneficiary == address(0)) revert ZeroAddressException();
 
         // Convert collateral to MCT amount (normalize decimals to 18)
-        mctAmount = _convertToMCTAmount(collateralAsset, collateralAmount);
+        mctAmount = _convertToMctAmount(collateralAsset, collateralAmount);
 
         // Transfer collateral from caller to this contract
         IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), collateralAmount);
@@ -275,7 +275,7 @@ contract MultiCollateralToken is
      * @param collateralAmount The amount of collateral
      * @return The equivalent MCT amount (18 decimals)
      */
-    function _convertToMCTAmount(address collateralAsset, uint256 collateralAmount) internal view returns (uint256) {
+    function _convertToMctAmount(address collateralAsset, uint256 collateralAmount) internal view returns (uint256) {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         if (collateralDecimals == 18) {

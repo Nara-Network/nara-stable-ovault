@@ -53,6 +53,14 @@ contract NaraUSDPlus is
     /// @notice Minimum non-zero shares to prevent donation attack
     uint256 public constant MIN_SHARES = 1 ether;
 
+    /**
+     * @notice Get minimum shares constant (mixedCase getter for linter compliance)
+     * @return uint256 The minimum shares
+     */
+    function minShares() external pure returns (uint256) {
+        return MIN_SHARES;
+    }
+
     /// @notice Maximum cooldown duration (90 days)
     uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
 

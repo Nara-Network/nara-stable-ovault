@@ -37,10 +37,10 @@ contract StakingRewardsDistributor is
     /* --------------- STATE VARIABLES --------------- */
 
     /// @notice Staking vault contract
-    NaraUSDPlus public STAKING_VAULT;
+    NaraUSDPlus public stakingVault;
 
     /// @notice NaraUSD token
-    IERC20 public NARAUSD_TOKEN;
+    IERC20 public narausdToken;
 
     /* --------------- STATE VARIABLES --------------- */
 
@@ -90,8 +90,8 @@ contract StakingRewardsDistributor is
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
 
-        STAKING_VAULT = _stakingVault;
-        NARAUSD_TOKEN = _narausd;
+        stakingVault = _stakingVault;
+        narausdToken = _narausd;
 
         _transferOwnership(_admin);
 
@@ -99,7 +99,7 @@ contract StakingRewardsDistributor is
         setOperator(_operator);
 
         // Approve NaraUSD to the staking contract
-        NARAUSD_TOKEN.safeIncreaseAllowance(address(STAKING_VAULT), type(uint256).max);
+        narausdToken.safeIncreaseAllowance(address(stakingVault), type(uint256).max);
     }
 
     /**
@@ -120,9 +120,9 @@ contract StakingRewardsDistributor is
         if (msg.sender != operator) revert OnlyOperator();
 
         // Check that this contract holds enough NaraUSD balance
-        if (NARAUSD_TOKEN.balanceOf(address(this)) < _rewardsAmount) revert InsufficientFunds();
+        if (narausdToken.balanceOf(address(this)) < _rewardsAmount) revert InsufficientFunds();
 
-        STAKING_VAULT.transferInRewards(_rewardsAmount);
+        stakingVault.transferInRewards(_rewardsAmount);
     }
 
     /**
@@ -134,7 +134,7 @@ contract StakingRewardsDistributor is
     function burnAssets(uint256 _amount) external nonReentrant {
         if (msg.sender != operator) revert OnlyOperator();
 
-        STAKING_VAULT.burnAssets(_amount);
+        stakingVault.burnAssets(_amount);
     }
 
     /**

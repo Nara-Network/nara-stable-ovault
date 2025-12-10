@@ -5,11 +5,14 @@ import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contract
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { IOFT } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
 import { NaraUSD } from "../../contracts/narausd/NaraUSD.sol";
 import { NaraUSDPlus } from "../../contracts/narausd-plus/NaraUSDPlus.sol";
+import { NaraUSDRedeemSilo } from "../../contracts/narausd/NaraUSDRedeemSilo.sol";
+import { NaraUSDPlusSilo } from "../../contracts/narausd-plus/NaraUSDPlusSilo.sol";
 
 import { MCTOFTAdapter } from "../../contracts/mct/MCTOFTAdapter.sol";
 import { NaraUSDOFTAdapter } from "../../contracts/narausd/NaraUSDOFTAdapter.sol";
@@ -104,32 +107,74 @@ abstract contract TestHelper is TestHelperOz5 {
         initialAssets[0] = address(usdc);
         initialAssets[1] = address(usdt);
 
-        // Deploy real MCT with test contract as admin
-        mct = new MultiCollateralToken(address(this), initialAssets);
+        // Deploy real MCT (upgradeable - using initialize)
+        MultiCollateralToken mctImpl = new MultiCollateralToken();
+        bytes memory mctInitData = abi.encodeWithSelector(
+            MultiCollateralToken.initialize.selector,
+            address(this),
+            initialAssets
+        );
+        mct = MultiCollateralToken(address(new ERC1967Proxy(address(mctImpl), mctInitData)));
         // Grant MINTER_ROLE to test contract for minting without collateral
         mct.grantRole(mct.MINTER_ROLE(), address(this));
 
-        // Deploy real NaraUSD vault
-        naraUSD = new NaraUSD(
+        // Deploy NaraUSDRedeemSilo first (with placeholder addresses, will update after naraUSD deployment)
+        NaraUSDRedeemSilo redeemSiloImpl = new NaraUSDRedeemSilo();
+        bytes memory redeemSiloInitData = abi.encodeWithSelector(
+            NaraUSDRedeemSilo.initialize.selector,
+            address(this), // Temporary placeholder vault
+            address(this) // Temporary placeholder naraUSD
+        );
+        NaraUSDRedeemSilo redeemSilo = NaraUSDRedeemSilo(
+            address(new ERC1967Proxy(address(redeemSiloImpl), redeemSiloInitData))
+        );
+
+        // Deploy real NaraUSD vault (upgradeable - using initialize)
+        NaraUSD naraUSDImpl = new NaraUSD();
+        bytes memory naraUSDInitData = abi.encodeWithSelector(
+            NaraUSD.initialize.selector,
             mct,
             address(this), // admin
             type(uint256).max, // maxMintPerBlock (unlimited for testing)
-            type(uint256).max // maxRedeemPerBlock (unlimited for testing)
+            type(uint256).max, // maxRedeemPerBlock (unlimited for testing)
+            redeemSilo // silo address
         );
+        naraUSD = NaraUSD(address(new ERC1967Proxy(address(naraUSDImpl), naraUSDInitData)));
         // Grant necessary roles
         naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(this));
         naraUSD.grantRole(naraUSD.COLLATERAL_MANAGER_ROLE(), address(this));
         // Add MCT as minter to itself for NaraUSD minting flow
         mct.grantRole(mct.MINTER_ROLE(), address(naraUSD));
 
-        // Deploy real NaraUSDPlus vault
-        naraUSDPlus = new NaraUSDPlus(
+        // Update silo with correct addresses
+        redeemSilo.setVault(address(naraUSD));
+        redeemSilo.setNaraUsd(address(naraUSD));
+
+        // Deploy NaraUSDPlusSilo first (with placeholder addresses, will update after naraUSDPlus deployment)
+        NaraUSDPlusSilo plusSiloImpl = new NaraUSDPlusSilo();
+        bytes memory plusSiloInitData = abi.encodeWithSelector(
+            NaraUSDPlusSilo.initialize.selector,
+            address(this), // Temporary placeholder stakingVault
+            address(this) // Temporary placeholder token
+        );
+        NaraUSDPlusSilo plusSilo = NaraUSDPlusSilo(address(new ERC1967Proxy(address(plusSiloImpl), plusSiloInitData)));
+
+        // Deploy real NaraUSDPlus vault (upgradeable - using initialize)
+        NaraUSDPlus naraUSDPlusImpl = new NaraUSDPlus();
+        bytes memory naraUSDPlusInitData = abi.encodeWithSelector(
+            NaraUSDPlus.initialize.selector,
             naraUSD,
             address(this), // initialRewarder
-            address(this) // admin
+            address(this), // admin
+            plusSilo // silo address
         );
+        naraUSDPlus = NaraUSDPlus(address(new ERC1967Proxy(address(naraUSDPlusImpl), naraUSDPlusInitData)));
         // Set cooldown to 0 for easier testing (can be changed in specific tests)
         naraUSDPlus.setCooldownDuration(0);
+
+        // Update plus silo with correct addresses
+        plusSilo.setStakingVault(address(naraUSDPlus));
+        plusSilo.setToken(address(naraUSDPlus));
 
         // Deploy OFT Adapters
         // Note: MCT adapter exists on hub but MCT never actually goes cross-chain
