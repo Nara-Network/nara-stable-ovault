@@ -23,6 +23,8 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
     event AssetsBurned(uint256 amount);
     /// @notice Event emitted when cooldown duration updates
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
+    /// @notice Event emitted when vesting period updates
+    event VestingPeriodUpdated(uint256 previousPeriod, uint256 newPeriod);
 
     /* --------------- ERRORS --------------- */
 
@@ -104,10 +106,10 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
     function lastDistributionTimestamp() external view returns (uint256);
 
     /**
-     * @notice Get vesting period constant
-     * @return uint256 The vesting period
+     * @notice Get vesting period
+     * @return uint256 The vesting period in seconds
      */
-    function VESTING_PERIOD() external view returns (uint256);
+    function vestingPeriod() external view returns (uint256);
 
     /**
      * @notice Get minimum shares constant
@@ -142,6 +144,12 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
      * @param duration The cooldown duration in seconds
      */
     function setCooldownDuration(uint24 duration) external;
+
+    /**
+     * @notice Set vesting period for rewards
+     * @param period The vesting period in seconds
+     */
+    function setVestingPeriod(uint256 period) external;
 
     /* --------------- COOLDOWN VIEW FUNCTIONS --------------- */
 

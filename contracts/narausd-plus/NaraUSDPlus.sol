@@ -38,14 +38,14 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     /// @notice Role that prevents an address from transferring, staking, or unstaking
     bytes32 public constant FULL_RESTRICTED_STAKER_ROLE = keccak256("FULL_RESTRICTED_STAKER_ROLE");
 
-    /// @notice Vesting period for rewards (8 hours)
-    uint256 public constant VESTING_PERIOD = 8 hours;
-
     /// @notice Minimum non-zero shares to prevent donation attack
     uint256 public constant MIN_SHARES = 1 ether;
 
     /// @notice Maximum cooldown duration (90 days)
     uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
+
+    /// @notice Maximum vesting period (90 days)
+    uint256 public constant MAX_VESTING_PERIOD = 90 days;
 
     /* --------------- STATE VARIABLES --------------- */
 
@@ -54,6 +54,9 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
 
     /// @notice Timestamp of the last asset distribution
     uint256 public lastDistributionTimestamp;
+
+    /// @notice Vesting period for rewards in seconds
+    uint256 public vestingPeriod;
 
     /// @notice Cooldown duration in seconds
     uint24 public cooldownDuration;
@@ -114,6 +117,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         // Silo now holds naraUSD+ (this token) during cooldown, which is later redeemed for naraUSD
         silo = new NaraUSDPlusSilo(address(this), address(this));
         cooldownDuration = 7 days;
+        vestingPeriod = 8 hours;
     }
 
     /* --------------- EXTERNAL --------------- */
@@ -338,6 +342,23 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     }
 
     /**
+     * @notice Set vesting period for rewards
+     * @dev Cannot be changed while there's an active vesting period to prevent calculation errors
+     * @dev Setting period to 0 disables vesting (rewards vest instantly)
+     * @param period Vesting period in seconds (0 to disable vesting)
+     */
+    function setVestingPeriod(uint256 period) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (period > MAX_VESTING_PERIOD) {
+            revert InvalidAmount();
+        }
+        if (getUnvestedAmount() > 0) revert StillVesting();
+
+        uint256 previousPeriod = vestingPeriod;
+        vestingPeriod = period;
+        emit VestingPeriodUpdated(previousPeriod, vestingPeriod);
+    }
+
+    /**
      * @notice Pause all deposits, withdrawals, and cooldown operations
      */
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -366,17 +387,27 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
      * @return The unvested amount
      */
     function getUnvestedAmount() public view returns (uint256) {
+        // If no vesting period or no vesting amount, return 0
+        if (vestingPeriod == 0 || vestingAmount == 0 || lastDistributionTimestamp == 0) {
+            return 0;
+        }
+
+        // Prevent underflow if lastDistributionTimestamp is somehow in the future
+        if (block.timestamp < lastDistributionTimestamp) {
+            return vestingAmount;
+        }
+
         uint256 timeSinceLastDistribution = block.timestamp - lastDistributionTimestamp;
 
-        if (timeSinceLastDistribution >= VESTING_PERIOD) {
+        if (timeSinceLastDistribution >= vestingPeriod) {
             return 0;
         }
 
         uint256 deltaT;
         unchecked {
-            deltaT = (VESTING_PERIOD - timeSinceLastDistribution);
+            deltaT = (vestingPeriod - timeSinceLastDistribution);
         }
-        return (deltaT * vestingAmount) / VESTING_PERIOD;
+        return (deltaT * vestingAmount) / vestingPeriod;
     }
 
     /// @dev Necessary because both ERC20 (from ERC20Permit) and ERC4626 declare decimals()
