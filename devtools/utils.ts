@@ -1,4 +1,5 @@
 import { Contract } from 'ethers'
+import { upgrades } from 'hardhat'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { DeployResult } from 'hardhat-deploy/types'
 
@@ -72,8 +73,6 @@ export async function deployUpgradeableContract(
         console.log(`   Args: ${JSON.stringify(initializeArgs, null, 2)}`)
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { upgrades } = require('@openzeppelin/hardhat-upgrades')
     const ContractFactory = await hre.ethers.getContractFactory(contractName)
 
     const proxy = await upgrades.deployProxy(ContractFactory, initializeArgs, {
@@ -95,6 +94,99 @@ export async function deployUpgradeableContract(
         implementationAddress,
         proxy,
     }
+}
+
+/**
+ * Upgrade an upgradeable contract to a new implementation
+ * @param hre Hardhat runtime environment
+ * @param proxyAddress The proxy address (users interact with this)
+ * @param newContractName Name of the new contract implementation
+ * @param options Upgrade options
+ * @returns Object containing new implementation address and upgraded proxy contract instance
+ */
+export async function upgradeContract(
+    hre: HardhatRuntimeEnvironment,
+    proxyAddress: string,
+    newContractName: string,
+    options: {
+        call?: { fn: string; args: any[] } // Optional call to make after upgrade (for migrations)
+        log?: boolean
+    } = {}
+): Promise<{
+    implementationAddress: string
+    proxy: Contract
+}> {
+    const { call, log = true } = options
+
+    if (log) {
+        console.log(`Upgrading contract at proxy: ${proxyAddress}`)
+        console.log(`   New implementation: ${newContractName}`)
+        if (call) {
+            console.log(`   Post-upgrade call: ${call.fn}(${call.args.join(', ')})`)
+        }
+    }
+
+    // Get the current implementation address before upgrade
+    const oldImplementation = await upgrades.erc1967.getImplementationAddress(proxyAddress)
+    if (log) {
+        console.log(`   Current implementation: ${oldImplementation}`)
+    }
+
+    // Get the contract factory for the new implementation
+    const ContractFactory = await hre.ethers.getContractFactory(newContractName)
+
+    // Prepare upgrade options
+    const upgradeOptions: any = {}
+    if (call) {
+        upgradeOptions.call = {
+            fn: call.fn,
+            args: call.args,
+        }
+    }
+
+    // Perform the upgrade
+    const upgradedProxy = await upgrades.upgradeProxy(proxyAddress, ContractFactory, upgradeOptions)
+
+    await upgradedProxy.deployed()
+
+    // Get the new implementation address
+    const newImplementation = await upgrades.erc1967.getImplementationAddress(proxyAddress)
+
+    if (log) {
+        console.log(`   ✓ Upgrade successful!`)
+        console.log(`   ✓ New implementation: ${newImplementation}`)
+        console.log(`   ✓ Proxy address (unchanged): ${proxyAddress}`)
+    }
+
+    return {
+        implementationAddress: newImplementation,
+        proxy: upgradedProxy,
+    }
+}
+
+/**
+ * Prepare an upgrade (validate without executing)
+ * Useful for testing if an upgrade is valid before actually upgrading
+ * @param hre Hardhat runtime environment
+ * @param proxyAddress The proxy address
+ * @param newContractName Name of the new contract implementation
+ * @returns The address of the new implementation that would be deployed
+ */
+export async function prepareUpgrade(
+    hre: HardhatRuntimeEnvironment,
+    proxyAddress: string,
+    newContractName: string
+): Promise<string> {
+    console.log(`Preparing upgrade for proxy: ${proxyAddress}`)
+    console.log(`   New implementation: ${newContractName}`)
+
+    const ContractFactory = await hre.ethers.getContractFactory(newContractName)
+    const newImplementationAddress = await upgrades.prepareUpgrade(proxyAddress, ContractFactory)
+
+    console.log(`   ✓ Upgrade preparation successful`)
+    console.log(`   ✓ New implementation would be deployed at: ${newImplementationAddress}`)
+
+    return newImplementationAddress
 }
 
 // Network validation
