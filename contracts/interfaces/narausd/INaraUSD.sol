@@ -23,12 +23,12 @@ interface INaraUSD is IERC4626, IERC20Permit {
         address indexed beneficiary,
         address indexed collateralAsset,
         uint256 collateralAmount,
-        uint256 naraUSDAmount
+        uint256 naraUsdAmount
     );
     event Redeem(
         address indexed beneficiary,
         address indexed collateralAsset,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         uint256 collateralAmount
     );
     event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
@@ -39,17 +39,17 @@ interface INaraUSD is IERC4626, IERC20Permit {
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
     event RedemptionRequested(
         address indexed user,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         address indexed collateralAsset,
         uint256 cooldownEnd
     );
     event RedemptionCompleted(
         address indexed user,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         address indexed collateralAsset,
         uint256 collateralAmount
     );
-    event RedemptionCancelled(address indexed user, uint256 naraUSDAmount);
+    event RedemptionCancelled(address indexed user, uint256 naraUsdAmount);
     event MintFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
@@ -64,7 +64,7 @@ interface INaraUSD is IERC4626, IERC20Permit {
 
     struct RedemptionRequest {
         uint104 cooldownEnd;
-        uint152 naraUSDAmount;
+        uint152 naraUsdAmount;
         address collateralAsset;
     }
 
@@ -94,37 +94,37 @@ interface INaraUSD is IERC4626, IERC20Permit {
      * @notice Mint NaraUSD by depositing collateral
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
-     * @return naraUSDAmount The amount of NaraUSD minted
+     * @return naraUsdAmount The amount of NaraUSD minted
      */
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external returns (uint256 naraUSDAmount);
+    ) external returns (uint256 naraUsdAmount);
 
     /**
      * @notice Mint NaraUSD on behalf of a beneficiary
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
      * @param beneficiary The address to receive minted NaraUSD
-     * @return naraUSDAmount The amount of NaraUSD minted
+     * @return naraUsdAmount The amount of NaraUSD minted
      */
     function mintWithCollateralFor(
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) external returns (uint256 naraUSDAmount);
+    ) external returns (uint256 naraUsdAmount);
 
     /**
      * @notice Redeem NaraUSD for collateral - instant if liquidity available, otherwise queued
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD to redeem
+     * @param naraUsdAmount The amount of NaraUSD to redeem
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
      */
     function redeem(
         address collateralAsset,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         bool allowQueue
     ) external returns (uint256 collateralAmount, bool wasQueued);
 

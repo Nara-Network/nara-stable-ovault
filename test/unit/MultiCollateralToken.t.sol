@@ -28,7 +28,7 @@ contract MultiCollateralTokenTest is TestHelper {
     /**
      * @notice Helper function to mint MCT (test contract has MINTER_ROLE)
      */
-    function _mintMCT(address collateral, uint256 amount, address beneficiary) internal returns (uint256) {
+    function _mintMct(address collateral, uint256 amount, address beneficiary) internal returns (uint256) {
         IERC20(collateral).approve(address(mct), amount);
         return mct.mint(collateral, amount, beneficiary);
     }
@@ -36,7 +36,7 @@ contract MultiCollateralTokenTest is TestHelper {
     /**
      * @notice Test basic setup
      */
-    function test_Setup() public {
+    function test_Setup() public view {
         assertEq(mct.name(), "MultiCollateralToken");
         assertEq(mct.symbol(), "MCT");
         assertEq(mct.decimals(), 18);
@@ -52,7 +52,7 @@ contract MultiCollateralTokenTest is TestHelper {
         uint256 expectedMct = 1000e18;
 
         uint256 bobBalanceBefore = mct.balanceOf(bob);
-        uint256 mctAmount = _mintMCT(address(usdc), usdcAmount, bob);
+        uint256 mctAmount = _mintMct(address(usdc), usdcAmount, bob);
 
         assertEq(mctAmount, expectedMct, "Should mint 1000 MCT");
         assertEq(mct.balanceOf(bob) - bobBalanceBefore, expectedMct, "Bob should have additional MCT");
@@ -67,7 +67,7 @@ contract MultiCollateralTokenTest is TestHelper {
         uint256 expectedMct = 500e18;
 
         uint256 bobBalanceBefore = mct.balanceOf(bob);
-        uint256 mctAmount = _mintMCT(address(usdt), usdtAmount, bob);
+        uint256 mctAmount = _mintMct(address(usdt), usdtAmount, bob);
 
         assertEq(mctAmount, expectedMct, "Should mint 500 MCT");
         assertEq(mct.balanceOf(bob) - bobBalanceBefore, expectedMct, "Bob should have additional MCT");
@@ -81,7 +81,7 @@ contract MultiCollateralTokenTest is TestHelper {
         uint256 usdcAmount = 12345e6; // 12,345 USDC
         uint256 expectedMct = 12345e18;
 
-        uint256 mctAmount = _mintMCT(address(usdc), usdcAmount, bob);
+        uint256 mctAmount = _mintMct(address(usdc), usdcAmount, bob);
 
         assertEq(mctAmount, expectedMct, "Decimal conversion should be exact");
     }
@@ -96,7 +96,7 @@ contract MultiCollateralTokenTest is TestHelper {
         uint256 daiAmount = 1000e18;
         uint256 expectedMct = 1000e18;
 
-        uint256 mctAmount = _mintMCT(address(dai), daiAmount, bob);
+        uint256 mctAmount = _mintMct(address(dai), daiAmount, bob);
 
         assertEq(mctAmount, expectedMct, "18 decimal should not convert");
     }
@@ -107,15 +107,15 @@ contract MultiCollateralTokenTest is TestHelper {
     function test_RedeemForUSDC() public {
         // First mint MCT
         uint256 usdcAmount = 1000e6;
-        uint256 mctAmount = _mintMCT(address(usdc), usdcAmount, alice);
+        uint256 mctAmount = _mintMct(address(usdc), usdcAmount, alice);
 
-        // Redeem (transfer MCT to naraUSD which has MINTER_ROLE to redeem)
+        // Redeem (transfer MCT to naraUsd which has MINTER_ROLE to redeem)
         vm.startPrank(alice);
-        mct.transfer(address(naraUSD), mctAmount);
+        mct.transfer(address(naraUsd), mctAmount);
         vm.stopPrank();
 
-        // naraUSD redeems
-        vm.startPrank(address(naraUSD));
+        // naraUsd redeems
+        vm.startPrank(address(naraUsd));
         mct.approve(address(mct), mctAmount);
 
         uint256 collateralReceived = mct.redeem(address(usdc), mctAmount, bob);
@@ -132,12 +132,12 @@ contract MultiCollateralTokenTest is TestHelper {
         uint256 bobBalanceBefore = mct.balanceOf(bob);
 
         // First deposit
-        uint256 mct1 = _mintMCT(address(usdc), 1000e6, bob);
+        uint256 mct1 = _mintMct(address(usdc), 1000e6, bob);
         assertEq(mct1, 1000e18, "First mint");
         assertEq(mct.collateralBalance(address(usdc)), 1000e6, "Collateral after 1st");
 
         // Second deposit
-        uint256 mct2 = _mintMCT(address(usdc), 2000e6, bob);
+        uint256 mct2 = _mintMct(address(usdc), 2000e6, bob);
         assertEq(mct2, 2000e18, "Second mint");
         assertEq(mct.collateralBalance(address(usdc)), 3000e6, "Collateral after 2nd");
 
@@ -151,10 +151,10 @@ contract MultiCollateralTokenTest is TestHelper {
         uint256 bobBalanceBefore = mct.balanceOf(bob);
 
         // Mint with USDC
-        _mintMCT(address(usdc), 1000e6, bob);
+        _mintMct(address(usdc), 1000e6, bob);
 
         // Mint with USDT
-        _mintMCT(address(usdt), 500e6, bob);
+        _mintMct(address(usdt), 500e6, bob);
 
         // Check balances
         assertEq(mct.collateralBalance(address(usdc)), 1000e6, "USDC collateral");
@@ -182,7 +182,7 @@ contract MultiCollateralTokenTest is TestHelper {
      */
     function test_WithdrawCollateral() public {
         // Setup: Mint MCT with collateral
-        _mintMCT(address(usdc), 1000e6, bob);
+        _mintMct(address(usdc), 1000e6, bob);
 
         // Withdraw collateral (for yield strategies)
         uint256 withdrawAmount = 500e6;
@@ -201,7 +201,7 @@ contract MultiCollateralTokenTest is TestHelper {
      */
     function test_DepositCollateral() public {
         // Setup: Mint and withdraw
-        _mintMCT(address(usdc), 1000e6, bob);
+        _mintMct(address(usdc), 1000e6, bob);
         mct.withdrawCollateral(address(usdc), 500e6, address(this));
 
         // Deposit back (e.g., after earning yield) - test contract has COLLATERAL_MANAGER_ROLE
@@ -222,7 +222,7 @@ contract MultiCollateralTokenTest is TestHelper {
         assertTrue(mct.isSupportedAsset(address(dai)), "DAI should be supported");
 
         // Verify we can mint with it
-        uint256 mctAmount = _mintMCT(address(dai), 1000e18, bob);
+        uint256 mctAmount = _mintMct(address(dai), 1000e18, bob);
         assertEq(mctAmount, 1000e18, "Should mint with DAI");
     }
 
@@ -240,7 +240,7 @@ contract MultiCollateralTokenTest is TestHelper {
     /**
      * @notice Test getSupportedAssets
      */
-    function test_GetSupportedAssets() public {
+    function test_GetSupportedAssets() public view {
         address[] memory assets = mct.getSupportedAssets();
 
         assertEq(assets.length, 2, "Should have 2 assets");
@@ -263,11 +263,11 @@ contract MultiCollateralTokenTest is TestHelper {
      */
     function test_RevertIf_InsufficientCollateral() public {
         // Mint with 1000 USDC
-        _mintMCT(address(usdc), 1000e6, bob);
+        _mintMct(address(usdc), 1000e6, bob);
 
         // Try to redeem 2000 MCT (more than available collateral)
-        vm.startPrank(address(naraUSD));
-        mct.mintWithoutCollateral(address(naraUSD), 1000e18); // Extra unbacked MCT
+        vm.startPrank(address(naraUsd));
+        mct.mintWithoutCollateral(address(naraUsd), 1000e18); // Extra unbacked MCT
         mct.approve(address(mct), 2000e18);
 
         vm.expectRevert(MultiCollateralToken.InsufficientCollateral.selector);
@@ -280,7 +280,7 @@ contract MultiCollateralTokenTest is TestHelper {
      * @notice Test withdrawing more than balance reverts
      */
     function test_RevertIf_WithdrawExceedsBalance() public {
-        _mintMCT(address(usdc), 1000e6, bob);
+        _mintMct(address(usdc), 1000e6, bob);
 
         vm.expectRevert(MultiCollateralToken.InsufficientCollateral.selector);
         mct.withdrawCollateral(address(usdc), 2000e6, owner);
@@ -327,16 +327,16 @@ contract MultiCollateralTokenTest is TestHelper {
      */
     function test_RevertIf_RedeemUnsupportedAsset() public {
         // Mint some MCT with USDC first
-        _mintMCT(address(usdc), 1000e6, alice);
+        _mintMct(address(usdc), 1000e6, alice);
 
-        // Transfer MCT to naraUSD (which has MINTER_ROLE)
+        // Transfer MCT to naraUsd (which has MINTER_ROLE)
         vm.prank(alice);
-        mct.transfer(address(naraUSD), 1000e18);
+        mct.transfer(address(naraUsd), 1000e18);
 
         // Try to redeem to unsupported asset
         MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 18);
 
-        vm.startPrank(address(naraUSD));
+        vm.startPrank(address(naraUsd));
         mct.approve(address(mct), 1000e18);
 
         vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
@@ -374,7 +374,7 @@ contract MultiCollateralTokenTest is TestHelper {
         amount = bound(amount, 1e6, 100_000e6); // 1 to 100k USDC
 
         uint256 expectedMct = amount * 1e12; // 6 decimals -> 18 decimals
-        uint256 mctAmount = _mintMCT(address(usdc), amount, bob);
+        uint256 mctAmount = _mintMct(address(usdc), amount, bob);
 
         assertEq(mctAmount, expectedMct, "Decimal conversion should be exact");
     }
@@ -386,14 +386,14 @@ contract MultiCollateralTokenTest is TestHelper {
         amount = bound(amount, 1e6, 100_000e6); // 1 to 100k USDC
 
         // Mint
-        uint256 mctAmount = _mintMCT(address(usdc), amount, alice);
+        uint256 mctAmount = _mintMct(address(usdc), amount, alice);
 
-        // Transfer to naraUSD for redemption
+        // Transfer to naraUsd for redemption
         vm.prank(alice);
-        mct.transfer(address(naraUSD), mctAmount);
+        mct.transfer(address(naraUsd), mctAmount);
 
         // Redeem
-        vm.startPrank(address(naraUSD));
+        vm.startPrank(address(naraUsd));
         mct.approve(address(mct), mctAmount);
         uint256 collateralReceived = mct.redeem(address(usdc), mctAmount, bob);
         vm.stopPrank();

@@ -13,7 +13,7 @@ const _hubEid = EndpointId.ARBSEP_V2_TESTNET // Arbitrum Sepolia as hub chain
 const _spokeEids = [EndpointId.BASESEP_V2_TESTNET, EndpointId.SEPOLIA_V2_TESTNET]
 
 // ============================================
-// naraUSD OVault Deployment Configuration
+// naraUsd OVault Deployment Configuration
 // ============================================
 export const DEPLOYMENT_CONFIG: DeploymentConfig = {
     // Vault chain configuration (where the ERC4626 vault lives)
@@ -26,7 +26,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         },
         // IF YOU HAVE EXISTING CONTRACTS, SET THE ADDRESSES HERE
         // This will skip deployment and use your existing hubEid contract deployments instead
-        // This must be the address of the naraUSD (ERC4626 vault)
+        // This must be the address of the naraUsd (ERC4626 vault)
         vaultAddress: undefined, // Set to '0xabc...' to use existing vault
         // This must be the address of the MCT OFT adapter (not MCT itself - use the OFT adapter address)
         assetOFTAddress: undefined, // Set to '0xdef...' to use existing MCT OFT adapter
@@ -36,7 +36,7 @@ export const DEPLOYMENT_CONFIG: DeploymentConfig = {
         collateralAssetOFTAddress: '0x543BdA7c6cA4384FE90B1F5929bb851F52888983', // USDC OFT on Arbitrum Sepolia
     },
 
-    // Share OFT configuration (naraUSD shares on spoke chains)
+    // Share OFT configuration (naraUsd shares on spoke chains)
     shareOFT: {
         contract: 'narausd/NaraUSDOFT',
         metadata: {
@@ -69,12 +69,12 @@ export const NARAUSD_PLUS_CONFIG = {
         distributorAddress: undefined, // Set to '0xghi...' to use existing StakingRewardsDistributor
     },
 
-    // Share OFT configuration (naraUSD+ shares on spoke chains)
+    // Share OFT configuration (naraUsd+ shares on spoke chains)
     shareOFT: {
         contract: 'narausd-plus/NaraUSDPlusOFT',
         metadata: {
             name: 'NaraUSD+',
-            symbol: 'naraUSD+',
+            symbol: 'naraUsd+',
         },
         deploymentEids: _spokeEids,
     },

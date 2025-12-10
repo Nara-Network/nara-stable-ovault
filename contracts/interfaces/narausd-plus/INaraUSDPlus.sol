@@ -115,7 +115,7 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
      * @notice Get minimum shares constant
      * @return uint256 The minimum shares
      */
-    function MIN_SHARES() external view returns (uint256);
+    function minShares() external view returns (uint256);
 
     /* --------------- COOLDOWN FUNCTIONS --------------- */
 

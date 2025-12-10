@@ -24,8 +24,8 @@ contract NaraUSDPlusComposer is VaultComposerSync {
     /**
      * @notice Creates a new cross-chain vault composer for NaraUSDPlus
      * @param _vault The NaraUSDPlus contract implementing ERC4626
-     * @param _assetOFT The NaraUSD OFT adapter contract for cross-chain NaraUSD transfers
-     * @param _shareOFT The NaraUSD+ OFT adapter contract for cross-chain NaraUSD+ transfers
+     * @param _assetOft The NaraUSD OFT adapter contract for cross-chain NaraUSD transfers
+     * @param _shareOft The NaraUSD+ OFT adapter contract for cross-chain NaraUSD+ transfers
      */
-    constructor(address _vault, address _assetOFT, address _shareOFT) VaultComposerSync(_vault, _assetOFT, _shareOFT) {}
+    constructor(address _vault, address _assetOft, address _shareOft) VaultComposerSync(_vault, _assetOft, _shareOft) {}
 }

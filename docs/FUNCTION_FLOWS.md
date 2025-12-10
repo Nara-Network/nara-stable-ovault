@@ -22,7 +22,7 @@ This document outlines the function call sequences for each user action in the s
 
 ### Instant or queued redemption
 
-1. Call redeem: `NaraUSD.redeem(collateralAsset, naraUSDAmount, allowQueue)`
+1. Call redeem: `NaraUSD.redeem(collateralAsset, naraUsdAmount, allowQueue)`
    - If liquidity is available: executes instantly and returns collateral
    - If liquidity is insufficient and `allowQueue=true`: queues the request and locks NaraUSD in silo
 
@@ -49,7 +49,7 @@ This document outlines the function call sequences for each user action in the s
 1. Approve NaraUSD spending: `NaraUSD.approve(spender: NaraUSDPlus, amount)`
 2. Call deposit: `NaraUSDPlus.deposit(assets: amount, receiver)`
 
-## Unstake naraUSD+ (Hub Chain)
+## Unstake naraUsd+ (Hub Chain)
 
 ### Start cooldown (by shares)
 
@@ -59,7 +59,7 @@ This document outlines the function call sequences for each user action in the s
 ### Start cooldown (by assets)
 
 1. Call cooldown: `NaraUSDPlus.cooldownAssets(assets)`
-   - Converts assets to shares, locks naraUSD+ shares in silo and starts cooldown timer
+   - Converts assets to shares, locks naraUsd+ shares in silo and starts cooldown timer
 
 ### Complete unstaking after cooldown
 

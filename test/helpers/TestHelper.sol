@@ -5,11 +5,14 @@ import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contract
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { IOFT } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
 import { NaraUSD } from "../../contracts/narausd/NaraUSD.sol";
 import { NaraUSDPlus } from "../../contracts/narausd-plus/NaraUSDPlus.sol";
+import { NaraUSDRedeemSilo } from "../../contracts/narausd/NaraUSDRedeemSilo.sol";
+import { NaraUSDPlusSilo } from "../../contracts/narausd-plus/NaraUSDPlusSilo.sol";
 
 import { MCTOFTAdapter } from "../../contracts/mct/MCTOFTAdapter.sol";
 import { NaraUSDOFTAdapter } from "../../contracts/narausd/NaraUSDOFTAdapter.sol";
@@ -42,19 +45,19 @@ abstract contract TestHelper is TestHelperOz5 {
 
     // Real contracts
     MultiCollateralToken public mct;
-    NaraUSD public naraUSD;
-    NaraUSDPlus public naraUSDPlus;
+    NaraUSD public naraUsd;
+    NaraUSDPlus public naraUsdPlus;
 
     // Hub chain contracts (Arbitrum)
     MCTOFTAdapter public mctAdapter; // Note: MCT doesn't go cross-chain, but adapter needed for composer validation
-    NaraUSDOFTAdapter public naraUSDAdapter;
-    NaraUSDPlusOFTAdapter public naraUSDPlusAdapter;
-    NaraUSDComposer public naraUSDComposer;
-    NaraUSDPlusComposer public naraUSDPlusComposer;
+    NaraUSDOFTAdapter public naraUsdAdapter;
+    NaraUSDPlusOFTAdapter public naraUsdPlusAdapter;
+    NaraUSDComposer public naraUsdComposer;
+    NaraUSDPlusComposer public naraUsdPlusComposer;
 
     // Spoke chain contracts (Base, OP, etc.)
-    NaraUSDOFT public naraUSDOFT;
-    NaraUSDPlusOFT public naraUSDPlusOFT;
+    NaraUSDOFT public naraUsdOft;
+    NaraUSDPlusOFT public naraUsdPlusOft;
 
     // Helper variables
     uint256 public constant INITIAL_BALANCE = 1_000_000e6; // 1M USDC
@@ -104,57 +107,102 @@ abstract contract TestHelper is TestHelperOz5 {
         initialAssets[0] = address(usdc);
         initialAssets[1] = address(usdt);
 
-        // Deploy real MCT with test contract as admin
-        mct = new MultiCollateralToken(address(this), initialAssets);
+        // Deploy real MCT (upgradeable - using initialize)
+        MultiCollateralToken mctImpl = new MultiCollateralToken();
+        bytes memory mctInitData = abi.encodeWithSelector(
+            MultiCollateralToken.initialize.selector,
+            address(this),
+            initialAssets
+        );
+        mct = MultiCollateralToken(address(new ERC1967Proxy(address(mctImpl), mctInitData)));
         // Grant MINTER_ROLE to test contract for minting without collateral
         mct.grantRole(mct.MINTER_ROLE(), address(this));
 
-        // Deploy real NaraUSD vault
-        naraUSD = new NaraUSD(
+        // Deploy NaraUSDRedeemSilo first (with placeholder addresses, will update after naraUsd deployment)
+        NaraUSDRedeemSilo redeemSiloImpl = new NaraUSDRedeemSilo();
+        bytes memory redeemSiloInitData = abi.encodeWithSelector(
+            NaraUSDRedeemSilo.initialize.selector,
+            address(this), // owner
+            address(this), // Temporary placeholder vault
+            address(this) // Temporary placeholder naraUsd
+        );
+        NaraUSDRedeemSilo redeemSilo = NaraUSDRedeemSilo(
+            address(new ERC1967Proxy(address(redeemSiloImpl), redeemSiloInitData))
+        );
+
+        // Deploy real NaraUSD vault (upgradeable - using initialize)
+        NaraUSD naraUsdImpl = new NaraUSD();
+        bytes memory naraUsdInitData = abi.encodeWithSelector(
+            NaraUSD.initialize.selector,
             mct,
             address(this), // admin
             type(uint256).max, // maxMintPerBlock (unlimited for testing)
-            type(uint256).max // maxRedeemPerBlock (unlimited for testing)
+            type(uint256).max, // maxRedeemPerBlock (unlimited for testing)
+            redeemSilo // silo address
         );
+        naraUsd = NaraUSD(address(new ERC1967Proxy(address(naraUsdImpl), naraUsdInitData)));
         // Grant necessary roles
-        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(this));
-        naraUSD.grantRole(naraUSD.COLLATERAL_MANAGER_ROLE(), address(this));
+        naraUsd.grantRole(naraUsd.MINTER_ROLE(), address(this));
+        naraUsd.grantRole(naraUsd.COLLATERAL_MANAGER_ROLE(), address(this));
+        naraUsd.grantRole(naraUsd.COLLATERAL_MANAGER_ROLE(), owner); // Grant to owner for tests
         // Add MCT as minter to itself for NaraUSD minting flow
-        mct.grantRole(mct.MINTER_ROLE(), address(naraUSD));
+        mct.grantRole(mct.MINTER_ROLE(), address(naraUsd));
 
-        // Deploy real NaraUSDPlus vault
-        naraUSDPlus = new NaraUSDPlus(
-            naraUSD,
-            address(this), // initialRewarder
-            address(this) // admin
+        // Update silo with correct addresses
+        redeemSilo.setVault(address(naraUsd));
+        redeemSilo.setNaraUsd(address(naraUsd));
+
+        // Deploy NaraUSDPlusSilo first (with placeholder addresses, will update after naraUsdPlus deployment)
+        NaraUSDPlusSilo plusSiloImpl = new NaraUSDPlusSilo();
+        bytes memory plusSiloInitData = abi.encodeWithSelector(
+            NaraUSDPlusSilo.initialize.selector,
+            address(this), // owner
+            address(this), // Temporary placeholder stakingVault
+            address(this) // Temporary placeholder token
         );
+        NaraUSDPlusSilo plusSilo = NaraUSDPlusSilo(address(new ERC1967Proxy(address(plusSiloImpl), plusSiloInitData)));
+
+        // Deploy real NaraUSDPlus vault (upgradeable - using initialize)
+        NaraUSDPlus naraUsdPlusImpl = new NaraUSDPlus();
+        bytes memory naraUsdPlusInitData = abi.encodeWithSelector(
+            NaraUSDPlus.initialize.selector,
+            naraUsd,
+            address(this), // initialRewarder
+            address(this), // admin
+            plusSilo // silo address
+        );
+        naraUsdPlus = NaraUSDPlus(address(new ERC1967Proxy(address(naraUsdPlusImpl), naraUsdPlusInitData)));
         // Set cooldown to 0 for easier testing (can be changed in specific tests)
-        naraUSDPlus.setCooldownDuration(0);
+        naraUsdPlus.setCooldownDuration(0);
+
+        // Update plus silo with correct addresses
+        plusSilo.setStakingVault(address(naraUsdPlus));
+        plusSilo.setToken(address(naraUsdPlus));
 
         // Deploy OFT Adapters
         // Note: MCT adapter exists on hub but MCT never actually goes cross-chain
         // It's only needed to satisfy composer validation checks
         mctAdapter = new MCTOFTAdapter(address(mct), address(endpoints[HUB_EID]), delegate);
 
-        naraUSDAdapter = new NaraUSDOFTAdapter(address(naraUSD), address(endpoints[HUB_EID]), delegate);
+        naraUsdAdapter = new NaraUSDOFTAdapter(address(naraUsd), address(endpoints[HUB_EID]), delegate);
 
-        naraUSDPlusAdapter = new NaraUSDPlusOFTAdapter(address(naraUSDPlus), address(endpoints[HUB_EID]), delegate);
+        naraUsdPlusAdapter = new NaraUSDPlusOFTAdapter(address(naraUsdPlus), address(endpoints[HUB_EID]), delegate);
 
         // Deploy Composers
-        naraUSDComposer = new NaraUSDComposer(
-            address(naraUSD),
+        naraUsdComposer = new NaraUSDComposer(
+            address(naraUsd),
             address(mctAdapter), // ASSET_OFT for validation (MCT is vault's underlying asset)
-            address(naraUSDAdapter) // SHARE_OFT (NaraUSD goes cross-chain)
+            address(naraUsdAdapter) // SHARE_OFT (NaraUSD goes cross-chain)
         );
 
         // Whitelist USDC as collateral
         vm.prank(address(this)); // Test contract has DEFAULT_ADMIN_ROLE
-        naraUSDComposer.addWhitelistedCollateral(address(usdc), address(usdc)); // Using USDC as both asset and OFT for simplicity
+        naraUsdComposer.addWhitelistedCollateral(address(usdc), address(usdc)); // Using USDC as both asset and OFT for simplicity
 
-        naraUSDPlusComposer = new NaraUSDPlusComposer(
-            address(naraUSDPlus),
-            address(naraUSDAdapter),
-            address(naraUSDPlusAdapter)
+        naraUsdPlusComposer = new NaraUSDPlusComposer(
+            address(naraUsdPlus),
+            address(naraUsdAdapter),
+            address(naraUsdPlusAdapter)
         );
     }
 
@@ -165,9 +213,9 @@ abstract contract TestHelper is TestHelperOz5 {
         // Simulates spoke chain using mock endpoints (no Foundry fork switching)
 
         // Deploy OFTs on spoke chain
-        naraUSDOFT = new NaraUSDOFT(address(endpoints[SPOKE_EID]), delegate);
+        naraUsdOft = new NaraUSDOFT(address(endpoints[SPOKE_EID]), delegate);
 
-        naraUSDPlusOFT = new NaraUSDPlusOFT(address(endpoints[SPOKE_EID]), delegate);
+        naraUsdPlusOft = new NaraUSDPlusOFT(address(endpoints[SPOKE_EID]), delegate);
     }
 
     /**
@@ -175,16 +223,16 @@ abstract contract TestHelper is TestHelperOz5 {
      */
     function _wireOApps() internal {
         // Wire NaraUSD OFT <-> Adapter
-        address[] memory naraUSDPath = new address[](2);
-        naraUSDPath[0] = address(naraUSDAdapter);
-        naraUSDPath[1] = address(naraUSDOFT);
-        this.wireOApps(naraUSDPath);
+        address[] memory naraUsdPath = new address[](2);
+        naraUsdPath[0] = address(naraUsdAdapter);
+        naraUsdPath[1] = address(naraUsdOft);
+        this.wireOApps(naraUsdPath);
 
         // Wire NaraUSDPlus OFT <-> Adapter
-        address[] memory naraUSDPlusPath = new address[](2);
-        naraUSDPlusPath[0] = address(naraUSDPlusAdapter);
-        naraUSDPlusPath[1] = address(naraUSDPlusOFT);
-        this.wireOApps(naraUSDPlusPath);
+        address[] memory naraUsdPlusPath = new address[](2);
+        naraUsdPlusPath[0] = address(naraUsdPlusAdapter);
+        naraUsdPlusPath[1] = address(naraUsdPlusOft);
+        this.wireOApps(naraUsdPlusPath);
     }
 
     /**
@@ -210,9 +258,9 @@ abstract contract TestHelper is TestHelperOz5 {
         // Mint NaraUSD to test accounts for staking tests
         // First mint MCT, then deposit to get NaraUSD
         mct.mintWithoutCollateral(address(this), INITIAL_BALANCE_18 * 2);
-        mct.approve(address(naraUSD), INITIAL_BALANCE_18 * 2);
-        naraUSD.deposit(INITIAL_BALANCE_18, alice);
-        naraUSD.deposit(INITIAL_BALANCE_18, bob);
+        mct.approve(address(naraUsd), INITIAL_BALANCE_18 * 2);
+        naraUsd.deposit(INITIAL_BALANCE_18, alice);
+        naraUsd.deposit(INITIAL_BALANCE_18, bob);
     }
 
     /**

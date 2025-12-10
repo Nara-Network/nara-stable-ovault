@@ -29,8 +29,12 @@ contract NaraUSDOFT is OFT, AccessControl {
 
     /// @notice Ensure blacklist target is not admin
     modifier notAdmin(address target) {
-        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+        _notAdmin(target);
         _;
+    }
+
+    function _notAdmin(address target) internal view {
+        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
     }
 
     /**
@@ -38,7 +42,7 @@ contract NaraUSDOFT is OFT, AccessControl {
      * @param _lzEndpoint The address of the LayerZero endpoint on this chain
      * @param _delegate The address that will have owner privileges
      */
-    constructor(address _lzEndpoint, address _delegate) OFT("naraUSD", "naraUSD", _lzEndpoint, _delegate) Ownable(_delegate) {
+    constructor(address _lzEndpoint, address _delegate) OFT("naraUsd", "naraUsd", _lzEndpoint, _delegate) Ownable(_delegate) {
         _grantRole(DEFAULT_ADMIN_ROLE, _delegate);
         _grantRole(BLACKLIST_MANAGER_ROLE, _delegate);
     }

@@ -1,3 +1,5 @@
+import { Contract } from 'ethers'
+import { upgrades } from 'hardhat'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { DeployResult } from 'hardhat-deploy/types'
 
@@ -36,6 +38,269 @@ export async function deployContract(
     }
 
     return deployment
+}
+
+/**
+ * Deploy an upgradeable contract using UUPS proxy pattern
+ * @param hre Hardhat runtime environment
+ * @param contractName Name of the contract to deploy
+ * @param deployer Address of the deployer
+ * @param initializeArgs Arguments for the initialize function
+ * @param options Deployment options
+ * @returns Object containing proxy address, implementation address, and proxy contract instance
+ */
+export async function deployUpgradeableContract(
+    hre: HardhatRuntimeEnvironment,
+    contractName: string,
+    deployer: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    initializeArgs: any[],
+    options: {
+        initializer?: string
+        kind?: 'uups' | 'transparent'
+        log?: boolean
+        skipIfAlreadyDeployed?: boolean
+    } = {}
+): Promise<{
+    proxyAddress: string
+    implementationAddress: string
+    proxy: Contract
+}> {
+    const { initializer = 'initialize', kind = 'uups', log = true, skipIfAlreadyDeployed = true } = options
+
+    // Check if deployment already exists
+    if (skipIfAlreadyDeployed) {
+        const existingDeployment = await hre.deployments.getOrNull(contractName)
+        if (existingDeployment) {
+            // Verify the contract exists on-chain
+            const code = await hre.ethers.provider.getCode(existingDeployment.address)
+            if (code !== '0x' && code !== '0x0') {
+                if (log) {
+                    console.log(`⏭️  ${contractName} already deployed at: ${existingDeployment.address}`)
+                }
+
+                // Get the implementation address from the proxy
+                const implementationAddress = await upgrades.erc1967.getImplementationAddress(
+                    existingDeployment.address
+                )
+
+                // Get the proxy contract instance
+                const ContractFactory = await hre.ethers.getContractFactory(contractName)
+                const proxy = ContractFactory.attach(existingDeployment.address)
+
+                if (log) {
+                    console.log(`   ✓ Using existing proxy: ${existingDeployment.address}`)
+                    console.log(`   ✓ Implementation: ${implementationAddress}`)
+                }
+
+                return {
+                    proxyAddress: existingDeployment.address,
+                    implementationAddress,
+                    proxy,
+                }
+            } else {
+                // Deployment record exists but contract is not on-chain, proceed with deployment
+                if (log) {
+                    console.log(
+                        `⚠️  Deployment record exists but contract not found on-chain. Deploying new instance...`
+                    )
+                }
+            }
+        }
+    }
+
+    if (log) {
+        console.log(`Deploying upgradeable ${contractName} (${kind.toUpperCase()} proxy)...`)
+        console.log(`   Initialize function: ${initializer}`)
+        console.log(`   Args: ${JSON.stringify(initializeArgs, null, 2)}`)
+    }
+
+    const ContractFactory = await hre.ethers.getContractFactory(contractName)
+
+    const proxy = await upgrades.deployProxy(ContractFactory, initializeArgs, {
+        initializer,
+        kind,
+    })
+
+    await proxy.deployed()
+
+    const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxy.address)
+
+    // Get transaction receipt for deployment info
+    const deployTx = proxy.deployTransaction
+    const receipt = await proxy.provider.getTransactionReceipt(deployTx.hash)
+
+    // Get contract artifact for ABI
+    const artifact = await hre.artifacts.readArtifact(contractName)
+
+    // Save proxy deployment to hardhat-deploy deployments folder
+    await hre.deployments.save(contractName, {
+        address: proxy.address,
+        abi: artifact.abi,
+        transactionHash: deployTx.hash,
+        receipt,
+        args: initializeArgs,
+        libraries: {},
+    })
+
+    // Save implementation deployment as well
+    const implementationName = `${contractName}_Implementation`
+    await hre.deployments.save(implementationName, {
+        address: implementationAddress,
+        abi: artifact.abi,
+        transactionHash: deployTx.hash,
+        receipt,
+        args: [],
+        libraries: {},
+    })
+
+    if (log) {
+        console.log(`   ✓ Proxy deployed at: ${proxy.address}`)
+        console.log(`   ✓ Implementation deployed at: ${implementationAddress}`)
+        console.log(`   ✓ Saved to deployments folder: ${contractName}`)
+    }
+
+    return {
+        proxyAddress: proxy.address,
+        implementationAddress,
+        proxy,
+    }
+}
+
+/**
+ * Upgrade an upgradeable contract to a new implementation
+ * @param hre Hardhat runtime environment
+ * @param proxyAddress The proxy address (users interact with this)
+ * @param newContractName Name of the new contract implementation
+ * @param options Upgrade options
+ * @returns Object containing new implementation address and upgraded proxy contract instance
+ */
+export async function upgradeContract(
+    hre: HardhatRuntimeEnvironment,
+    proxyAddress: string,
+    newContractName: string,
+    options: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        call?: { fn: string; args: any[] } // Optional call to make after upgrade (for migrations)
+        log?: boolean
+    } = {}
+): Promise<{
+    implementationAddress: string
+    proxy: Contract
+}> {
+    const { call, log = true } = options
+
+    if (log) {
+        console.log(`Upgrading contract at proxy: ${proxyAddress}`)
+        console.log(`   New implementation: ${newContractName}`)
+        if (call) {
+            console.log(`   Post-upgrade call: ${call.fn}(${call.args.join(', ')})`)
+        }
+    }
+
+    // Get the current implementation address before upgrade
+    const oldImplementation = await upgrades.erc1967.getImplementationAddress(proxyAddress)
+    if (log) {
+        console.log(`   Current implementation: ${oldImplementation}`)
+    }
+
+    // Get the contract factory for the new implementation
+    const ContractFactory = await hre.ethers.getContractFactory(newContractName)
+
+    // Prepare upgrade options
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const upgradeOptions: any = {}
+    if (call) {
+        upgradeOptions.call = {
+            fn: call.fn,
+            args: call.args,
+        }
+    }
+
+    // Perform the upgrade
+    const upgradedProxy = await upgrades.upgradeProxy(proxyAddress, ContractFactory, upgradeOptions)
+
+    await upgradedProxy.deployed()
+
+    // Get the new implementation address
+    const newImplementation = await upgrades.erc1967.getImplementationAddress(proxyAddress)
+
+    // Get transaction receipt for upgrade info
+    // For upgrades, we need to get the transaction from the upgrade operation
+    let receipt = null
+    let transactionHash = ''
+    try {
+        // Try to get the transaction from the upgraded proxy
+        if (upgradedProxy.deployTransaction) {
+            transactionHash = upgradedProxy.deployTransaction.hash
+            receipt = await upgradedProxy.provider.getTransactionReceipt(transactionHash)
+        }
+    } catch {
+        // If we can't get the transaction, that's okay - we'll save without it
+    }
+
+    // Get contract artifact for ABI
+    const artifact = await hre.artifacts.readArtifact(newContractName)
+
+    // Try to get the original contract name from deployments (proxy name)
+    // If not found, use the newContractName as fallback
+    let proxyDeploymentName = newContractName
+    try {
+        const existingDeployment = await hre.deployments.getOrNull(newContractName)
+        if (existingDeployment) {
+            proxyDeploymentName = newContractName
+        }
+    } catch {
+        // If deployment doesn't exist, use newContractName
+    }
+
+    // Update implementation deployment in deployments folder
+    const implementationName = `${proxyDeploymentName}_Implementation`
+    await hre.deployments.save(implementationName, {
+        address: newImplementation,
+        abi: artifact.abi,
+        transactionHash: transactionHash || undefined,
+        receipt: receipt || undefined,
+        args: [],
+        libraries: {},
+    })
+
+    if (log) {
+        console.log(`   ✓ Upgrade successful!`)
+        console.log(`   ✓ New implementation: ${newImplementation}`)
+        console.log(`   ✓ Proxy address (unchanged): ${proxyAddress}`)
+        console.log(`   ✓ Updated implementation in deployments folder: ${implementationName}`)
+    }
+
+    return {
+        implementationAddress: newImplementation,
+        proxy: upgradedProxy,
+    }
+}
+
+/**
+ * Prepare an upgrade (validate without executing)
+ * Useful for testing if an upgrade is valid before actually upgrading
+ * @param hre Hardhat runtime environment
+ * @param proxyAddress The proxy address
+ * @param newContractName Name of the new contract implementation
+ * @returns The address of the new implementation that would be deployed
+ */
+export async function prepareUpgrade(
+    hre: HardhatRuntimeEnvironment,
+    proxyAddress: string,
+    newContractName: string
+): Promise<string> {
+    console.log(`Preparing upgrade for proxy: ${proxyAddress}`)
+    console.log(`   New implementation: ${newContractName}`)
+
+    const ContractFactory = await hre.ethers.getContractFactory(newContractName)
+    const newImplementationAddress = await upgrades.prepareUpgrade(proxyAddress, ContractFactory)
+
+    console.log(`   ✓ Upgrade preparation successful`)
+    console.log(`   ✓ New implementation would be deployed at: ${newImplementationAddress}`)
+
+    return newImplementationAddress
 }
 
 // Network validation

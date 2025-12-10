@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../mct/MultiCollateralToken.sol";
 import "./NaraUSDRedeemSilo.sol";
 
@@ -37,8 +38,17 @@ interface IKeyring {
  * - Collateral is converted to MCT, then NaraUSD shares are minted
  * - Redemptions: instant if liquidity available, otherwise queued for solver execution
  * - Users can cancel queued redemption requests anytime
+ * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable {
+contract NaraUSD is
+    Initializable,
+    ERC4626Upgradeable,
+    ERC20PermitUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -68,14 +78,14 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
     /// @notice Redemption request structure
     struct RedemptionRequest {
-        uint152 naraUSDAmount; // Amount of NaraUSD locked for redemption
+        uint152 naraUsdAmount; // Amount of NaraUSD locked for redemption
         address collateralAsset; // Collateral asset to receive
     }
 
     /* --------------- STATE VARIABLES --------------- */
 
     /// @notice The MCT token (underlying asset)
-    MultiCollateralToken public immutable mct;
+    MultiCollateralToken public mct;
 
     /// @notice NaraUSD minted per block
     mapping(uint256 => uint256) public mintedPerBlock;
@@ -102,7 +112,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     mapping(address => RedemptionRequest) public redemptionRequests;
 
     /// @notice Silo contract for holding locked NaraUSD during redemption queue
-    NaraUSDRedeemSilo public immutable redeemSilo;
+    NaraUSDRedeemSilo public redeemSilo;
 
     /// @notice Mint fee in basis points (e.g., 10 = 0.1%)
     uint16 public mintFeeBps;
@@ -142,12 +152,12 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         address indexed beneficiary,
         address indexed collateralAsset,
         uint256 collateralAmount,
-        uint256 naraUSDAmount
+        uint256 naraUsdAmount
     );
     event Redeem(
         address indexed beneficiary,
         address indexed collateralAsset,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         uint256 collateralAmount
     );
     event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
@@ -155,14 +165,14 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
     event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
     event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
-    event RedemptionRequested(address indexed user, uint256 naraUSDAmount, address indexed collateralAsset);
+    event RedemptionRequested(address indexed user, uint256 naraUsdAmount, address indexed collateralAsset);
     event RedemptionCompleted(
         address indexed user,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         address indexed collateralAsset,
         uint256 collateralAmount
     );
-    event RedemptionCancelled(address indexed user, uint256 naraUSDAmount);
+    event RedemptionCancelled(address indexed user, uint256 naraUsdAmount);
     event MintFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
@@ -276,18 +286,42 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         }
     }
 
-    /* --------------- CONSTRUCTOR --------------- */
+    /* --------------- INITIALIZER --------------- */
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @notice Initialize the contract
+     * @param _mct The MCT token (underlying asset)
+     * @param admin Admin address
+     * @param _maxMintPerBlock Max mint per block
+     * @param _maxRedeemPerBlock Max redeem per block
+     * @param _redeemSilo The redeem silo address (must be deployed separately as upgradeable proxy)
+     */
+    function initialize(
         MultiCollateralToken _mct,
         address admin,
         uint256 _maxMintPerBlock,
-        uint256 _maxRedeemPerBlock
-    ) ERC20("Nara USD", "NaraUSD") ERC4626(IERC20(address(_mct))) ERC20Permit("NaraUSD") {
+        uint256 _maxRedeemPerBlock,
+        NaraUSDRedeemSilo _redeemSilo
+    ) public initializer {
         if (address(_mct) == address(0)) revert ZeroAddressException();
         if (admin == address(0)) revert ZeroAddressException();
+        if (address(_redeemSilo) == address(0)) revert ZeroAddressException();
+
+        __ERC20_init("Nara USD", "NaraUSD");
+        __ERC4626_init(IERC20(address(_mct)));
+        __ERC20Permit_init("NaraUSD");
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
 
         mct = _mct;
+        redeemSilo = _redeemSilo;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GATEKEEPER_ROLE, admin);
@@ -297,10 +331,13 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
         _setMaxMintPerBlock(_maxMintPerBlock);
         _setMaxRedeemPerBlock(_maxRedeemPerBlock);
-
-        // Create silo for holding locked NaraUSD during redemption queue
-        redeemSilo = new NaraUSDRedeemSilo(address(this), address(this));
     }
+
+    /**
+     * @notice Authorize upgrade (UUPS pattern)
+     * @dev Only DEFAULT_ADMIN_ROLE can authorize upgrades
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /* --------------- EXTERNAL MINT/REDEEM --------------- */
 
@@ -308,12 +345,12 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @notice Mint NaraUSD by depositing collateral
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
-     * @return naraUSDAmount The amount of NaraUSD minted
+     * @return naraUsdAmount The amount of NaraUSD minted
      */
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external nonReentrant whenNotPaused returns (uint256 naraUSDAmount) {
+    ) external nonReentrant whenNotPaused returns (uint256 naraUsdAmount) {
         return _mintWithCollateral(collateralAsset, collateralAmount, msg.sender);
     }
 
@@ -322,13 +359,13 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
      * @param beneficiary The address to receive minted NaraUSD
-     * @return naraUSDAmount The amount of NaraUSD minted
+     * @return naraUsdAmount The amount of NaraUSD minted
      */
     function mintWithCollateralFor(
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) external nonReentrant whenNotPaused returns (uint256 naraUSDAmount) {
+    ) external nonReentrant whenNotPaused returns (uint256 naraUsdAmount) {
         if (delegatedSigner[msg.sender][beneficiary] != DelegatedSignerStatus.ACCEPTED) {
             revert InvalidSignature();
         }
@@ -355,21 +392,21 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     /**
      * @notice Redeem NaraUSD for collateral - instant if liquidity available, otherwise queued
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD to redeem
+     * @param naraUsdAmount The amount of NaraUSD to redeem
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
      */
     function redeem(
         address collateralAsset,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         bool allowQueue
     ) external nonReentrant whenNotPaused returns (uint256 collateralAmount, bool wasQueued) {
-        if (naraUSDAmount == 0) revert InvalidAmount();
+        if (naraUsdAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
 
         // Check minimum redeem amount
-        if (minRedeemAmount > 0 && naraUSDAmount < minRedeemAmount) {
+        if (minRedeemAmount > 0 && naraUsdAmount < minRedeemAmount) {
             revert BelowMinimumAmount();
         }
 
@@ -382,19 +419,19 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         _checkKeyringCredential(msg.sender);
 
         // Calculate collateral needed
-        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, naraUSDAmount);
+        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, naraUsdAmount);
 
         // Check if MCT has sufficient collateral for instant redemption
         uint256 availableCollateral = mct.collateralBalance(collateralAsset);
 
         if (availableCollateral >= collateralNeeded) {
             // Instant redemption path
-            collateralAmount = _instantRedeem(msg.sender, collateralAsset, naraUSDAmount);
+            collateralAmount = _instantRedeem(msg.sender, collateralAsset, naraUsdAmount);
             return (collateralAmount, false);
         } else {
             // Queue path
             if (!allowQueue) revert InsufficientCollateral();
-            _queueRedeem(msg.sender, collateralAsset, naraUSDAmount);
+            _queueRedeem(msg.sender, collateralAsset, naraUsdAmount);
             return (0, true);
         }
     }
@@ -435,7 +472,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
         RedemptionRequest memory request = redemptionRequests[msg.sender];
 
-        if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
+        if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
         if (newAmount == 0) revert InvalidAmount();
 
         // Check minimum redeem amount
@@ -444,7 +481,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         }
 
         address collateralAsset = request.collateralAsset;
-        uint256 currentAmount = request.naraUSDAmount;
+        uint256 currentAmount = request.naraUsdAmount;
 
         // Check if instant redemption is now possible
         uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, newAmount);
@@ -497,7 +534,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
             }
 
             // Update stored amount
-            redemptionRequests[msg.sender].naraUSDAmount = uint152(newAmount);
+            redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
 
             emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
         }
@@ -513,17 +550,17 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
         RedemptionRequest memory request = redemptionRequests[msg.sender];
 
-        if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
+        if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
 
-        uint256 naraUSDAmount = request.naraUSDAmount;
+        uint256 naraUsdAmount = request.naraUsdAmount;
 
         // Clear redemption request
         delete redemptionRequests[msg.sender];
 
         // Return NaraUSD from silo to user
-        redeemSilo.withdraw(msg.sender, naraUSDAmount);
+        redeemSilo.withdraw(msg.sender, naraUsdAmount);
 
-        emit RedemptionCancelled(msg.sender, naraUSDAmount);
+        emit RedemptionCancelled(msg.sender, naraUsdAmount);
     }
 
     /* --------------- ADMIN FUNCTIONS --------------- */
@@ -810,13 +847,13 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @param collateralAsset The collateral asset
      * @param collateralAmount The amount of collateral
      * @param beneficiary The address to receive NaraUSD
-     * @return naraUSDAmount The amount of NaraUSD minted
+     * @return naraUsdAmount The amount of NaraUSD minted
      */
     function _mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) internal belowMaxMintPerBlock(collateralAmount) returns (uint256 naraUSDAmount) {
+    ) internal belowMaxMintPerBlock(collateralAmount) returns (uint256 naraUsdAmount) {
         if (collateralAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (beneficiary == address(0)) revert ZeroAddressException();
@@ -830,21 +867,21 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         _checkKeyringCredential(msg.sender);
 
         // Convert collateral to NaraUSD amount (normalize decimals)
-        naraUSDAmount = _convertToNaraUSDAmount(collateralAsset, collateralAmount);
+        naraUsdAmount = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
 
         // Check minimum mint amount
-        if (minMintAmount > 0 && naraUSDAmount < minMintAmount) {
+        if (minMintAmount > 0 && naraUsdAmount < minMintAmount) {
             revert BelowMinimumAmount();
         }
 
         // Track minted amount
-        mintedPerBlock[block.number] += naraUSDAmount;
+        mintedPerBlock[block.number] += naraUsdAmount;
 
         // Transfer collateral from user to this contract
         IERC20(collateralAsset).safeTransferFrom(beneficiary, address(this), collateralAmount);
 
         // Calculate mint fee on collateral amount (convert to 18 decimals for fee calculation)
-        uint256 collateralAmount18 = _convertToNaraUSDAmount(collateralAsset, collateralAmount);
+        uint256 collateralAmount18 = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
         uint256 feeAmount18 = _calculateMintFee(collateralAmount18);
         uint256 collateralAfterFee = collateralAmount;
         uint256 collateralForMinting = collateralAmount;
@@ -881,7 +918,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @param collateralAmount The amount of collateral
      * @return The equivalent NaraUSD amount (18 decimals)
      */
-    function _convertToNaraUSDAmount(
+    function _convertToNaraUsdAmount(
         address collateralAsset,
         uint256 collateralAmount
     ) internal view returns (uint256) {
@@ -901,23 +938,23 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     /**
      * @notice Convert NaraUSD amount to collateral amount (denormalize decimals)
      * @param collateralAsset The collateral asset address
-     * @param naraUSDAmount The amount of NaraUSD (18 decimals)
+     * @param naraUsdAmount The amount of NaraUSD (18 decimals)
      * @return The equivalent collateral amount
      */
     function _convertToCollateralAmount(
         address collateralAsset,
-        uint256 naraUSDAmount
+        uint256 naraUsdAmount
     ) internal view returns (uint256) {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         if (collateralDecimals == 18) {
-            return naraUSDAmount;
+            return naraUsdAmount;
         } else if (collateralDecimals < 18) {
             // Scale down (e.g., 18 decimals -> USDC 6 decimals)
-            return naraUSDAmount / (10 ** (18 - collateralDecimals));
+            return naraUsdAmount / (10 ** (18 - collateralDecimals));
         } else {
             // Scale up (shouldn't happen with standard stablecoins)
-            return naraUSDAmount * (10 ** (collateralDecimals - 18));
+            return naraUsdAmount * (10 ** (collateralDecimals - 18));
         }
     }
 
@@ -947,21 +984,21 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @notice Override ERC4626 withdraw - disabled in favor of custom redeem flow
      * @dev Use redeem() with instant/queue logic instead
      */
-    function withdraw(uint256, address, address) public pure override returns (uint256) {
+    function withdraw(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
         revert("Use redeem()");
     }
 
     /**
      * @notice Override ERC4626 redeem - disabled in favor of custom redeem flow
      * @dev The ERC4626 redeem(shares, receiver, owner) is replaced by our custom
-     *      redeem(collateralAsset, naraUSDAmount, allowQueue) function
+     *      redeem(collateralAsset, naraUsdAmount, allowQueue) function
      */
-    function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert("Use redeem(collateralAsset, naraUSDAmount, allowQueue)");
+    function redeem(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
+        revert("Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
     }
 
     /// @dev Override decimals to ensure 18 decimals
-    function decimals() public pure override(ERC4626, ERC20) returns (uint8) {
+    function decimals() public pure override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
         return 18;
     }
 
@@ -972,9 +1009,9 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev Fee is calculated on MCT amount, then shares are minted 1:1 with remaining MCT
      */
-    function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
+    function previewDeposit(uint256 assets) public view override(ERC4626Upgradeable) returns (uint256 shares) {
         // First get base conversion using ERC4626 formula
-        uint256 baseShares = _convertToShares(assets, Math.Rounding.Floor);
+        uint256 baseShares = convertToShares(assets);
 
         // Apply mint fee if configured
         uint256 feeAmount = _calculateMintFee(baseShares);
@@ -990,7 +1027,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev To get 'shares' after fee, we need more MCT assets
      */
-    function previewMint(uint256 shares) public view override returns (uint256 assets) {
+    function previewMint(uint256 shares) public view override(ERC4626Upgradeable) returns (uint256 assets) {
         // Calculate how many shares we need before fee to get 'shares' after fee
         uint256 sharesBeforeFee = shares;
         if (feeTreasury != address(0)) {
@@ -1013,7 +1050,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         }
 
         // Convert sharesBeforeFee to assets using base conversion
-        assets = _convertToAssets(sharesBeforeFee, Math.Rounding.Ceil);
+        assets = convertToAssets(sharesBeforeFee);
 
         return assets;
     }
@@ -1025,9 +1062,9 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
      * @dev Note: Actual redeem fee is on collateral, but for ERC4626 we apply it to MCT (1:1 equivalent)
      */
-    function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
+    function previewRedeem(uint256 shares) public view override(ERC4626Upgradeable) returns (uint256 assets) {
         // First get base conversion using ERC4626 formula
-        uint256 baseAssets = _convertToAssets(shares, Math.Rounding.Floor);
+        uint256 baseAssets = convertToAssets(shares);
 
         // Apply redeem fee if configured
         uint256 feeAmount = _calculateRedeemFee(baseAssets);
@@ -1043,7 +1080,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
      * @dev To get 'assets' after fee, we need to redeem more shares
      */
-    function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
+    function previewWithdraw(uint256 assets) public view override(ERC4626Upgradeable) returns (uint256 shares) {
         // Calculate how many assets we need before fee to get 'assets' after fee
         uint256 assetsBeforeFee = assets;
         if (feeTreasury != address(0)) {
@@ -1066,7 +1103,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         }
 
         // Convert assetsBeforeFee to shares using base conversion
-        shares = _convertToShares(assetsBeforeFee, Math.Rounding.Ceil);
+        shares = convertToShares(assetsBeforeFee);
 
         return shares;
     }
@@ -1075,24 +1112,24 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @notice Internal function to execute instant redemption
      * @param user The user redeeming
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD to redeem
+     * @param naraUsdAmount The amount of NaraUSD to redeem
      * @return collateralAmount The amount of collateral sent to user (after fees)
      */
     function _instantRedeem(
         address user,
         address collateralAsset,
-        uint256 naraUSDAmount
-    ) internal belowMaxRedeemPerBlock(naraUSDAmount) returns (uint256 collateralAmount) {
+        uint256 naraUsdAmount
+    ) internal belowMaxRedeemPerBlock(naraUsdAmount) returns (uint256 collateralAmount) {
         // Track redeemed amount for per-block limit
-        redeemedPerBlock[block.number] += naraUSDAmount;
+        redeemedPerBlock[block.number] += naraUsdAmount;
 
         // Burn NaraUSD from user
-        _burn(user, naraUSDAmount);
+        _burn(user, naraUsdAmount);
 
         // Execute redemption and transfer to user
-        collateralAmount = _executeRedemption(user, collateralAsset, naraUSDAmount);
+        collateralAmount = _executeRedemption(user, collateralAsset, naraUsdAmount);
 
-        emit Redeem(user, collateralAsset, naraUSDAmount, collateralAmount);
+        emit Redeem(user, collateralAsset, naraUsdAmount, collateralAmount);
 
         return collateralAmount;
     }
@@ -1101,21 +1138,21 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @notice Internal function to queue a redemption request
      * @param user The user requesting redemption
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD to lock
+     * @param naraUsdAmount The amount of NaraUSD to lock
      */
-    function _queueRedeem(address user, address collateralAsset, uint256 naraUSDAmount) internal {
-        if (redemptionRequests[user].naraUSDAmount > 0) revert ExistingRedemptionRequest();
+    function _queueRedeem(address user, address collateralAsset, uint256 naraUsdAmount) internal {
+        if (redemptionRequests[user].naraUsdAmount > 0) revert ExistingRedemptionRequest();
 
         // Transfer NaraUSD from user to silo (escrow)
-        _transfer(user, address(redeemSilo), naraUSDAmount);
+        _transfer(user, address(redeemSilo), naraUsdAmount);
 
         // Record redemption request (valid until completed or cancelled)
         redemptionRequests[user] = RedemptionRequest({
-            naraUSDAmount: uint152(naraUSDAmount),
+            naraUsdAmount: uint152(naraUsdAmount),
             collateralAsset: collateralAsset
         });
 
-        emit RedemptionRequested(user, naraUSDAmount, collateralAsset);
+        emit RedemptionRequested(user, naraUsdAmount, collateralAsset);
     }
 
     /**
@@ -1127,7 +1164,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     function _completeRedemption(address user) internal returns (uint256 collateralAmount) {
         RedemptionRequest memory request = redemptionRequests[user];
 
-        if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
+        if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
 
         // Check blacklist restrictions (full restriction prevents redeeming)
         if (_isBlacklisted(user)) {
@@ -1137,28 +1174,28 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         // Check Keyring credentials
         _checkKeyringCredential(user);
 
-        uint256 naraUSDAmount = request.naraUSDAmount;
+        uint256 naraUsdAmount = request.naraUsdAmount;
         address collateralAsset = request.collateralAsset;
 
         // Check per-block redemption limit
-        _checkBelowMaxRedeemPerBlock(naraUSDAmount);
+        _checkBelowMaxRedeemPerBlock(naraUsdAmount);
 
         // Track redeemed amount for per-block limit
-        redeemedPerBlock[block.number] += naraUSDAmount;
+        redeemedPerBlock[block.number] += naraUsdAmount;
 
         // Clear redemption request
         delete redemptionRequests[user];
 
         // Withdraw NaraUSD from silo back to this contract
-        redeemSilo.withdraw(address(this), naraUSDAmount);
+        redeemSilo.withdraw(address(this), naraUsdAmount);
 
         // Burn NaraUSD
-        _burn(address(this), naraUSDAmount);
+        _burn(address(this), naraUsdAmount);
 
         // Execute redemption and transfer to user
-        collateralAmount = _executeRedemption(user, collateralAsset, naraUSDAmount);
+        collateralAmount = _executeRedemption(user, collateralAsset, naraUsdAmount);
 
-        emit RedemptionCompleted(user, naraUSDAmount, collateralAsset, collateralAmount);
+        emit RedemptionCompleted(user, naraUsdAmount, collateralAsset, collateralAmount);
 
         return collateralAmount;
     }
@@ -1167,19 +1204,19 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @notice Internal function to execute MCT redemption with fee handling
      * @param user The user receiving collateral
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD being redeemed
+     * @param naraUsdAmount The amount of NaraUSD being redeemed
      * @return collateralAmount The amount of collateral sent to user (after fees)
      */
     function _executeRedemption(
         address user,
         address collateralAsset,
-        uint256 naraUSDAmount
+        uint256 naraUsdAmount
     ) internal returns (uint256 collateralAmount) {
         // Redeem MCT for collateral to this contract
-        uint256 receivedCollateral = mct.redeem(collateralAsset, naraUSDAmount, address(this));
+        uint256 receivedCollateral = mct.redeem(collateralAsset, naraUsdAmount, address(this));
 
         // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
-        uint256 receivedCollateral18 = _convertToNaraUSDAmount(collateralAsset, receivedCollateral);
+        uint256 receivedCollateral18 = _convertToNaraUsdAmount(collateralAsset, receivedCollateral);
         uint256 feeAmount18 = _calculateRedeemFee(receivedCollateral18);
         uint256 collateralAfterFee = receivedCollateral;
 
@@ -1205,7 +1242,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev Only admin can move their tokens via redistributeLockedAmount
      * @dev Note: Keyring checks are NOT applied to transfers - NaraUSD is freely transferrable
      */
-    function _update(address from, address to, uint256 value) internal virtual override {
+    function _update(address from, address to, uint256 value) internal virtual override(ERC20Upgradeable) {
         // Blacklisted addresses are completely frozen
         if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
@@ -1220,7 +1257,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     /**
      * @notice Prevent renouncing ownership
      */
-    function renounceRole(bytes32 role, address account) public virtual override {
+    function renounceRole(bytes32 role, address account) public virtual override(AccessControlUpgradeable) {
         if (role == DEFAULT_ADMIN_ROLE) revert CantRenounceOwnership();
         super.renounceRole(role, account);
     }

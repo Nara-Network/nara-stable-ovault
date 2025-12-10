@@ -3,8 +3,10 @@ pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./NaraUSDPlus.sol";
 import "../interfaces/narausd/INaraUSD.sol";
 
@@ -17,8 +19,14 @@ import "../interfaces/narausd/INaraUSD.sol";
  *      Roles:
  *      - Owner (multisig): Configuration calls only
  *      - Operator (delegated signer): Can transfer rewards to staking contract
+ * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
+contract StakingRewardsDistributor is
+    Initializable,
+    Ownable2StepUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -26,13 +34,13 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     /// @notice Placeholder address for native ETH
     address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    /* --------------- IMMUTABLES --------------- */
+    /* --------------- STATE VARIABLES --------------- */
 
     /// @notice Staking vault contract
-    NaraUSDPlus public immutable STAKING_VAULT;
+    NaraUSDPlus public stakingVault;
 
     /// @notice NaraUSD token
-    IERC20 public immutable NARAUSD_TOKEN;
+    IERC20 public narausdToken;
 
     /* --------------- STATE VARIABLES --------------- */
 
@@ -53,36 +61,51 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     error OnlyOperator();
     error InsufficientFunds();
 
-    /* --------------- CONSTRUCTOR --------------- */
+    /* --------------- INITIALIZER --------------- */
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
-     * @notice Constructor for StakingRewardsDistributor
+     * @notice Initialize the contract
      * @param _stakingVault The staking vault contract
      * @param _narausd The NaraUSD token contract
      * @param _admin The admin address (multisig)
      * @param _operator The operator address (delegated signer)
      */
-    constructor(NaraUSDPlus _stakingVault, IERC20 _narausd, address _admin, address _operator) Ownable(msg.sender) {
+    function initialize(
+        NaraUSDPlus _stakingVault,
+        IERC20 _narausd,
+        address _admin,
+        address _operator
+    ) public initializer {
         if (address(_stakingVault) == address(0)) revert InvalidZeroAddress();
         if (address(_narausd) == address(0)) revert InvalidZeroAddress();
         if (_admin == address(0)) revert InvalidZeroAddress();
         if (_operator == address(0)) revert InvalidZeroAddress();
 
-        STAKING_VAULT = _stakingVault;
-        NARAUSD_TOKEN = _narausd;
+        __Ownable_init(_admin);
+        __Ownable2Step_init();
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
 
-        _transferOwnership(msg.sender);
+        stakingVault = _stakingVault;
+        narausdToken = _narausd;
 
         // Set the operator
         setOperator(_operator);
 
         // Approve NaraUSD to the staking contract
-        NARAUSD_TOKEN.safeIncreaseAllowance(address(STAKING_VAULT), type(uint256).max);
-
-        if (msg.sender != _admin) {
-            _transferOwnership(_admin);
-        }
+        narausdToken.safeIncreaseAllowance(address(stakingVault), type(uint256).max);
     }
+
+    /**
+     * @notice Authorize upgrade (UUPS pattern)
+     * @dev Only owner can authorize upgrades
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /* --------------- EXTERNAL --------------- */
 
@@ -96,9 +119,9 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
         if (msg.sender != operator) revert OnlyOperator();
 
         // Check that this contract holds enough NaraUSD balance
-        if (NARAUSD_TOKEN.balanceOf(address(this)) < _rewardsAmount) revert InsufficientFunds();
+        if (narausdToken.balanceOf(address(this)) < _rewardsAmount) revert InsufficientFunds();
 
-        STAKING_VAULT.transferInRewards(_rewardsAmount);
+        stakingVault.transferInRewards(_rewardsAmount);
     }
 
     /**
@@ -110,7 +133,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     function burnAssets(uint256 _amount) external nonReentrant {
         if (msg.sender != operator) revert OnlyOperator();
 
-        STAKING_VAULT.burnAssets(_amount);
+        stakingVault.burnAssets(_amount);
     }
 
     /**

@@ -35,3 +35,6 @@ runs = 1000
 
 [profile.ci.fuzz]
 runs = 16
+
+[lint]
+exclude_lints = ["unaliased-plain-import", "unsafe-typecast", "erc20-unchecked-transfer"]

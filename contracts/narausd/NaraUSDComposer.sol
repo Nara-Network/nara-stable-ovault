@@ -7,17 +7,16 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { VaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/VaultComposerSync.sol";
 import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 import { IOFT, SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
-import { IVaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/interfaces/IVaultComposerSync.sol";
 
 interface INaraUSD {
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external returns (uint256 naraUSDAmount);
+    ) external returns (uint256 naraUsdAmount);
 
     function redeem(
         address collateralAsset,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         bool allowQueue
     ) external returns (uint256 collateralAmount, bool wasQueued);
 
@@ -31,7 +30,7 @@ interface INaraUSD {
 interface IMCT {
     function hasRole(bytes32 role, address account) external view returns (bool);
 
-    function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
+    function defaultAdminRole() external view returns (bytes32);
 
     function collateralBalance(address asset) external view returns (uint256);
 }
@@ -126,30 +125,30 @@ contract NaraUSDComposer is VaultComposerSync {
      *
      * @param _vault The NaraUSD vault contract implementing ERC4626
      *
-     * @param _assetOFT VALIDATION ONLY - MCTOFTAdapter that satisfies vault.asset() check
+     * @param _assetOft VALIDATION ONLY - MCTOFTAdapter that satisfies vault.asset() check
      *                  This is NEVER used for actual cross-chain operations!
      *                  MCT (vault's underlying asset) stays on hub chain only.
      *                  Passed only to satisfy VaultComposerSync constructor validation.
      *                  See contract-level documentation for detailed explanation.
      *
-     * @param _shareOFT The NaraUSD OFT adapter for cross-chain share transfers (ACTUALLY USED)
+     * @param _shareOft The NaraUSD OFT adapter for cross-chain share transfers (ACTUALLY USED)
      *                  This is what sends NaraUSD cross-chain to users.
      *
-     * @dev Key Point: _assetOFT (MCT) is required by base class but never used.
-     *      The actual flow uses whitelisted collateral assets and _shareOFT.
+     * @dev Key Point: _assetOft (MCT) is required by base class but never used.
+     *      The actual flow uses whitelisted collateral assets and _shareOft.
      * @dev Admin must whitelist collateral assets after deployment using addWhitelistedCollateral()
      */
-    constructor(address _vault, address _assetOFT, address _shareOFT) VaultComposerSync(_vault, _assetOFT, _shareOFT) {}
+    constructor(address _vault, address _assetOft, address _shareOft) VaultComposerSync(_vault, _assetOft, _shareOft) {}
 
     /**
      * @notice Add a collateral asset and its OFT to the whitelist
      * @param asset The collateral token address (e.g., USDC, USDT)
-     * @param assetOFT The OFT contract for the collateral asset
+     * @param assetOft The OFT contract for the collateral asset
      * @dev Only callable by MCT admin (same role that manages MCT's supported assets)
      */
-    function addWhitelistedCollateral(address asset, address assetOFT) external {
+    function addWhitelistedCollateral(address asset, address assetOft) external {
         address mct = INaraUSD(address(VAULT)).asset();
-        bytes32 adminRole = IMCT(mct).DEFAULT_ADMIN_ROLE();
+        bytes32 adminRole = IMCT(mct).defaultAdminRole();
         if (!IMCT(mct).hasRole(adminRole, msg.sender)) {
             revert Unauthorized();
         }
@@ -158,13 +157,13 @@ contract NaraUSDComposer is VaultComposerSync {
             revert CollateralAlreadyWhitelisted(asset);
         }
 
-        oftToCollateral[assetOFT] = asset;
-        collateralToOft[asset] = assetOFT;
+        oftToCollateral[assetOft] = asset;
+        collateralToOft[asset] = assetOft;
 
         // Approve collateral to its OFT for potential refunds
-        IERC20(asset).approve(assetOFT, type(uint256).max);
+        IERC20(asset).approve(assetOft, type(uint256).max);
 
-        emit CollateralWhitelisted(asset, assetOFT);
+        emit CollateralWhitelisted(asset, assetOft);
     }
 
     /**
@@ -174,7 +173,7 @@ contract NaraUSDComposer is VaultComposerSync {
      */
     function removeWhitelistedCollateral(address asset) external {
         address mct = INaraUSD(address(VAULT)).asset();
-        bytes32 adminRole = IMCT(mct).DEFAULT_ADMIN_ROLE();
+        bytes32 adminRole = IMCT(mct).defaultAdminRole();
         if (!IMCT(mct).hasRole(adminRole, msg.sender)) {
             revert Unauthorized();
         }
@@ -183,14 +182,14 @@ contract NaraUSDComposer is VaultComposerSync {
             revert CollateralNotWhitelisted(asset);
         }
 
-        address assetOFT = collateralToOft[asset];
-        delete oftToCollateral[assetOFT];
+        address assetOft = collateralToOft[asset];
+        delete oftToCollateral[assetOft];
         delete collateralToOft[asset];
 
         // Revoke approval
-        IERC20(asset).approve(assetOFT, 0);
+        IERC20(asset).approve(assetOft, 0);
 
-        emit CollateralRemoved(asset, assetOFT);
+        emit CollateralRemoved(asset, assetOft);
     }
 
     /**
@@ -234,14 +233,14 @@ contract NaraUSDComposer is VaultComposerSync {
      * @param _assetAmount The amount of collateral to deposit
      * @param _sendParam Parameters for sending shares cross-chain
      * @param _refundAddress Address to refund excess msg.value
-     * @param _collateralOFT The OFT contract that sent the collateral
+     * @param _collateralOft The OFT contract that sent the collateral
      */
     function _depositCollateralAndSend(
         bytes32 _depositor,
         uint256 _assetAmount,
         SendParam memory _sendParam,
         address _refundAddress,
-        address _collateralOFT
+        address _collateralOft
     ) internal {
         // Check if original sender has valid Keyring credentials
         address originalSender = address(uint160(uint256(_depositor)));
@@ -253,7 +252,7 @@ contract NaraUSDComposer is VaultComposerSync {
         }
 
         // Get the actual collateral asset from the OFT
-        address collateralAsset = oftToCollateral[_collateralOFT];
+        address collateralAsset = oftToCollateral[_collateralOft];
 
         // Approve NaraUSD to pull collateral from this composer
         IERC20(collateralAsset).forceApprove(address(VAULT), _assetAmount);
@@ -307,8 +306,8 @@ contract NaraUSDComposer is VaultComposerSync {
         }
 
         // Get collateral OFT for sending cross-chain
-        address collateralOFT = collateralToOft[_collateralAsset];
-        if (collateralOFT == address(0)) {
+        address collateralOft = collateralToOft[_collateralAsset];
+        if (collateralOft == address(0)) {
             revert CollateralNotWhitelisted(_collateralAsset);
         }
 
@@ -327,7 +326,7 @@ contract NaraUSDComposer is VaultComposerSync {
         _sendParam.minAmountLD = 0;
 
         // Send collateral cross-chain via collateral OFT
-        _send(collateralOFT, _sendParam, _refundAddress);
+        _send(collateralOft, _sendParam, _refundAddress);
     }
 
     /**
@@ -349,10 +348,10 @@ contract NaraUSDComposer is VaultComposerSync {
         if (msg.sender != ENDPOINT) revert OnlyEndpoint(msg.sender);
 
         // Validate compose sender is either ASSET_OFT, SHARE_OFT, or a whitelisted collateral OFT
-        bool isValidOFT = _composeSender == ASSET_OFT || _composeSender == SHARE_OFT;
+        bool isValidOft = _composeSender == ASSET_OFT || _composeSender == SHARE_OFT;
         bool isWhitelistedCollateral = oftToCollateral[_composeSender] != address(0);
 
-        if (!isValidOFT && !isWhitelistedCollateral) {
+        if (!isValidOft && !isWhitelistedCollateral) {
             revert CollateralOFTNotWhitelisted(_composeSender);
         }
 

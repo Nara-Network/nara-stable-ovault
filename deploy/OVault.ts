@@ -7,23 +7,23 @@ import { DEPLOYMENT_CONFIG, isVaultChain, shouldDeployShare } from '../devtools'
 import { handleDeploymentWithRetry } from './utils'
 
 /**
- * OVault Deployment Script for naraUSD System
+ * OVault Deployment Script for naraUsd System
  *
  * This script deploys the LayerZero OFT infrastructure for cross-chain functionality:
  *
  * Hub Chain (e.g., Arbitrum):
  * - MCTOFTAdapter (validation only - NOT used for cross-chain!)
- * - NaraUSDOFTAdapter (lockbox for naraUSD)
+ * - NaraUSDOFTAdapter (lockbox for naraUsd)
  * - NaraUSDComposer (cross-chain operations)
  *
  * Spoke Chains (e.g., Base, Ethereum):
- * - NaraUSDOFT (mint/burn for naraUSD)
- * - NaraUSDPlusOFT (mint/burn for naraUSD+)
+ * - NaraUSDOFT (mint/burn for naraUsd)
+ * - NaraUSDPlusOFT (mint/burn for naraUsd+)
  *
  * NOTE: MCT does NOT go cross-chain! Only NaraUSD and NaraUSDPlus are omnichain.
  *
  * Prerequisites:
- * - Core contracts must be deployed first (MCT, naraUSD)
+ * - Core contracts must be deployed first (MCT, naraUsd)
  * - LayerZero EndpointV2 must be deployed
  * - devtools/deployConfig.ts must be configured
  *
@@ -101,7 +101,7 @@ const deploy: DeployFunction = async (hre) => {
             mctAddress = mct.address
         } catch (error) {
             throw new Error(
-                'MultiCollateralToken not found. Please deploy core contracts first using FullSystem or naraUSD deployment script.'
+                'MultiCollateralToken not found. Please deploy core contracts first using FullSystem or naraUsd deployment script.'
             )
         }
 
@@ -125,13 +125,13 @@ const deploy: DeployFunction = async (hre) => {
     console.log('')
 
     // ========================================
-    // SHARE OFT (naraUSD) - Deploy on spoke chains, Adapter on hub
+    // SHARE OFT (naraUsd) - Deploy on spoke chains, Adapter on hub
     // ========================================
     if (shouldDeployShare(networkEid)) {
         // Spoke chain: Deploy NaraUSDOFT (mint/burn)
-        console.log('📦 Deploying Share OFT (naraUSD) on spoke chain...')
+        console.log('📦 Deploying Share OFT (naraUsd) on spoke chain...')
 
-        const naraUSDOFT = await handleDeploymentWithRetry(
+        const naraUsdOFT = await handleDeploymentWithRetry(
             hre,
             deployments.deploy('NaraUSDOFT', {
                 contract: 'contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT',
@@ -146,8 +146,8 @@ const deploy: DeployFunction = async (hre) => {
             'NaraUSDOFT',
             'contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT'
         )
-        deployedContracts.naraUSDOFT = naraUSDOFT.address
-        console.log(`   ✓ NaraUSDOFT deployed at: ${naraUSDOFT.address}`)
+        deployedContracts.naraUsdOFT = naraUsdOFT.address
+        console.log(`   ✓ NaraUSDOFT deployed at: ${naraUsdOFT.address}`)
     } else if (DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && !isVaultChain(networkEid)) {
         console.log('⏭️  Skipping share OFT deployment (existing mesh)')
     }
@@ -160,33 +160,33 @@ const deploy: DeployFunction = async (hre) => {
     if (isVaultChain(networkEid)) {
         console.log('📦 Deploying Hub Chain Components...')
 
-        // Get naraUSD address
-        let naraUSDAddress: string
+        // Get naraUsd address
+        let naraUsdAddress: string
         try {
-            const naraUSD = await hre.deployments.get('NaraUSD')
-            naraUSDAddress = naraUSD.address
+            const naraUsd = await hre.deployments.get('NaraUSD')
+            naraUsdAddress = naraUsd.address
         } catch (error) {
             throw new Error(
-                'NaraUSD not found. Please deploy core contracts first using FullSystem or naraUSD deployment script.'
+                'NaraUSD not found. Please deploy core contracts first using FullSystem or naraUsd deployment script.'
             )
         }
 
-        // Deploy NaraUSDOFTAdapter (lockbox for naraUSD shares)
+        // Deploy NaraUSDOFTAdapter (lockbox for naraUsd shares)
         console.log('   → Deploying NaraUSDOFTAdapter (lockbox)...')
-        const naraUSDAdapter = await handleDeploymentWithRetry(
+        const naraUsdAdapter = await handleDeploymentWithRetry(
             hre,
             deployments.deploy('NaraUSDOFTAdapter', {
                 contract: 'contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter',
                 from: deployer,
-                args: [naraUSDAddress, endpointV2.address, deployer],
+                args: [naraUsdAddress, endpointV2.address, deployer],
                 log: true,
                 skipIfAlreadyDeployed: true,
             }),
             'NaraUSDOFTAdapter',
             'contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter'
         )
-        deployedContracts.naraUSDAdapter = naraUSDAdapter.address
-        console.log(`   ✓ NaraUSDOFTAdapter deployed at: ${naraUSDAdapter.address}`)
+        deployedContracts.naraUsdAdapter = naraUsdAdapter.address
+        console.log(`   ✓ NaraUSDOFTAdapter deployed at: ${naraUsdAdapter.address}`)
 
         // Deploy NaraUSDComposer if collateral asset is configured
         const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
@@ -218,16 +218,16 @@ const deploy: DeployFunction = async (hre) => {
 
             // Validate addresses before deployment
             console.log('   → Validating addresses for NaraUSDComposer...')
-            console.log(`      Vault (naraUSD): ${naraUSDAddress}`)
+            console.log(`      Vault (naraUsd): ${naraUsdAddress}`)
             console.log(`      Asset OFT (MCT Adapter): ${mctAssetOFTAddress}`)
-            console.log(`      Share OFT (naraUSD Adapter): ${naraUSDAdapter.address}`)
+            console.log(`      Share OFT (naraUsd Adapter): ${naraUsdAdapter.address}`)
             console.log(`      Collateral Asset (to whitelist): ${collateralAsset}`)
             console.log(`      Collateral Asset OFT (to whitelist): ${collateralAssetOFT}`)
 
             // Check if addresses are valid contracts
-            const vaultCodeSize = await hre.ethers.provider.getCode(naraUSDAddress)
+            const vaultCodeSize = await hre.ethers.provider.getCode(naraUsdAddress)
             if (vaultCodeSize === '0x') {
-                throw new Error(`naraUSD vault at ${naraUSDAddress} is not a contract`)
+                throw new Error(`naraUsd vault at ${naraUsdAddress} is not a contract`)
             }
 
             const assetOftCodeSize = await hre.ethers.provider.getCode(mctAssetOFTAddress)
@@ -235,9 +235,9 @@ const deploy: DeployFunction = async (hre) => {
                 throw new Error(`MCTOFTAdapter at ${mctAssetOFTAddress} is not a contract`)
             }
 
-            const shareOftCodeSize = await hre.ethers.provider.getCode(naraUSDAdapter.address)
+            const shareOftCodeSize = await hre.ethers.provider.getCode(naraUsdAdapter.address)
             if (shareOftCodeSize === '0x') {
-                throw new Error(`NaraUSDOFTAdapter at ${naraUSDAdapter.address} is not a contract`)
+                throw new Error(`NaraUSDOFTAdapter at ${naraUsdAdapter.address} is not a contract`)
             }
 
             const codeSize = await hre.ethers.provider.getCode(collateralAsset)
@@ -261,9 +261,9 @@ const deploy: DeployFunction = async (hre) => {
                     contract: 'contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer',
                     from: deployer,
                     args: [
-                        naraUSDAddress, // vault (naraUSD)
+                        naraUsdAddress, // vault (naraUsd)
                         mctAssetOFTAddress, // asset OFT (MCT adapter)
-                        naraUSDAdapter.address, // share OFT adapter
+                        naraUsdAdapter.address, // share OFT adapter
                     ],
                     log: true,
                     skipIfAlreadyDeployed: true,
@@ -274,19 +274,19 @@ const deploy: DeployFunction = async (hre) => {
             deployedContracts.composer = composer.address
             console.log(`   ✓ NaraUSDComposer deployed at: ${composer.address}`)
 
-            // Whitelist the composer in naraUSD for Keyring bypass
+            // Whitelist the composer in naraUsd for Keyring bypass
             try {
-                console.log('   → Whitelisting NaraUSDComposer in naraUSD...')
-                const naraUSDContract = await hre.ethers.getContractAt(
+                console.log('   → Whitelisting NaraUSDComposer in naraUsd...')
+                const naraUsdContract = await hre.ethers.getContractAt(
                     'contracts/narausd/NaraUSD.sol:NaraUSD',
-                    naraUSDAddress
+                    naraUsdAddress
                 )
-                const tx = await naraUSDContract.setKeyringWhitelist(composer.address, true)
+                const tx = await naraUsdContract.setKeyringWhitelist(composer.address, true)
                 await tx.wait()
-                console.log(`   ✓ NaraUSDComposer whitelisted in naraUSD`)
+                console.log(`   ✓ NaraUSDComposer whitelisted in naraUsd`)
             } catch (error) {
                 console.log('   ⚠️  Could not whitelist composer automatically')
-                console.log(`   ℹ️  Manually run: naraUSD.setKeyringWhitelist("${composer.address}", true)`)
+                console.log(`   ℹ️  Manually run: naraUsd.setKeyringWhitelist("${composer.address}", true)`)
             }
 
             // Whitelist the collateral asset in the composer
@@ -313,10 +313,10 @@ const deploy: DeployFunction = async (hre) => {
         console.log('   → Deploying NaraUSDPlusComposer...')
 
         // Get NaraUSDPlus address
-        let naraUSDPlusAddress: string
+        let naraUsdPlusAddress: string
         try {
-            const naraUSDPlus = await hre.deployments.get('NaraUSDPlus')
-            naraUSDPlusAddress = naraUSDPlus.address
+            const naraUsdPlus = await hre.deployments.get('NaraUSDPlus')
+            naraUsdPlusAddress = naraUsdPlus.address
         } catch (error) {
             console.log('   ⚠️  NaraUSDPlus not found, skipping NaraUSDPlusComposer')
             console.log('   ℹ️  Deploy NaraUSDPlus first if you need cross-chain staking')
@@ -324,25 +324,25 @@ const deploy: DeployFunction = async (hre) => {
         }
 
         // Get NaraUSDPlusOFTAdapter address
-        let naraUSDPlusAdapterAddress: string
+        let naraUsdPlusAdapterAddress: string
         try {
             const adapter = await hre.deployments.get('NaraUSDPlusOFTAdapter')
-            naraUSDPlusAdapterAddress = adapter.address
+            naraUsdPlusAdapterAddress = adapter.address
         } catch (error) {
             console.log('   ⚠️  NaraUSDPlusOFTAdapter not found, skipping NaraUSDPlusComposer')
             console.log('   ℹ️  Run: npx hardhat deploy --network arbitrum-sepolia --tags narausd-plus-oft')
             return
         }
 
-        const naraUSDPlusComposer = await handleDeploymentWithRetry(
+        const naraUsdPlusComposer = await handleDeploymentWithRetry(
             hre,
             deployments.deploy('NaraUSDPlusComposer', {
                 contract: 'contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer',
                 from: deployer,
                 args: [
-                    naraUSDPlusAddress, // NaraUSDPlus vault
-                    naraUSDAdapter.address, // naraUSD OFT adapter (asset)
-                    naraUSDPlusAdapterAddress, // naraUSD+ OFT adapter (share)
+                    naraUsdPlusAddress, // NaraUSDPlus vault
+                    naraUsdAdapter.address, // naraUsd OFT adapter (asset)
+                    naraUsdPlusAdapterAddress, // naraUsd+ OFT adapter (share)
                 ],
                 log: true,
                 skipIfAlreadyDeployed: true,
@@ -350,22 +350,22 @@ const deploy: DeployFunction = async (hre) => {
             'NaraUSDPlusComposer',
             'contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer'
         )
-        deployedContracts.naraUSDPlusComposer = naraUSDPlusComposer.address
-        console.log(`   ✓ NaraUSDPlusComposer deployed at: ${naraUSDPlusComposer.address}`)
+        deployedContracts.naraUsdPlusComposer = naraUsdPlusComposer.address
+        console.log(`   ✓ NaraUSDPlusComposer deployed at: ${naraUsdPlusComposer.address}`)
 
-        // Whitelist the composer in naraUSD (it handles naraUSD deposits for cross-chain staking)
+        // Whitelist the composer in naraUsd (it handles naraUsd deposits for cross-chain staking)
         try {
-            console.log('   → Whitelisting NaraUSDPlusComposer in naraUSD...')
-            const naraUSDContract = await hre.ethers.getContractAt(
+            console.log('   → Whitelisting NaraUSDPlusComposer in naraUsd...')
+            const naraUsdContract = await hre.ethers.getContractAt(
                 'contracts/narausd/NaraUSD.sol:NaraUSD',
-                naraUSDAddress
+                naraUsdAddress
             )
-            const tx = await naraUSDContract.setKeyringWhitelist(naraUSDPlusComposer.address, true)
+            const tx = await naraUsdContract.setKeyringWhitelist(naraUsdPlusComposer.address, true)
             await tx.wait()
-            console.log(`   ✓ NaraUSDPlusComposer whitelisted in naraUSD`)
+            console.log(`   ✓ NaraUSDPlusComposer whitelisted in naraUsd`)
         } catch (error) {
             console.log('   ⚠️  Could not whitelist NaraUSDPlusComposer automatically')
-            console.log(`   ℹ️  Manually run: naraUSD.setKeyringWhitelist("${naraUSDPlusComposer.address}", true)`)
+            console.log(`   ℹ️  Manually run: naraUsd.setKeyringWhitelist("${naraUsdPlusComposer.address}", true)`)
         }
     }
 
@@ -408,41 +408,41 @@ const deploy: DeployFunction = async (hre) => {
                 )
             }
 
-            if (deployedContracts.naraUSDAdapter) {
-                const naraUSD = await hre.deployments.get('NaraUSD')
+            if (deployedContracts.naraUsdAdapter) {
+                const naraUsd = await hre.deployments.get('NaraUSD')
                 console.log(`# NaraUSDOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.naraUSDAdapter} "${naraUSD.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.naraUsdAdapter} "${naraUsd.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
 
             if (deployedContracts.composer) {
-                const naraUSD = await hre.deployments.get('NaraUSD')
+                const naraUsd = await hre.deployments.get('NaraUSD')
                 const mctAdapter = await hre.deployments.get('MCTOFTAdapter')
-                const naraUSDAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
+                const naraUsdAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
                 console.log(`# NaraUSDComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${naraUSD.address}" "${mctAdapter.address}" "${naraUSDAdapter.address}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${naraUsd.address}" "${mctAdapter.address}" "${naraUsdAdapter.address}"\n`
                 )
             }
 
-            if (deployedContracts.naraUSDPlusComposer) {
-                const naraUSDPlus = await hre.deployments.get('NaraUSDPlus')
-                const naraUSDAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
-                const naraUSDPlusAdapter = await hre.deployments.get('NaraUSDPlusOFTAdapter')
+            if (deployedContracts.naraUsdPlusComposer) {
+                const naraUsdPlus = await hre.deployments.get('NaraUSDPlus')
+                const naraUsdAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
+                const naraUsdPlusAdapter = await hre.deployments.get('NaraUSDPlusOFTAdapter')
                 console.log(`# NaraUSDPlusComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer --network ${hre.network.name} ${deployedContracts.naraUSDPlusComposer} "${naraUSDPlus.address}" "${naraUSDAdapter.address}" "${naraUSDPlusAdapter.address}"\n`
+                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer --network ${hre.network.name} ${deployedContracts.naraUsdPlusComposer} "${naraUsdPlus.address}" "${naraUsdAdapter.address}" "${naraUsdPlusAdapter.address}"\n`
                 )
             }
         } else {
             // Spoke chain verification commands
             // Note: MCTOFT is not deployed on spoke chains (MCT is hub-only)
 
-            if (deployedContracts.naraUSDOFT) {
+            if (deployedContracts.naraUsdOFT) {
                 console.log(`# NaraUSDOFT`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT --network ${hre.network.name} ${deployedContracts.naraUSDOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT --network ${hre.network.name} ${deployedContracts.naraUsdOFT} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         }

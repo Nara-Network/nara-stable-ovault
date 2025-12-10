@@ -1,16 +1,21 @@
 import { type HardhatRuntimeEnvironment } from 'hardhat/types'
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-import { DEPLOYMENT_CONFIG } from '../devtools'
+import { DEPLOYMENT_CONFIG, deployUpgradeableContract } from '../devtools'
 
 /**
- * Complete deployment script for the full naraUSD OVault system
+ * Complete deployment script for the full naraUsd OVault system (UPGRADEABLE)
  *
- * This script deploys:
+ * This script deploys upgradeable contracts using UUPS proxy pattern:
  * 1. MultiCollateralToken (MCT) with USDC as initial asset
- * 2. naraUSD vault with MCT as underlying
- * 3. NaraUSDPlus vault for staking naraUSD
+ * 2. naraUsd vault with MCT as underlying
+ * 3. NaraUSDPlus vault for staking naraUsd
  * 4. StakingRewardsDistributor for automated rewards
+ *
+ * ⚠️ IMPORTANT: Contracts must be converted to upgradeable versions:
+ *    - Replace constructors with initialize() functions
+ *    - Use upgradeable OpenZeppelin contracts (ERC20Upgradeable, AccessControlUpgradeable, etc.)
+ *    - Add UUPSUpgradeable or TransparentUpgradeable pattern
  *
  * Supports both testnet and mainnet deployments based on DEPLOY_ENV:
  * - Testnet: DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags FullSystem
@@ -31,14 +36,13 @@ const ADMIN_ADDRESS = '0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671' // TODO: Set 
 const OPERATOR_ADDRESS = '0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671' // TODO: Set operator address (bot/EOA)
 
 // Limits
-const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M naraUSD (18 decimals)
-const MAX_REDEEM_PER_BLOCK = '1000000000000000000000000' // 1M naraUSD (18 decimals)
+const MAX_MINT_PER_BLOCK = '1000000000000000000000000' // 1M naraUsd (18 decimals)
+const MAX_REDEEM_PER_BLOCK = '1000000000000000000000000' // 1M naraUsd (18 decimals)
 
 // ============================================
 
 const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
-    const { getNamedAccounts, deployments } = hre
-    const { deploy } = deployments
+    const { getNamedAccounts } = hre
     const { deployer } = await getNamedAccounts()
 
     // Get network info
@@ -55,7 +59,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     }
 
     console.log('\n=====================================================')
-    console.log('Deploying Full naraUSD OVault System')
+    console.log('Deploying Full naraUsd OVault System')
     console.log(`Environment: ${deployEnv.toUpperCase()}`)
     console.log(`Network: ${networkName} (Chain ID: ${network.chainId})`)
     console.log('=====================================================\n')
@@ -75,48 +79,101 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('')
 
     // ========================================
-    // PHASE 1: Deploy MCT and naraUSD
+    // PHASE 1: Deploy MCT and naraUsd
     // ========================================
     console.log('========================================')
-    console.log('PHASE 1: MCT + naraUSD')
+    console.log('PHASE 1: MCT + naraUsd')
     console.log('========================================\n')
 
-    // Step 1: Deploy MultiCollateralToken
-    console.log('1. Deploying MultiCollateralToken...')
-    const mctDeployment = await deploy('MultiCollateralToken', {
-        contract: 'contracts/mct/MultiCollateralToken.sol:MultiCollateralToken',
-        from: deployer,
-        args: [ADMIN_ADDRESS, [usdcAddress]],
-        log: true,
-        waitConfirmations: 1,
-    })
-    console.log('   ✓ MultiCollateralToken deployed at:', mctDeployment.address)
+    // Step 1: Deploy MultiCollateralToken (upgradeable)
+    console.log('1. Deploying MultiCollateralToken (upgradeable)...')
+    const mctDeployment = await deployUpgradeableContract(
+        hre,
+        'MultiCollateralToken',
+        deployer,
+        [ADMIN_ADDRESS, [usdcAddress]],
+        {
+            initializer: 'initialize',
+            kind: 'uups',
+            log: true,
+        }
+    )
+    const mctAddress = mctDeployment.proxyAddress
+    console.log('   ✓ MultiCollateralToken proxy deployed at:', mctAddress)
+    console.log('   ✓ Implementation deployed at:', mctDeployment.implementationAddress)
     console.log('')
 
-    // Step 2: Deploy naraUSD
-    console.log('2. Deploying naraUSD...')
-    const naraUSDDeployment = await deploy('NaraUSD', {
-        contract: 'contracts/narausd/NaraUSD.sol:NaraUSD',
-        from: deployer,
-        args: [mctDeployment.address, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK],
-        log: true,
-        waitConfirmations: 1,
-    })
-    console.log('   ✓ naraUSD deployed at:', naraUSDDeployment.address)
+    // Step 1.5: Deploy NaraUSDRedeemSilo (upgradeable) - needed before naraUsd
+    console.log('1.5. Deploying NaraUSDRedeemSilo (upgradeable)...')
+    // Deploy silo with deployer as placeholder, will update after naraUsd deployment
+    const redeemSiloDeployment = await deployUpgradeableContract(
+        hre,
+        'NaraUSDRedeemSilo',
+        deployer,
+        [ADMIN_ADDRESS, deployer, deployer], // owner, vault (temp), naraUsd (temp)
+        {
+            initializer: 'initialize',
+            kind: 'uups',
+            log: true,
+        }
+    )
+    const redeemSiloAddress = redeemSiloDeployment.proxyAddress
+    console.log('   ✓ NaraUSDRedeemSilo proxy deployed at:', redeemSiloAddress)
+    console.log('   ✓ Implementation deployed at:', redeemSiloDeployment.implementationAddress)
     console.log('')
 
-    // Step 3: Grant MINTER_ROLE to naraUSD
-    console.log('3. Granting MINTER_ROLE to naraUSD...')
+    // Step 2: Deploy naraUsd (upgradeable)
+    console.log('2. Deploying naraUsd (upgradeable)...')
+    const naraUsdDeployment = await deployUpgradeableContract(
+        hre,
+        'NaraUSD',
+        deployer,
+        [mctAddress, ADMIN_ADDRESS, MAX_MINT_PER_BLOCK, MAX_REDEEM_PER_BLOCK, redeemSiloAddress],
+        {
+            initializer: 'initialize',
+            kind: 'uups',
+            log: true,
+        }
+    )
+    const naraUsdAddress = naraUsdDeployment.proxyAddress
+    console.log('   ✓ naraUsd proxy deployed at:', naraUsdAddress)
+    console.log('   ✓ Implementation deployed at:', naraUsdDeployment.implementationAddress)
+    console.log('')
+
+    // Step 2.5: Update redeem silo with correct naraUsd address
+    console.log('2.5. Updating NaraUSDRedeemSilo with correct addresses...')
+    const redeemSilo = await hre.ethers.getContractAt(
+        'contracts/narausd/NaraUSDRedeemSilo.sol:NaraUSDRedeemSilo',
+        redeemSiloAddress
+    )
+    try {
+        const tx1 = await redeemSilo.setVault(naraUsdAddress)
+        await tx1.wait()
+        console.log('   ✓ Updated silo vault address to naraUsd')
+        const tx2 = await redeemSilo.setNaraUsd(naraUsdAddress)
+        await tx2.wait()
+        console.log('   ✓ Updated silo naraUsd token address')
+    } catch (error) {
+        console.log('   ⚠ Could not update silo automatically')
+        console.log('   Please manually update silo addresses:', {
+            vault: naraUsdAddress,
+            naraUsd: naraUsdAddress,
+        })
+    }
+    console.log('')
+
+    // Step 3: Grant MINTER_ROLE to naraUsd
+    console.log('3. Granting MINTER_ROLE to naraUsd...')
     const mct = await hre.ethers.getContractAt(
         'contracts/mct/MultiCollateralToken.sol:MultiCollateralToken',
-        mctDeployment.address
+        mctAddress
     )
     const MINTER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('MINTER_ROLE'))
 
     try {
-        const tx = await mct.grantRole(MINTER_ROLE, naraUSDDeployment.address)
+        const tx = await mct.grantRole(MINTER_ROLE, naraUsdAddress)
         await tx.wait()
-        console.log('   ✓ MINTER_ROLE granted to naraUSD')
+        console.log('   ✓ MINTER_ROLE granted to naraUsd')
     } catch (error) {
         console.log('   ⚠ Could not grant MINTER_ROLE automatically')
         console.log('   Please manually grant as admin')
@@ -130,63 +187,117 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('PHASE 2: NaraUSDPlus + Distributor')
     console.log('========================================\n')
 
-    // Step 4: Deploy NaraUSDPlus
-    console.log('4. Deploying NaraUSDPlus...')
-    const naraUSDPlusDeployment = await deploy('NaraUSDPlus', {
-        contract: 'contracts/narausd-plus/NaraUSDPlus.sol:NaraUSDPlus',
-        from: deployer,
-        args: [
-            naraUSDDeployment.address, // naraUSD token
-            deployer, // Initial rewarder (will be replaced by distributor)
-            ADMIN_ADDRESS, // Admin
-        ],
-        log: true,
-        waitConfirmations: 1,
-    })
-    console.log('   ✓ NaraUSDPlus deployed at:', naraUSDPlusDeployment.address)
+    // Step 3.5: Deploy NaraUSDPlusSilo (upgradeable) - needed before NaraUSDPlus
+    console.log('3.5. Deploying NaraUSDPlusSilo (upgradeable)...')
+    // Deploy silo with deployer as placeholder, will update after NaraUSDPlus deployment
+    const plusSiloDeployment = await deployUpgradeableContract(
+        hre,
+        'NaraUSDPlusSilo',
+        deployer,
+        [ADMIN_ADDRESS, deployer, deployer], // owner, stakingVault (temp), token (temp)
+        {
+            initializer: 'initialize',
+            kind: 'uups',
+            log: true,
+        }
+    )
+    const plusSiloAddress = plusSiloDeployment.proxyAddress
+    console.log('   ✓ NaraUSDPlusSilo proxy deployed at:', plusSiloAddress)
+    console.log('   ✓ Implementation deployed at:', plusSiloDeployment.implementationAddress)
     console.log('')
 
-    // Step 5: Deploy StakingRewardsDistributor
-    console.log('5. Deploying StakingRewardsDistributor...')
-    const distributorDeployment = await deploy('StakingRewardsDistributor', {
-        contract: 'contracts/narausd-plus/StakingRewardsDistributor.sol:StakingRewardsDistributor',
-        from: deployer,
-        args: [
-            naraUSDPlusDeployment.address, // NaraUSDPlus vault
-            naraUSDDeployment.address, // naraUSD token
+    // Step 4: Deploy NaraUSDPlus (upgradeable)
+    console.log('4. Deploying NaraUSDPlus (upgradeable)...')
+    const naraUsdPlusDeployment = await deployUpgradeableContract(
+        hre,
+        'NaraUSDPlus',
+        deployer,
+        [
+            naraUsdAddress, // naraUsd token
+            deployer, // Initial rewarder (will be replaced by distributor)
+            ADMIN_ADDRESS, // Admin
+            plusSiloAddress, // Silo address
+        ],
+        {
+            initializer: 'initialize',
+            kind: 'uups',
+            log: true,
+        }
+    )
+    const naraUsdPlusAddress = naraUsdPlusDeployment.proxyAddress
+    console.log('   ✓ NaraUSDPlus proxy deployed at:', naraUsdPlusAddress)
+    console.log('   ✓ Implementation deployed at:', naraUsdPlusDeployment.implementationAddress)
+    console.log('')
+
+    // Step 4.5: Update plus silo with correct NaraUSDPlus address
+    console.log('4.5. Updating NaraUSDPlusSilo with correct addresses...')
+    const plusSilo = await hre.ethers.getContractAt(
+        'contracts/narausd-plus/NaraUSDPlusSilo.sol:NaraUSDPlusSilo',
+        plusSiloAddress
+    )
+    try {
+        const tx1 = await plusSilo.setStakingVault(naraUsdPlusAddress)
+        await tx1.wait()
+        console.log('   ✓ Updated silo staking vault address to NaraUSDPlus')
+        const tx2 = await plusSilo.setToken(naraUsdPlusAddress)
+        await tx2.wait()
+        console.log('   ✓ Updated silo token address to NaraUSDPlus')
+    } catch (error) {
+        console.log('   ⚠ Could not update silo automatically')
+        console.log('   Please manually update silo addresses:', {
+            stakingVault: naraUsdPlusAddress,
+            token: naraUsdPlusAddress,
+        })
+    }
+    console.log('')
+
+    // Step 5: Deploy StakingRewardsDistributor (upgradeable)
+    console.log('5. Deploying StakingRewardsDistributor (upgradeable)...')
+    const distributorDeployment = await deployUpgradeableContract(
+        hre,
+        'StakingRewardsDistributor',
+        deployer,
+        [
+            naraUsdPlusAddress, // NaraUSDPlus vault
+            naraUsdAddress, // naraUsd token
             ADMIN_ADDRESS, // Admin (multisig)
             OPERATOR_ADDRESS, // Operator (bot)
         ],
-        log: true,
-        waitConfirmations: 1,
-    })
-    console.log('   ✓ StakingRewardsDistributor deployed at:', distributorDeployment.address)
+        {
+            initializer: 'initialize',
+            kind: 'uups',
+            log: true,
+        }
+    )
+    const distributorAddress = distributorDeployment.proxyAddress
+    console.log('   ✓ StakingRewardsDistributor proxy deployed at:', distributorAddress)
+    console.log('   ✓ Implementation deployed at:', distributorDeployment.implementationAddress)
     console.log('')
 
     // Step 6: Grant roles to NaraUSDPlus
     console.log('6. Granting roles to NaraUSDPlus contracts...')
-    const naraUSDPlus = await hre.ethers.getContractAt(
+    const naraUsdPlus = await hre.ethers.getContractAt(
         'contracts/narausd-plus/NaraUSDPlus.sol:NaraUSDPlus',
-        naraUSDPlusDeployment.address
+        naraUsdPlusAddress
     )
     const REWARDER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('REWARDER_ROLE'))
     const BLACKLIST_MANAGER_ROLE = hre.ethers.utils.keccak256(hre.ethers.utils.toUtf8Bytes('BLACKLIST_MANAGER_ROLE'))
 
     try {
         // Grant REWARDER_ROLE to distributor
-        const tx1 = await naraUSDPlus.grantRole(REWARDER_ROLE, distributorDeployment.address)
+        const tx1 = await naraUsdPlus.grantRole(REWARDER_ROLE, distributorAddress)
         await tx1.wait()
         console.log('   ✓ REWARDER_ROLE granted to StakingRewardsDistributor')
 
         // Grant BLACKLIST_MANAGER_ROLE to admin
-        const tx2 = await naraUSDPlus.grantRole(BLACKLIST_MANAGER_ROLE, ADMIN_ADDRESS)
+        const tx2 = await naraUsdPlus.grantRole(BLACKLIST_MANAGER_ROLE, ADMIN_ADDRESS)
         await tx2.wait()
         console.log('   ✓ BLACKLIST_MANAGER_ROLE granted to admin')
 
         // Revoke REWARDER_ROLE from deployer if it was granted
-        const hasRole = await naraUSDPlus.hasRole(REWARDER_ROLE, deployer)
-        if (hasRole && deployer !== distributorDeployment.address) {
-            const tx3 = await naraUSDPlus.revokeRole(REWARDER_ROLE, deployer)
+        const hasRole = await naraUsdPlus.hasRole(REWARDER_ROLE, deployer)
+        if (hasRole && deployer !== distributorAddress) {
+            const tx3 = await naraUsdPlus.revokeRole(REWARDER_ROLE, deployer)
             await tx3.wait()
             console.log('   ✓ REWARDER_ROLE revoked from deployer')
         }
@@ -208,11 +319,15 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('DEPLOYMENT COMPLETE ✅')
     console.log('========================================\n')
 
-    console.log('📦 Deployed Contracts:')
-    console.log('   MultiCollateralToken:', mctDeployment.address)
-    console.log('   naraUSD:', naraUSDDeployment.address)
-    console.log('   NaraUSDPlus:', naraUSDPlusDeployment.address)
-    console.log('   StakingRewardsDistributor:', distributorDeployment.address)
+    console.log('📦 Deployed Contracts (Upgradeable UUPS Proxies):')
+    console.log('   MultiCollateralToken Proxy:', mctAddress)
+    console.log('   MultiCollateralToken Implementation:', mctDeployment.implementationAddress)
+    console.log('   naraUsd Proxy:', naraUsdAddress)
+    console.log('   naraUsd Implementation:', naraUsdDeployment.implementationAddress)
+    console.log('   NaraUSDPlus Proxy:', naraUsdPlusAddress)
+    console.log('   NaraUSDPlus Implementation:', naraUsdPlusDeployment.implementationAddress)
+    console.log('   StakingRewardsDistributor Proxy:', distributorAddress)
+    console.log('   StakingRewardsDistributor Implementation:', distributorDeployment.implementationAddress)
     console.log('')
 
     console.log('⚙️  Configuration:')
@@ -224,7 +339,7 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('')
 
     console.log('🔑 Granted Roles:')
-    console.log('   MCT.MINTER_ROLE → naraUSD')
+    console.log('   MCT.MINTER_ROLE → naraUsd')
     console.log('   NaraUSDPlus.REWARDER_ROLE → StakingRewardsDistributor')
     console.log('   NaraUSDPlus.BLACKLIST_MANAGER_ROLE → Admin')
     console.log('')
@@ -234,37 +349,38 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('========================================\n')
 
     console.log('1️⃣  Verify Contracts:')
+    console.log('   Note: Verify implementation contracts, not proxies')
     console.log(
-        `   npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network ${networkName} ${mctDeployment.address} "${ADMIN_ADDRESS}" "[\\"${usdcAddress}\\"]"`
+        `   npx hardhat verify --contract contracts/mct/MultiCollateralToken.sol:MultiCollateralToken --network ${networkName} ${mctDeployment.implementationAddress}`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/narausd/NaraUSD.sol:NaraUSD --network ${networkName} ${naraUSDDeployment.address} "${mctDeployment.address}" "${ADMIN_ADDRESS}" "${MAX_MINT_PER_BLOCK}" "${MAX_REDEEM_PER_BLOCK}"`
+        `   npx hardhat verify --contract contracts/narausd/NaraUSD.sol:NaraUSD --network ${networkName} ${naraUsdDeployment.implementationAddress}`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlus.sol:NaraUSDPlus --network ${networkName} ${naraUSDPlusDeployment.address} "${naraUSDDeployment.address}" "${deployer}" "${ADMIN_ADDRESS}"`
+        `   npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlus.sol:NaraUSDPlus --network ${networkName} ${naraUsdPlusDeployment.implementationAddress}`
     )
     console.log(
-        `   npx hardhat verify --contract contracts/narausd-plus/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${networkName} ${distributorDeployment.address} "${naraUSDPlusDeployment.address}" "${naraUSDDeployment.address}" "${ADMIN_ADDRESS}" "${OPERATOR_ADDRESS}"`
+        `   npx hardhat verify --contract contracts/narausd-plus/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${networkName} ${distributorDeployment.implementationAddress}`
     )
     console.log('')
 
-    console.log('2️⃣  Test Minting naraUSD:')
+    console.log('2️⃣  Test Minting naraUsd:')
     if (deployEnv === 'testnet') {
         console.log('   - Get testnet USDC from faucet/bridge')
     } else {
         console.log('   - Get mainnet USDC')
     }
-    console.log('   - usdc.approve(naraUSD.address, amount)')
-    console.log('   - naraUSD.mintWithCollateral(usdc.address, amount)')
+    console.log(`   - usdc.approve("${naraUsdAddress}", amount)`)
+    console.log(`   - naraUsd.mintWithCollateral(usdc.address, amount)`)
     console.log('')
 
     console.log('3️⃣  Test Staking:')
-    console.log('   - naraUSD.approve(naraUSDPlus.address, amount)')
-    console.log('   - naraUSDPlus.deposit(amount, yourAddress)')
+    console.log(`   - naraUsd.approve("${naraUsdPlusAddress}", amount)`)
+    console.log(`   - naraUsdPlus.deposit(amount, yourAddress)`)
     console.log('')
 
     console.log('4️⃣  Test Rewards Distribution:')
-    console.log('   - Transfer naraUSD to StakingRewardsDistributor')
+    console.log('   - Transfer naraUsd to StakingRewardsDistributor')
     console.log('   - Call distributor.transferInRewards(amount) as operator')
     console.log('')
 
@@ -272,8 +388,8 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log(`   DEPLOY_ENV=${deployEnv} npx hardhat deploy --network ${networkName} --tags ovault`)
     console.log(`   DEPLOY_ENV=${deployEnv} npx hardhat deploy --network ${networkName} --tags narausd-plus-oft`)
     console.log('   This deploys:')
-    console.log('   - MCTOFTAdapter, NaraUSDOFTAdapter, NaraUSDComposer (for naraUSD)')
-    console.log('   - NaraUSDPlusOFTAdapter, NaraUSDPlusComposer (for naraUSD+)')
+    console.log('   - MCTOFTAdapter, NaraUSDOFTAdapter, NaraUSDComposer (for naraUsd)')
+    console.log('   - NaraUSDPlusOFTAdapter, NaraUSDPlusComposer (for naraUsd+)')
     console.log('')
 
     console.log('6️⃣  Deploy on Spoke Chains:')
