@@ -84,9 +84,38 @@ export async function deployUpgradeableContract(
 
     const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxy.address)
 
+    // Get transaction receipt for deployment info
+    const deployTx = proxy.deployTransaction
+    const receipt = await proxy.provider.getTransactionReceipt(deployTx.hash)
+
+    // Get contract artifact for ABI
+    const artifact = await hre.artifacts.readArtifact(contractName)
+
+    // Save proxy deployment to hardhat-deploy deployments folder
+    await hre.deployments.save(contractName, {
+        address: proxy.address,
+        abi: artifact.abi,
+        transactionHash: deployTx.hash,
+        receipt,
+        args: initializeArgs,
+        libraries: {},
+    })
+
+    // Save implementation deployment as well
+    const implementationName = `${contractName}_Implementation`
+    await hre.deployments.save(implementationName, {
+        address: implementationAddress,
+        abi: artifact.abi,
+        transactionHash: deployTx.hash,
+        receipt,
+        args: [],
+        libraries: {},
+    })
+
     if (log) {
         console.log(`   ✓ Proxy deployed at: ${proxy.address}`)
         console.log(`   ✓ Implementation deployed at: ${implementationAddress}`)
+        console.log(`   ✓ Saved to deployments folder: ${contractName}`)
     }
 
     return {
@@ -154,10 +183,51 @@ export async function upgradeContract(
     // Get the new implementation address
     const newImplementation = await upgrades.erc1967.getImplementationAddress(proxyAddress)
 
+    // Get transaction receipt for upgrade info
+    // For upgrades, we need to get the transaction from the upgrade operation
+    let receipt = null
+    let transactionHash = ''
+    try {
+        // Try to get the transaction from the upgraded proxy
+        if (upgradedProxy.deployTransaction) {
+            transactionHash = upgradedProxy.deployTransaction.hash
+            receipt = await upgradedProxy.provider.getTransactionReceipt(transactionHash)
+        }
+    } catch {
+        // If we can't get the transaction, that's okay - we'll save without it
+    }
+
+    // Get contract artifact for ABI
+    const artifact = await hre.artifacts.readArtifact(newContractName)
+
+    // Try to get the original contract name from deployments (proxy name)
+    // If not found, use the newContractName as fallback
+    let proxyDeploymentName = newContractName
+    try {
+        const existingDeployment = await hre.deployments.getOrNull(newContractName)
+        if (existingDeployment) {
+            proxyDeploymentName = newContractName
+        }
+    } catch {
+        // If deployment doesn't exist, use newContractName
+    }
+
+    // Update implementation deployment in deployments folder
+    const implementationName = `${proxyDeploymentName}_Implementation`
+    await hre.deployments.save(implementationName, {
+        address: newImplementation,
+        abi: artifact.abi,
+        transactionHash: transactionHash || undefined,
+        receipt: receipt || undefined,
+        args: [],
+        libraries: {},
+    })
+
     if (log) {
         console.log(`   ✓ Upgrade successful!`)
         console.log(`   ✓ New implementation: ${newImplementation}`)
         console.log(`   ✓ Proxy address (unchanged): ${proxyAddress}`)
+        console.log(`   ✓ Updated implementation in deployments folder: ${implementationName}`)
     }
 
     return {

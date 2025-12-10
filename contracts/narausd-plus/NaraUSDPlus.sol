@@ -140,11 +140,11 @@ contract NaraUSDPlus is
             revert InvalidZeroAddress();
         }
 
-        __ERC20_init("Nara USD+", "NaraUSD+");
-        __ERC4626_init(_asset);
-        __ERC20Permit_init("NaraUSD+");
-        __AccessControl_init();
         __ReentrancyGuard_init();
+        __ERC20_init("Nara USD+", "NaraUSD+");
+        __ERC20Permit_init("NaraUSD+");
+        __ERC4626_init(_asset);
+        __AccessControl_init();
         __Pausable_init();
         __UUPSUpgradeable_init();
 
