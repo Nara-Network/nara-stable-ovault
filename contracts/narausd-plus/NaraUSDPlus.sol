@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../interfaces/narausd-plus/INaraUSDPlus.sol";
 import "./NaraUSDPlusSilo.sol";
 import "../interfaces/narausd/INaraUSD.sol";
@@ -23,8 +25,18 @@ import "../interfaces/narausd/INaraUSD.sol";
  *      and disables cooldownShares and cooldownAssets methods. If cooldown duration is greater
  *      than zero, the ERC4626 withdrawal and redeem functions are disabled, breaking the ERC4626
  *      standard, and enabling the cooldownShares and the cooldownAssets functions.
+ * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, INaraUSDPlus, Pausable {
+contract NaraUSDPlus is
+    Initializable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    ERC20PermitUpgradeable,
+    ERC4626Upgradeable,
+    INaraUSDPlus,
+    PausableUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -65,7 +77,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     mapping(address => UserCooldown) public cooldowns;
 
     /// @notice Silo contract for holding NaraUSD+ during cooldown
-    NaraUSDPlusSilo public immutable silo;
+    NaraUSDPlusSilo public silo;
 
     /* --------------- MODIFIERS --------------- */
 
@@ -93,32 +105,56 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         _;
     }
 
-    /* --------------- CONSTRUCTOR --------------- */
+    /* --------------- INITIALIZER --------------- */
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
-     * @notice Constructor for NaraUSDPlus contract
+     * @notice Initialize the contract
      * @param _asset The address of the NaraUSD token
      * @param _initialRewarder The address of the initial rewarder
      * @param _admin The address of the admin role
+     * @param _silo The silo address (must be deployed separately as upgradeable proxy)
      */
-    constructor(
+    function initialize(
         IERC20 _asset,
         address _initialRewarder,
-        address _admin
-    ) ERC20("Nara USD+", "NaraUSD+") ERC4626(_asset) ERC20Permit("NaraUSD+") {
+        address _admin,
+        NaraUSDPlusSilo _silo
+    ) public initializer {
         if (_admin == address(0) || _initialRewarder == address(0) || address(_asset) == address(0)) {
             revert InvalidZeroAddress();
         }
+        if (address(_silo) == address(0)) {
+            revert InvalidZeroAddress();
+        }
+
+        __ERC20_init("Nara USD+", "NaraUSD+");
+        __ERC20Permit_init("NaraUSD+");
+        __ERC4626_init(_asset);
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(REWARDER_ROLE, _initialRewarder);
         _grantRole(BLACKLIST_MANAGER_ROLE, _admin);
 
-        // Silo now holds NaraUSD+ (this token) during cooldown, which is later redeemed for NaraUSD
-        silo = new NaraUSDPlusSilo(address(this), address(this));
+        // Set silo (must be deployed separately as upgradeable proxy)
+        silo = _silo;
         cooldownDuration = 7 days;
         vestingPeriod = 8 hours;
     }
+
+    /**
+     * @notice Authorize upgrade (UUPS pattern)
+     * @dev Only DEFAULT_ADMIN_ROLE can authorize upgrades
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /* --------------- EXTERNAL --------------- */
 
@@ -228,7 +264,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override(ERC4626, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
+    ) public virtual override(ERC4626Upgradeable, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
         return super.withdraw(assets, receiver, owner);
     }
 
@@ -240,7 +276,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override(ERC4626, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
+    ) public virtual override(ERC4626Upgradeable, IERC4626) whenNotPaused ensureCooldownOff returns (uint256) {
         return super.redeem(shares, receiver, owner);
     }
 
@@ -378,7 +414,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
      * @notice Returns the amount of NaraUSD tokens that are vested in the contract
      * @return The total vested assets
      */
-    function totalAssets() public view override(ERC4626, IERC4626) returns (uint256) {
+    function totalAssets() public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
         return IERC20(asset()).balanceOf(address(this)) - getUnvestedAmount();
     }
 
@@ -411,12 +447,12 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     }
 
     /// @dev Necessary because both ERC20 (from ERC20Permit) and ERC4626 declare decimals()
-    function decimals() public pure override(ERC4626, ERC20, IERC20Metadata) returns (uint8) {
+    function decimals() public pure override(ERC4626Upgradeable, ERC20Upgradeable, IERC20Metadata) returns (uint8) {
         return 18;
     }
 
     /// @dev Override nonces to resolve conflict between ERC20Permit and other base classes
-    function nonces(address owner) public view virtual override(ERC20Permit, IERC20Permit) returns (uint256) {
+    function nonces(address owner) public view virtual override(ERC20PermitUpgradeable, IERC20Permit) returns (uint256) {
         return super.nonces(owner);
     }
 
@@ -512,7 +548,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
      * @dev Completely freezes blacklisted addresses - they cannot transfer, burn, or receive
      * @dev Only admin can move their tokens via redistributeLockedAmount
      */
-    function _update(address from, address to, uint256 value) internal virtual override {
+    function _update(address from, address to, uint256 value) internal virtual override(ERC20Upgradeable) {
         // Blacklisted addresses are completely frozen
         if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
@@ -526,7 +562,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
     /**
      * @dev Prevent renouncing roles to maintain contract security
      */
-    function renounceRole(bytes32 role, address account) public virtual override {
+    function renounceRole(bytes32 role, address account) public virtual override(AccessControlUpgradeable) {
         if (role == DEFAULT_ADMIN_ROLE) revert CantRenounceOwnership();
         super.renounceRole(role, account);
     }

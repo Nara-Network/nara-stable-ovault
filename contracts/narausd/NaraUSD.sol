@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../mct/MultiCollateralToken.sol";
 import "./NaraUSDRedeemSilo.sol";
 
@@ -37,8 +38,17 @@ interface IKeyring {
  * - Collateral is converted to MCT, then NaraUSD shares are minted
  * - Redemptions: instant if liquidity available, otherwise queued for solver execution
  * - Users can cancel queued redemption requests anytime
+ * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausable {
+contract NaraUSD is
+    Initializable,
+    ERC4626Upgradeable,
+    ERC20PermitUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
 
     /* --------------- CONSTANTS --------------- */
@@ -75,7 +85,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     /* --------------- STATE VARIABLES --------------- */
 
     /// @notice The MCT token (underlying asset)
-    MultiCollateralToken public immutable mct;
+    MultiCollateralToken public mct;
 
     /// @notice NaraUSD minted per block
     mapping(uint256 => uint256) public mintedPerBlock;
@@ -102,7 +112,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     mapping(address => RedemptionRequest) public redemptionRequests;
 
     /// @notice Silo contract for holding locked NaraUSD during redemption queue
-    NaraUSDRedeemSilo public immutable redeemSilo;
+    NaraUSDRedeemSilo public redeemSilo;
 
     /// @notice Mint fee in basis points (e.g., 10 = 0.1%)
     uint16 public mintFeeBps;
@@ -276,18 +286,42 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         }
     }
 
-    /* --------------- CONSTRUCTOR --------------- */
+    /* --------------- INITIALIZER --------------- */
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @notice Initialize the contract
+     * @param _mct The MCT token (underlying asset)
+     * @param admin Admin address
+     * @param _maxMintPerBlock Max mint per block
+     * @param _maxRedeemPerBlock Max redeem per block
+     * @param _redeemSilo The redeem silo address (must be deployed separately as upgradeable proxy)
+     */
+    function initialize(
         MultiCollateralToken _mct,
         address admin,
         uint256 _maxMintPerBlock,
-        uint256 _maxRedeemPerBlock
-    ) ERC20("Nara USD", "NaraUSD") ERC4626(IERC20(address(_mct))) ERC20Permit("NaraUSD") {
+        uint256 _maxRedeemPerBlock,
+        NaraUSDRedeemSilo _redeemSilo
+    ) public initializer {
         if (address(_mct) == address(0)) revert ZeroAddressException();
         if (admin == address(0)) revert ZeroAddressException();
+        if (address(_redeemSilo) == address(0)) revert ZeroAddressException();
+
+        __ERC20_init("Nara USD", "NaraUSD");
+        __ERC20Permit_init("NaraUSD");
+        __ERC4626_init(IERC20(address(_mct)));
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
 
         mct = _mct;
+        redeemSilo = _redeemSilo;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GATEKEEPER_ROLE, admin);
@@ -297,10 +331,13 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
 
         _setMaxMintPerBlock(_maxMintPerBlock);
         _setMaxRedeemPerBlock(_maxRedeemPerBlock);
-
-        // Create silo for holding locked NaraUSD during redemption queue
-        redeemSilo = new NaraUSDRedeemSilo(address(this), address(this));
     }
+
+    /**
+     * @notice Authorize upgrade (UUPS pattern)
+     * @dev Only DEFAULT_ADMIN_ROLE can authorize upgrades
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /* --------------- EXTERNAL MINT/REDEEM --------------- */
 
@@ -947,7 +984,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @notice Override ERC4626 withdraw - disabled in favor of custom redeem flow
      * @dev Use redeem() with instant/queue logic instead
      */
-    function withdraw(uint256, address, address) public pure override returns (uint256) {
+    function withdraw(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
         revert("Use redeem()");
     }
 
@@ -956,12 +993,12 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev The ERC4626 redeem(shares, receiver, owner) is replaced by our custom
      *      redeem(collateralAsset, naraUSDAmount, allowQueue) function
      */
-    function redeem(uint256, address, address) public pure override returns (uint256) {
+    function redeem(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
         revert("Use redeem(collateralAsset, naraUSDAmount, allowQueue)");
     }
 
     /// @dev Override decimals to ensure 18 decimals
-    function decimals() public pure override(ERC4626, ERC20) returns (uint8) {
+    function decimals() public pure override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
         return 18;
     }
 
@@ -972,9 +1009,9 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev Fee is calculated on MCT amount, then shares are minted 1:1 with remaining MCT
      */
-    function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
+    function previewDeposit(uint256 assets) public view override(ERC4626Upgradeable) returns (uint256 shares) {
         // First get base conversion using ERC4626 formula
-        uint256 baseShares = _convertToShares(assets, Math.Rounding.Floor);
+        uint256 baseShares = convertToShares(assets);
 
         // Apply mint fee if configured
         uint256 feeAmount = _calculateMintFee(baseShares);
@@ -990,7 +1027,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev To get 'shares' after fee, we need more MCT assets
      */
-    function previewMint(uint256 shares) public view override returns (uint256 assets) {
+    function previewMint(uint256 shares) public view override(ERC4626Upgradeable) returns (uint256 assets) {
         // Calculate how many shares we need before fee to get 'shares' after fee
         uint256 sharesBeforeFee = shares;
         if (feeTreasury != address(0)) {
@@ -1013,7 +1050,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         }
 
         // Convert sharesBeforeFee to assets using base conversion
-        assets = _convertToAssets(sharesBeforeFee, Math.Rounding.Ceil);
+        assets = convertToAssets(sharesBeforeFee);
 
         return assets;
     }
@@ -1025,9 +1062,9 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
      * @dev Note: Actual redeem fee is on collateral, but for ERC4626 we apply it to MCT (1:1 equivalent)
      */
-    function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
+    function previewRedeem(uint256 shares) public view override(ERC4626Upgradeable) returns (uint256 assets) {
         // First get base conversion using ERC4626 formula
-        uint256 baseAssets = _convertToAssets(shares, Math.Rounding.Floor);
+        uint256 baseAssets = convertToAssets(shares);
 
         // Apply redeem fee if configured
         uint256 feeAmount = _calculateRedeemFee(baseAssets);
@@ -1043,7 +1080,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
      * @dev To get 'assets' after fee, we need to redeem more shares
      */
-    function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
+    function previewWithdraw(uint256 assets) public view override(ERC4626Upgradeable) returns (uint256 shares) {
         // Calculate how many assets we need before fee to get 'assets' after fee
         uint256 assetsBeforeFee = assets;
         if (feeTreasury != address(0)) {
@@ -1066,7 +1103,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
         }
 
         // Convert assetsBeforeFee to shares using base conversion
-        shares = _convertToShares(assetsBeforeFee, Math.Rounding.Ceil);
+        shares = convertToShares(assetsBeforeFee);
 
         return shares;
     }
@@ -1205,7 +1242,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
      * @dev Only admin can move their tokens via redistributeLockedAmount
      * @dev Note: Keyring checks are NOT applied to transfers - NaraUSD is freely transferrable
      */
-    function _update(address from, address to, uint256 value) internal virtual override {
+    function _update(address from, address to, uint256 value) internal virtual override(ERC20Upgradeable) {
         // Blacklisted addresses are completely frozen
         if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
@@ -1220,7 +1257,7 @@ contract NaraUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard, Pausab
     /**
      * @notice Prevent renouncing ownership
      */
-    function renounceRole(bytes32 role, address account) public virtual override {
+    function renounceRole(bytes32 role, address account) public virtual override(AccessControlUpgradeable) {
         if (role == DEFAULT_ADMIN_ROLE) revert CantRenounceOwnership();
         super.renounceRole(role, account);
     }
