@@ -130,8 +130,8 @@ abstract contract TestHelper is TestHelperOz5 {
         );
 
         // Deploy real NaraUSD vault (upgradeable - using initialize)
-        NaraUSD naraUSDImpl = new NaraUSD();
-        bytes memory naraUSDInitData = abi.encodeWithSelector(
+        NaraUSD naraUsdImpl = new NaraUSD();
+        bytes memory naraUsdInitData = abi.encodeWithSelector(
             NaraUSD.initialize.selector,
             mct,
             address(this), // admin
@@ -139,7 +139,7 @@ abstract contract TestHelper is TestHelperOz5 {
             type(uint256).max, // maxRedeemPerBlock (unlimited for testing)
             redeemSilo // silo address
         );
-        naraUSD = NaraUSD(address(new ERC1967Proxy(address(naraUSDImpl), naraUSDInitData)));
+        naraUSD = NaraUSD(address(new ERC1967Proxy(address(naraUsdImpl), naraUsdInitData)));
         // Grant necessary roles
         naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(this));
         naraUSD.grantRole(naraUSD.COLLATERAL_MANAGER_ROLE(), address(this));
@@ -160,15 +160,15 @@ abstract contract TestHelper is TestHelperOz5 {
         NaraUSDPlusSilo plusSilo = NaraUSDPlusSilo(address(new ERC1967Proxy(address(plusSiloImpl), plusSiloInitData)));
 
         // Deploy real NaraUSDPlus vault (upgradeable - using initialize)
-        NaraUSDPlus naraUSDPlusImpl = new NaraUSDPlus();
-        bytes memory naraUSDPlusInitData = abi.encodeWithSelector(
+        NaraUSDPlus naraUsdPlusImpl = new NaraUSDPlus();
+        bytes memory naraUsdPlusInitData = abi.encodeWithSelector(
             NaraUSDPlus.initialize.selector,
             naraUSD,
             address(this), // initialRewarder
             address(this), // admin
             plusSilo // silo address
         );
-        naraUSDPlus = NaraUSDPlus(address(new ERC1967Proxy(address(naraUSDPlusImpl), naraUSDPlusInitData)));
+        naraUSDPlus = NaraUSDPlus(address(new ERC1967Proxy(address(naraUsdPlusImpl), naraUsdPlusInitData)));
         // Set cooldown to 0 for easier testing (can be changed in specific tests)
         naraUSDPlus.setCooldownDuration(0);
 
@@ -220,16 +220,16 @@ abstract contract TestHelper is TestHelperOz5 {
      */
     function _wireOApps() internal {
         // Wire NaraUSD OFT <-> Adapter
-        address[] memory naraUSDPath = new address[](2);
-        naraUSDPath[0] = address(naraUSDAdapter);
-        naraUSDPath[1] = address(naraUSDOFT);
-        this.wireOApps(naraUSDPath);
+        address[] memory naraUsdPath = new address[](2);
+        naraUsdPath[0] = address(naraUSDAdapter);
+        naraUsdPath[1] = address(naraUSDOFT);
+        this.wireOApps(naraUsdPath);
 
         // Wire NaraUSDPlus OFT <-> Adapter
-        address[] memory naraUSDPlusPath = new address[](2);
-        naraUSDPlusPath[0] = address(naraUSDPlusAdapter);
-        naraUSDPlusPath[1] = address(naraUSDPlusOFT);
-        this.wireOApps(naraUSDPlusPath);
+        address[] memory naraUsdPlusPath = new address[](2);
+        naraUsdPlusPath[0] = address(naraUSDPlusAdapter);
+        naraUsdPlusPath[1] = address(naraUSDPlusOFT);
+        this.wireOApps(naraUsdPlusPath);
     }
 
     /**

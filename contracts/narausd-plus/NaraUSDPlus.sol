@@ -196,8 +196,8 @@ contract NaraUSDPlus is
 
         // Call NaraUSD's burn function to properly burn NaraUSD and MCT
         // NaraUSD.burn() burns from msg.sender (this contract), so NaraUSDPlus must own the tokens
-        INaraUSD naraUSD = INaraUSD(asset());
-        naraUSD.burn(amount);
+        INaraUSD naraUsd = INaraUSD(asset());
+        naraUsd.burn(amount);
 
         emit AssetsBurned(amount);
 
@@ -245,7 +245,7 @@ contract NaraUSDPlus is
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_isBlacklisted(from) && !_isBlacklisted(to)) {
             uint256 amountToDistribute = balanceOf(from);
-            uint256 naraUSDToVest = previewRedeem(amountToDistribute);
+            uint256 naraUsdToVest = previewRedeem(amountToDistribute);
 
             // Bypass blacklist check by calling super._update directly for the burn
             // This is safe because it's admin-only and explicitly for moving frozen funds
@@ -253,7 +253,7 @@ contract NaraUSDPlus is
 
             // to address of address(0) enables burning
             if (to == address(0)) {
-                _updateVestingAmount(naraUSDToVest);
+                _updateVestingAmount(naraUsdToVest);
             } else {
                 _mint(to, amountToDistribute);
             }

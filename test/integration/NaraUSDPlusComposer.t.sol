@@ -168,7 +168,7 @@ contract NaraUSDPlusComposerTest is TestHelper {
         MessagingFee memory fee = _getMessagingFee(address(naraUSDPlusOFT), sendParam);
         uint256 totalFee = fee.nativeFee + hopFee.nativeFee;
 
-        uint256 bobNaraUSDBeforeOnSpoke = naraUSDOFT.balanceOf(bob);
+        uint256 bobNaraUsdBeforeOnSpoke = naraUSDOFT.balanceOf(bob);
 
         naraUSDPlusOFT.send{ value: totalFee }(sendParam, MessagingFee(totalFee, 0), bob);
         vm.stopPrank();
@@ -302,9 +302,9 @@ contract NaraUSDPlusComposerTest is TestHelper {
 
         uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
         uint256 naraUsdPlusAmountReceived = naraUSDPlus.deposit(naraUsdAmount, alice);
-        uint256 aliceNaraUSDAfter = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdAfter = naraUSD.balanceOf(alice);
 
-        assertEq(aliceNaraUsdBefore - aliceNaraUSDAfter, naraUsdAmount, "naraUSD should be transferred");
+        assertEq(aliceNaraUsdBefore - aliceNaraUsdAfter, naraUsdAmount, "naraUSD should be transferred");
         assertEq(naraUsdPlusAmountReceived, naraUsdAmount, "Should receive 1:1 initially");
         assertEq(naraUSDPlus.balanceOf(alice), naraUsdPlusAmountReceived, "Alice should have naraUSD+");
 
@@ -535,7 +535,7 @@ contract NaraUSDPlusComposerTest is TestHelper {
      */
     function test_EndToEndStakingFlow() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedNaraUSD = 1000e18;
+        uint256 expectedNaraUsd = 1000e18;
 
         _switchToHub();
 
@@ -543,7 +543,7 @@ contract NaraUSDPlusComposerTest is TestHelper {
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), usdcAmount);
         uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(naraUsdAmount, expectedNaraUSD, "Should mint expected naraUSD");
+        assertEq(naraUsdAmount, expectedNaraUsd, "Should mint expected naraUSD");
 
         // Step 2: Alice stakes naraUSD to get naraUSD+
         naraUSD.approve(address(naraUSDPlus), naraUsdAmount);

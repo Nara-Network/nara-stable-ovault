@@ -65,10 +65,10 @@ contract NaraUSDPlusTest is TestHelper {
         // Redeem
         uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
         uint256 assets = naraUSDPlus.redeem(shares, alice, alice);
-        uint256 aliceNaraUSDAfter = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdAfter = naraUSD.balanceOf(alice);
 
         assertEq(assets, depositAmount, "Should redeem 1:1");
-        assertEq(aliceNaraUSDAfter - aliceNaraUsdBefore, depositAmount, "naraUSD returned");
+        assertEq(aliceNaraUsdAfter - aliceNaraUsdBefore, depositAmount, "naraUSD returned");
         assertEq(naraUSDPlus.balanceOf(alice), 0, "naraUSD+ burned");
 
         vm.stopPrank();

@@ -64,7 +64,7 @@ interface INaraUSD is IERC4626, IERC20Permit {
 
     struct RedemptionRequest {
         uint104 cooldownEnd;
-        uint152 naraUSDAmount;
+        uint152 naraUsdAmount;
         address collateralAsset;
     }
 

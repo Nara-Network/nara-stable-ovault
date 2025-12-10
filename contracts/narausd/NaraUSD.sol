@@ -78,7 +78,7 @@ contract NaraUSD is
 
     /// @notice Redemption request structure
     struct RedemptionRequest {
-        uint152 naraUSDAmount; // Amount of NaraUSD locked for redemption
+        uint152 naraUsdAmount; // Amount of NaraUSD locked for redemption
         address collateralAsset; // Collateral asset to receive
     }
 
@@ -472,7 +472,7 @@ contract NaraUSD is
     function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
         RedemptionRequest memory request = redemptionRequests[msg.sender];
 
-        if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
+        if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
         if (newAmount == 0) revert InvalidAmount();
 
         // Check minimum redeem amount
@@ -481,7 +481,7 @@ contract NaraUSD is
         }
 
         address collateralAsset = request.collateralAsset;
-        uint256 currentAmount = request.naraUSDAmount;
+        uint256 currentAmount = request.naraUsdAmount;
 
         // Check if instant redemption is now possible
         uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, newAmount);
@@ -534,7 +534,7 @@ contract NaraUSD is
             }
 
             // Update stored amount
-            redemptionRequests[msg.sender].naraUSDAmount = uint152(newAmount);
+            redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
 
             emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
         }
@@ -550,9 +550,9 @@ contract NaraUSD is
 
         RedemptionRequest memory request = redemptionRequests[msg.sender];
 
-        if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
+        if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
 
-        uint256 naraUsdAmount = request.naraUSDAmount;
+        uint256 naraUsdAmount = request.naraUsdAmount;
 
         // Clear redemption request
         delete redemptionRequests[msg.sender];
@@ -867,7 +867,7 @@ contract NaraUSD is
         _checkKeyringCredential(msg.sender);
 
         // Convert collateral to NaraUSD amount (normalize decimals)
-        naraUsdAmount = _convertToNaraUSDAmount(collateralAsset, collateralAmount);
+        naraUsdAmount = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
 
         // Check minimum mint amount
         if (minMintAmount > 0 && naraUsdAmount < minMintAmount) {
@@ -881,7 +881,7 @@ contract NaraUSD is
         IERC20(collateralAsset).safeTransferFrom(beneficiary, address(this), collateralAmount);
 
         // Calculate mint fee on collateral amount (convert to 18 decimals for fee calculation)
-        uint256 collateralAmount18 = _convertToNaraUSDAmount(collateralAsset, collateralAmount);
+        uint256 collateralAmount18 = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
         uint256 feeAmount18 = _calculateMintFee(collateralAmount18);
         uint256 collateralAfterFee = collateralAmount;
         uint256 collateralForMinting = collateralAmount;
@@ -918,7 +918,7 @@ contract NaraUSD is
      * @param collateralAmount The amount of collateral
      * @return The equivalent NaraUSD amount (18 decimals)
      */
-    function _convertToNaraUSDAmount(
+    function _convertToNaraUsdAmount(
         address collateralAsset,
         uint256 collateralAmount
     ) internal view returns (uint256) {
@@ -1141,14 +1141,14 @@ contract NaraUSD is
      * @param naraUsdAmount The amount of NaraUSD to lock
      */
     function _queueRedeem(address user, address collateralAsset, uint256 naraUsdAmount) internal {
-        if (redemptionRequests[user].naraUSDAmount > 0) revert ExistingRedemptionRequest();
+        if (redemptionRequests[user].naraUsdAmount > 0) revert ExistingRedemptionRequest();
 
         // Transfer NaraUSD from user to silo (escrow)
         _transfer(user, address(redeemSilo), naraUsdAmount);
 
         // Record redemption request (valid until completed or cancelled)
         redemptionRequests[user] = RedemptionRequest({
-            naraUSDAmount: uint152(naraUsdAmount),
+            naraUsdAmount: uint152(naraUsdAmount),
             collateralAsset: collateralAsset
         });
 
@@ -1164,7 +1164,7 @@ contract NaraUSD is
     function _completeRedemption(address user) internal returns (uint256 collateralAmount) {
         RedemptionRequest memory request = redemptionRequests[user];
 
-        if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
+        if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
 
         // Check blacklist restrictions (full restriction prevents redeeming)
         if (_isBlacklisted(user)) {
@@ -1174,7 +1174,7 @@ contract NaraUSD is
         // Check Keyring credentials
         _checkKeyringCredential(user);
 
-        uint256 naraUsdAmount = request.naraUSDAmount;
+        uint256 naraUsdAmount = request.naraUsdAmount;
         address collateralAsset = request.collateralAsset;
 
         // Check per-block redemption limit
@@ -1216,7 +1216,7 @@ contract NaraUSD is
         uint256 receivedCollateral = mct.redeem(collateralAsset, naraUsdAmount, address(this));
 
         // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
-        uint256 receivedCollateral18 = _convertToNaraUSDAmount(collateralAsset, receivedCollateral);
+        uint256 receivedCollateral18 = _convertToNaraUsdAmount(collateralAsset, receivedCollateral);
         uint256 feeAmount18 = _calculateRedeemFee(receivedCollateral18);
         uint256 collateralAfterFee = receivedCollateral;
 

@@ -44,7 +44,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LocalDepositThenCrossChain() public {
         uint256 mctAmount = 100e18;
-        uint256 expectedNaraUSD = 100e18;
+        uint256 expectedNaraUsd = 100e18;
 
         _switchToHub();
 
@@ -52,7 +52,7 @@ contract NaraUSDComposerTest is TestHelper {
         vm.startPrank(alice);
         mct.approve(address(naraUSD), mctAmount);
         uint256 naraUsdReceived = naraUSD.deposit(mctAmount, alice);
-        assertEq(naraUsdReceived, expectedNaraUSD, "Should receive expected naraUSD");
+        assertEq(naraUsdReceived, expectedNaraUsd, "Should receive expected naraUSD");
 
         // Step 2: Alice sends naraUSD cross-chain to Bob on spoke
         naraUSD.approve(address(naraUSDAdapter), naraUsdReceived);
@@ -116,7 +116,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LocalDepositAndSend() public {
         uint256 mctAmount = 100e18;
-        uint256 expectedNaraUSD = 100e18;
+        uint256 expectedNaraUsd = 100e18;
 
         _switchToHub();
 
@@ -124,7 +124,7 @@ contract NaraUSDComposerTest is TestHelper {
         vm.startPrank(alice);
         mct.approve(address(naraUSD), mctAmount);
         uint256 naraUsdReceived = naraUSD.deposit(mctAmount, alice);
-        assertEq(naraUsdReceived, expectedNaraUSD, "Should receive expected naraUSD");
+        assertEq(naraUsdReceived, expectedNaraUsd, "Should receive expected naraUSD");
 
         // Now send naraUSD cross-chain via adapter
         naraUSD.approve(address(naraUSDAdapter), naraUsdReceived);
@@ -310,7 +310,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_MintWithCollateral() public {
         uint256 usdcAmount = 1000e6; // 1000 USDC
-        uint256 expectedNaraUSD = 1000e18; // 1000 naraUSD
+        uint256 expectedNaraUsd = 1000e18; // 1000 naraUSD
 
         _switchToHub();
 
@@ -323,10 +323,10 @@ contract NaraUSDComposerTest is TestHelper {
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
         assertEq(aliceUsdcBefore - aliceUsdcAfter, usdcAmount, "USDC should be transferred");
-        assertEq(naraUsdReceived, expectedNaraUSD, "Should mint expected naraUSD");
+        assertEq(naraUsdReceived, expectedNaraUsd, "Should mint expected naraUSD");
         assertEq(
             naraUSD.balanceOf(alice) - aliceNaraUsdBefore,
-            expectedNaraUSD,
+            expectedNaraUsd,
             "Alice should have additional naraUSD"
         );
         vm.stopPrank();
@@ -451,7 +451,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_EndToEndFlow() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedNaraUSD = 1000e18;
+        uint256 expectedNaraUsd = 1000e18;
 
         _switchToHub();
 
@@ -459,7 +459,7 @@ contract NaraUSDComposerTest is TestHelper {
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), usdcAmount);
         uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(naraUsdAmount, expectedNaraUSD, "Should mint expected naraUSD");
+        assertEq(naraUsdAmount, expectedNaraUsd, "Should mint expected naraUSD");
 
         // Step 2: Alice sends naraUSD to Bob on spoke chain
         naraUSD.approve(address(naraUSDAdapter), naraUsdAmount);

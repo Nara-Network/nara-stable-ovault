@@ -21,7 +21,7 @@ contract EndToEndTest is TestHelper {
      */
     function test_CompleteUserJourney() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedNaraUSD = 1000e18;
+        uint256 expectedNaraUsd = 1000e18;
 
         _switchToHub();
 
@@ -30,10 +30,10 @@ contract EndToEndTest is TestHelper {
         uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
         usdc.approve(address(naraUSD), usdcAmount);
         uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(naraUsdAmount, expectedNaraUSD, "Step 1: Should mint correct NaraUSD");
+        assertEq(naraUsdAmount, expectedNaraUsd, "Step 1: Should mint correct NaraUSD");
         assertEq(
             naraUSD.balanceOf(alice) - aliceNaraUsdBefore,
-            expectedNaraUSD,
+            expectedNaraUsd,
             "Step 1: Alice should have additional NaraUSD"
         );
 
@@ -287,15 +287,15 @@ contract EndToEndTest is TestHelper {
 
         // === Verify total supply consistency ===
         _switchToHub();
-        uint256 hubNaraUSDSupply = naraUSD.totalSupply();
+        uint256 hubNaraUsdSupply = naraUSD.totalSupply();
 
         _switchToSpoke();
-        uint256 spokeNaraUSDSupply = naraUSDOFT.totalSupply();
+        uint256 spokeNaraUsdSupply = naraUSDOFT.totalSupply();
 
         _switchToHub();
         uint256 lockedInAdapter = naraUSD.balanceOf(address(naraUSDAdapter));
 
-        assertEq(spokeNaraUSDSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
+        assertEq(spokeNaraUsdSupply, lockedInAdapter, "Spoke supply should equal locked tokens");
     }
 
     /**
@@ -370,7 +370,7 @@ contract EndToEndTest is TestHelper {
      */
     function test_TVLTracking() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedNaraUSD = 1000e18;
+        uint256 expectedNaraUsd = 1000e18;
 
         _switchToHub();
 
@@ -385,17 +385,17 @@ contract EndToEndTest is TestHelper {
 
         // TVL should increase
         uint256 afterDepositAssets = naraUSD.totalAssets();
-        assertEq(afterDepositAssets, initialVaultAssets + expectedNaraUSD, "TVL should increase");
+        assertEq(afterDepositAssets, initialVaultAssets + expectedNaraUsd, "TVL should increase");
 
         // Alice stakes
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), expectedNaraUSD);
-        naraUSDPlus.deposit(expectedNaraUSD, alice);
+        naraUSD.approve(address(naraUSDPlus), expectedNaraUsd);
+        naraUSDPlus.deposit(expectedNaraUsd, alice);
         vm.stopPrank();
 
         // NaraUSDPlus TVL should increase
-        uint256 stakedTVL = naraUSDPlus.totalAssets();
-        assertEq(stakedTVL, expectedNaraUSD, "Staked TVL should match deposit");
+        uint256 stakedTvl = naraUSDPlus.totalAssets();
+        assertEq(stakedTvl, expectedNaraUsd, "Staked TVL should match deposit");
     }
 
     /**

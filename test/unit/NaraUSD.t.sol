@@ -406,11 +406,11 @@ contract NaraUSDTest is TestHelper {
         // Burn
         naraUSD.burn(burnAmount);
 
-        uint256 aliceNaraUSDAfter = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdAfter = naraUSD.balanceOf(alice);
         uint256 mctAfter = mct.totalSupply();
 
         // Verify burn
-        assertEq(aliceNaraUsdBefore - aliceNaraUSDAfter, burnAmount, "naraUSD burned");
+        assertEq(aliceNaraUsdBefore - aliceNaraUsdAfter, burnAmount, "naraUSD burned");
         assertEq(mctBefore - mctAfter, burnAmount, "MCT burned");
 
         // Collateral stays in MCT (deflationary)
