@@ -9,13 +9,13 @@ import { handleDeploymentWithRetry } from './utils'
 /**
  * OVault Deployment Script for NaraUSDPlus System
  *
- * This script deploys the LayerZero OFT infrastructure for cross-chain naraUSD+:
+ * This script deploys the LayerZero OFT infrastructure for cross-chain naraUsd+:
  *
  * Hub Chain (e.g., Sepolia):
- * - NaraUSDPlusOFTAdapter (lockbox for naraUSD+)
+ * - NaraUSDPlusOFTAdapter (lockbox for naraUsd+)
  *
  * Spoke Chains (e.g., OP Sepolia, Base Sepolia):
- * - NaraUSDPlusOFT (mint/burn for naraUSD+)
+ * - NaraUSDPlusOFT (mint/burn for naraUsd+)
  *
  * Prerequisites:
  * - NaraUSDPlus must be deployed first
@@ -53,10 +53,10 @@ const deploy: DeployFunction = async (hre) => {
         console.log('📦 Deploying Hub Chain Component (NaraUSDPlusOFTAdapter)...')
 
         // Get NaraUSDPlus address
-        let naraUSDPlusAddress: string
+        let naraUsdPlusAddress: string
         try {
-            const naraUSDPlus = await hre.deployments.get('NaraUSDPlus')
-            naraUSDPlusAddress = naraUSDPlus.address
+            const naraUsdPlus = await hre.deployments.get('NaraUSDPlus')
+            naraUsdPlusAddress = naraUsdPlus.address
         } catch (error) {
             throw new Error(
                 'NaraUSDPlus not found. Please deploy NaraUSDPlus first using FullSystem or NaraUSDPlus deployment script.'
@@ -65,20 +65,20 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy NaraUSDPlusOFTAdapter (lockbox)
         console.log('   → Deploying NaraUSDPlusOFTAdapter (lockbox)...')
-        const naraUSDPlusAdapter = await handleDeploymentWithRetry(
+        const naraUsdPlusAdapter = await handleDeploymentWithRetry(
             hre,
             deployments.deploy('NaraUSDPlusOFTAdapter', {
                 contract: 'contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol:NaraUSDPlusOFTAdapter',
                 from: deployer,
-                args: [naraUSDPlusAddress, endpointV2.address, deployer],
+                args: [naraUsdPlusAddress, endpointV2.address, deployer],
                 log: true,
                 skipIfAlreadyDeployed: true,
             }),
             'NaraUSDPlusOFTAdapter',
             'contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol:NaraUSDPlusOFTAdapter'
         )
-        deployedContracts.naraUSDPlusAdapter = naraUSDPlusAdapter.address
-        console.log(`   ✓ NaraUSDPlusOFTAdapter deployed at: ${naraUSDPlusAdapter.address}`)
+        deployedContracts.naraUsdPlusAdapter = naraUsdPlusAdapter.address
+        console.log(`   ✓ NaraUSDPlusOFTAdapter deployed at: ${naraUsdPlusAdapter.address}`)
     }
 
     // ========================================
@@ -89,7 +89,7 @@ const deploy: DeployFunction = async (hre) => {
 
         // Deploy NaraUSDPlusOFT (mint/burn)
         console.log('   → Deploying NaraUSDPlusOFT (mint/burn)...')
-        const naraUSDPlusOFT = await handleDeploymentWithRetry(
+        const naraUsdPlusOft = await handleDeploymentWithRetry(
             hre,
             deployments.deploy('NaraUSDPlusOFT', {
                 contract: 'contracts/narausd-plus/NaraUSDPlusOFT.sol:NaraUSDPlusOFT',
@@ -104,8 +104,8 @@ const deploy: DeployFunction = async (hre) => {
             'NaraUSDPlusOFT',
             'contracts/narausd-plus/NaraUSDPlusOFT.sol:NaraUSDPlusOFT'
         )
-        deployedContracts.naraUSDPlusOFT = naraUSDPlusOFT.address
-        console.log(`   ✓ NaraUSDPlusOFT deployed at: ${naraUSDPlusOFT.address}`)
+        deployedContracts.naraUsdPlusOft = naraUsdPlusOft.address
+        console.log(`   ✓ NaraUSDPlusOFT deployed at: ${naraUsdPlusOft.address}`)
     }
 
     // ========================================
@@ -139,19 +139,19 @@ const deploy: DeployFunction = async (hre) => {
 
         if (isNaraUSDPlusVaultChain(networkEid)) {
             // Hub chain verification commands
-            if (deployedContracts.naraUSDPlusAdapter) {
-                const naraUSDPlus = await hre.deployments.get('NaraUSDPlus')
+            if (deployedContracts.naraUsdPlusAdapter) {
+                const naraUsdPlus = await hre.deployments.get('NaraUSDPlus')
                 console.log(`# NaraUSDPlusOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol:NaraUSDPlusOFTAdapter --network ${hre.network.name} ${deployedContracts.naraUSDPlusAdapter} "${naraUSDPlus.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol:NaraUSDPlusOFTAdapter --network ${hre.network.name} ${deployedContracts.naraUsdPlusAdapter} "${naraUsdPlus.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         } else {
             // Spoke chain verification commands
-            if (deployedContracts.naraUSDPlusOFT) {
+            if (deployedContracts.naraUsdPlusOft) {
                 console.log(`# NaraUSDPlusOFT`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusOFT.sol:NaraUSDPlusOFT --network ${hre.network.name} ${deployedContracts.naraUSDPlusOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusOFT.sol:NaraUSDPlusOFT --network ${hre.network.name} ${deployedContracts.naraUsdPlusOft} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         }
@@ -162,13 +162,13 @@ const deploy: DeployFunction = async (hre) => {
     if (isNaraUSDPlusVaultChain(networkEid)) {
         console.log('📝 Next Steps:')
         console.log('1. Deploy NaraUSDPlusOFT on spoke chains')
-        console.log('2. Wire LayerZero peers for naraUSD+')
-        console.log('3. Test cross-chain naraUSD+ transfers\n')
+        console.log('2. Wire LayerZero peers for naraUsd+')
+        console.log('3. Test cross-chain naraUsd+ transfers\n')
     } else {
         console.log('📝 Next Steps:')
         console.log('1. Deploy on other spoke chains (if needed)')
-        console.log('2. Wire LayerZero peers for naraUSD+')
-        console.log('3. Test cross-chain naraUSD+ transfers\n')
+        console.log('2. Wire LayerZero peers for naraUsd+')
+        console.log('3. Test cross-chain naraUsd+ transfers\n')
     }
 }
 

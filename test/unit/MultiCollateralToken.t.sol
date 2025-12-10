@@ -36,7 +36,7 @@ contract MultiCollateralTokenTest is TestHelper {
     /**
      * @notice Test basic setup
      */
-    function test_Setup() public {
+    function test_Setup() public view {
         assertEq(mct.name(), "MultiCollateralToken");
         assertEq(mct.symbol(), "MCT");
         assertEq(mct.decimals(), 18);
@@ -109,13 +109,13 @@ contract MultiCollateralTokenTest is TestHelper {
         uint256 usdcAmount = 1000e6;
         uint256 mctAmount = _mintMct(address(usdc), usdcAmount, alice);
 
-        // Redeem (transfer MCT to naraUSD which has MINTER_ROLE to redeem)
+        // Redeem (transfer MCT to naraUsd which has MINTER_ROLE to redeem)
         vm.startPrank(alice);
-        mct.transfer(address(naraUSD), mctAmount);
+        mct.transfer(address(naraUsd), mctAmount);
         vm.stopPrank();
 
-        // naraUSD redeems
-        vm.startPrank(address(naraUSD));
+        // naraUsd redeems
+        vm.startPrank(address(naraUsd));
         mct.approve(address(mct), mctAmount);
 
         uint256 collateralReceived = mct.redeem(address(usdc), mctAmount, bob);
@@ -240,7 +240,7 @@ contract MultiCollateralTokenTest is TestHelper {
     /**
      * @notice Test getSupportedAssets
      */
-    function test_GetSupportedAssets() public {
+    function test_GetSupportedAssets() public view {
         address[] memory assets = mct.getSupportedAssets();
 
         assertEq(assets.length, 2, "Should have 2 assets");
@@ -266,8 +266,8 @@ contract MultiCollateralTokenTest is TestHelper {
         _mintMct(address(usdc), 1000e6, bob);
 
         // Try to redeem 2000 MCT (more than available collateral)
-        vm.startPrank(address(naraUSD));
-        mct.mintWithoutCollateral(address(naraUSD), 1000e18); // Extra unbacked MCT
+        vm.startPrank(address(naraUsd));
+        mct.mintWithoutCollateral(address(naraUsd), 1000e18); // Extra unbacked MCT
         mct.approve(address(mct), 2000e18);
 
         vm.expectRevert(MultiCollateralToken.InsufficientCollateral.selector);
@@ -329,14 +329,14 @@ contract MultiCollateralTokenTest is TestHelper {
         // Mint some MCT with USDC first
         _mintMct(address(usdc), 1000e6, alice);
 
-        // Transfer MCT to naraUSD (which has MINTER_ROLE)
+        // Transfer MCT to naraUsd (which has MINTER_ROLE)
         vm.prank(alice);
-        mct.transfer(address(naraUSD), 1000e18);
+        mct.transfer(address(naraUsd), 1000e18);
 
         // Try to redeem to unsupported asset
         MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 18);
 
-        vm.startPrank(address(naraUSD));
+        vm.startPrank(address(naraUsd));
         mct.approve(address(mct), 1000e18);
 
         vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
@@ -388,12 +388,12 @@ contract MultiCollateralTokenTest is TestHelper {
         // Mint
         uint256 mctAmount = _mintMct(address(usdc), amount, alice);
 
-        // Transfer to naraUSD for redemption
+        // Transfer to naraUsd for redemption
         vm.prank(alice);
-        mct.transfer(address(naraUSD), mctAmount);
+        mct.transfer(address(naraUsd), mctAmount);
 
         // Redeem
-        vm.startPrank(address(naraUSD));
+        vm.startPrank(address(naraUsd));
         mct.approve(address(mct), mctAmount);
         uint256 collateralReceived = mct.redeem(address(usdc), mctAmount, bob);
         vm.stopPrank();

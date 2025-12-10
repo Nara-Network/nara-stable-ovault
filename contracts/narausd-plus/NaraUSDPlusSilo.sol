@@ -64,8 +64,12 @@ contract NaraUSDPlusSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgradea
     }
 
     modifier onlyStakingVault() {
-        if (msg.sender != stakingVault) revert OnlyStakingVault();
+        _onlyStakingVault();
         _;
+    }
+
+    function _onlyStakingVault() internal view {
+        if (msg.sender != stakingVault) revert OnlyStakingVault();
     }
 
     function withdraw(address to, uint256 amount) external onlyStakingVault {

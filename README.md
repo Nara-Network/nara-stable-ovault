@@ -160,8 +160,8 @@ await stargateUSDC.send(
 
 ```javascript
 // Stake 50 NaraUSD to receive NaraUSD+
-await narausd.approve(naraUSDPlus.address, ethers.utils.parseEther("50"));
-await naraUSDPlus.deposit(ethers.utils.parseEther("50"), yourAddress);
+await narausd.approve(naraUsdPlus.address, ethers.utils.parseEther("50"));
+await naraUsdPlus.deposit(ethers.utils.parseEther("50"), yourAddress);
 ```
 
 ### Redeem NaraUSD (with Cooldown)
@@ -183,12 +183,12 @@ await narausd.cancelRedeem();
 
 ```javascript
 // Step 1: Start cooldown
-await naraUSDPlus.cooldownShares(ethers.utils.parseEther("50"));
+await naraUsdPlus.cooldownShares(ethers.utils.parseEther("50"));
 
 // Step 2: Wait 90 days...
 
 // Step 3: Claim NaraUSD
-await naraUSDPlus.unstake(yourAddress);
+await naraUsdPlus.unstake(yourAddress);
 ```
 
 ---

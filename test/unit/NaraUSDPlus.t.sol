@@ -2,7 +2,6 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { NaraUSDPlus } from "../../contracts/narausd-plus/NaraUSDPlus.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /**
@@ -13,24 +12,24 @@ contract NaraUSDPlusTest is TestHelper {
     function setUp() public override {
         super.setUp();
 
-        // Mint naraUSD for testing
-        naraUSD.mint(alice, 100_000e18);
-        naraUSD.mint(bob, 100_000e18);
-        naraUSD.mint(owner, 100_000e18);
+        // Mint naraUsd for testing
+        naraUsd.mint(alice, 100_000e18);
+        naraUsd.mint(bob, 100_000e18);
+        naraUsd.mint(owner, 100_000e18);
 
-        // Test contract needs naraUSD for reward distribution (has REWARDER_ROLE)
-        naraUSD.mint(address(this), 1_000_000e18);
+        // Test contract needs naraUsd for reward distribution (has REWARDER_ROLE)
+        naraUsd.mint(address(this), 1_000_000e18);
     }
 
     /**
      * @notice Test basic setup
      */
-    function test_Setup() public {
-        assertEq(naraUSDPlus.name(), "NaraUSD+");
-        assertEq(naraUSDPlus.symbol(), "naraUSD+");
-        assertEq(naraUSDPlus.decimals(), 18);
-        assertEq(address(naraUSDPlus.asset()), address(naraUSD));
-        assertEq(naraUSDPlus.cooldownDuration(), 0); // Set to 0 in TestHelper
+    function test_Setup() public view {
+        assertEq(naraUsdPlus.name(), "NaraUSD+");
+        assertEq(naraUsdPlus.symbol(), "naraUsd+");
+        assertEq(naraUsdPlus.decimals(), 18);
+        assertEq(address(naraUsdPlus.asset()), address(naraUsd));
+        assertEq(naraUsdPlus.cooldownDuration(), 0); // Set to 0 in TestHelper
     }
 
     /**
@@ -40,14 +39,14 @@ contract NaraUSDPlusTest is TestHelper {
         uint256 depositAmount = 1000e18;
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), depositAmount);
+        naraUsd.approve(address(naraUsdPlus), depositAmount);
 
-        uint256 shares = naraUSDPlus.deposit(depositAmount, alice);
+        uint256 shares = naraUsdPlus.deposit(depositAmount, alice);
 
         // Initially 1:1
         assertEq(shares, depositAmount, "Should receive 1:1 shares");
-        assertEq(naraUSDPlus.balanceOf(alice), shares, "Alice should have naraUSD+");
-        assertEq(naraUSD.balanceOf(address(naraUSDPlus)), depositAmount, "naraUSD locked");
+        assertEq(naraUsdPlus.balanceOf(alice), shares, "Alice should have naraUsd+");
+        assertEq(naraUsd.balanceOf(address(naraUsdPlus)), depositAmount, "naraUsd locked");
 
         vm.stopPrank();
     }
@@ -59,17 +58,17 @@ contract NaraUSDPlusTest is TestHelper {
         // Deposit first
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), depositAmount);
-        uint256 shares = naraUSDPlus.deposit(depositAmount, alice);
+        naraUsd.approve(address(naraUsdPlus), depositAmount);
+        uint256 shares = naraUsdPlus.deposit(depositAmount, alice);
 
         // Redeem
-        uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
-        uint256 assets = naraUSDPlus.redeem(shares, alice, alice);
-        uint256 aliceNaraUsdAfter = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdBefore = naraUsd.balanceOf(alice);
+        uint256 assets = naraUsdPlus.redeem(shares, alice, alice);
+        uint256 aliceNaraUsdAfter = naraUsd.balanceOf(alice);
 
         assertEq(assets, depositAmount, "Should redeem 1:1");
-        assertEq(aliceNaraUsdAfter - aliceNaraUsdBefore, depositAmount, "naraUSD returned");
-        assertEq(naraUSDPlus.balanceOf(alice), 0, "naraUSD+ burned");
+        assertEq(aliceNaraUsdAfter - aliceNaraUsdBefore, depositAmount, "naraUsd returned");
+        assertEq(naraUsdPlus.balanceOf(alice), 0, "naraUsd+ burned");
 
         vm.stopPrank();
     }
@@ -79,36 +78,36 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_CooldownShares() public {
         // Enable cooldown
-        naraUSDPlus.setCooldownDuration(7 days);
+        naraUsdPlus.setCooldownDuration(7 days);
 
         // Deposit
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdBefore = naraUsd.balanceOf(alice);
 
-        naraUSD.approve(address(naraUSDPlus), depositAmount);
-        uint256 shares = naraUSDPlus.deposit(depositAmount, alice);
+        naraUsd.approve(address(naraUsdPlus), depositAmount);
+        uint256 shares = naraUsdPlus.deposit(depositAmount, alice);
 
         // Start cooldown
-        uint256 assets = naraUSDPlus.cooldownShares(shares);
+        uint256 assets = naraUsdPlus.cooldownShares(shares);
 
         // Verify cooldown
-        (uint104 cooldownEnd, uint152 underlyingAmount) = naraUSDPlus.cooldowns(alice);
+        (uint104 cooldownEnd, uint152 underlyingAmount) = naraUsdPlus.cooldowns(alice);
         assertEq(underlyingAmount, assets, "Assets locked");
         assertEq(cooldownEnd, block.timestamp + 7 days, "Cooldown set");
-        assertEq(naraUSDPlus.balanceOf(alice), 0, "Shares burned");
+        assertEq(naraUsdPlus.balanceOf(alice), 0, "Shares burned");
 
         // Try to unstake early (should fail)
         vm.expectRevert();
-        naraUSDPlus.unstake(alice);
+        naraUsdPlus.unstake(alice);
 
         // Warp forward
         vm.warp(cooldownEnd);
 
         // Unstake
-        naraUSDPlus.unstake(alice);
+        naraUsdPlus.unstake(alice);
 
-        assertEq(naraUSD.balanceOf(alice), aliceNaraUsdBefore, "naraUSD returned");
+        assertEq(naraUsd.balanceOf(alice), aliceNaraUsdBefore, "naraUsd returned");
 
         vm.stopPrank();
     }
@@ -117,31 +116,30 @@ contract NaraUSDPlusTest is TestHelper {
      * @notice Test cooldown assets flow
      */
     function test_CooldownAssets() public {
-        naraUSDPlus.setCooldownDuration(7 days);
+        naraUsdPlus.setCooldownDuration(7 days);
 
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdBefore = naraUsd.balanceOf(alice);
 
-        naraUSD.approve(address(naraUSDPlus), depositAmount);
-        naraUSDPlus.deposit(depositAmount, alice);
+        naraUsd.approve(address(naraUsdPlus), depositAmount);
+        naraUsdPlus.deposit(depositAmount, alice);
 
         // Cooldown specific amount of assets
         uint256 cooldownAssets = 500e18;
-        uint256 shares = naraUSDPlus.cooldownAssets(cooldownAssets);
 
-        (uint104 cooldownEnd, uint152 underlyingAmount) = naraUSDPlus.cooldowns(alice);
+        (uint104 cooldownEnd, uint152 underlyingAmount) = naraUsdPlus.cooldowns(alice);
         assertEq(underlyingAmount, cooldownAssets, "Correct assets locked");
 
         // Warp and unstake
         vm.warp(cooldownEnd);
-        naraUSDPlus.unstake(alice);
+        naraUsdPlus.unstake(alice);
 
         // Should have returned 500 (depositAmount - cooldownAssets is still staked)
         assertEq(
-            naraUSD.balanceOf(alice),
+            naraUsd.balanceOf(alice),
             aliceNaraUsdBefore - depositAmount + cooldownAssets,
-            "Partial naraUSD returned"
+            "Partial naraUsd returned"
         );
 
         vm.stopPrank();
@@ -151,20 +149,20 @@ contract NaraUSDPlusTest is TestHelper {
      * @notice Test accumulating multiple cooldowns
      */
     function test_AccumulatingCooldowns() public {
-        naraUSDPlus.setCooldownDuration(7 days);
+        naraUsdPlus.setCooldownDuration(7 days);
 
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), depositAmount);
-        naraUSDPlus.deposit(depositAmount, alice);
+        naraUsd.approve(address(naraUsdPlus), depositAmount);
+        naraUsdPlus.deposit(depositAmount, alice);
 
         // First cooldown
-        naraUSDPlus.cooldownShares(200e18);
-        (uint104 cooldownEnd1, uint152 amount1) = naraUSDPlus.cooldowns(alice);
+        naraUsdPlus.cooldownShares(200e18);
+        (, uint152 amount1) = naraUsdPlus.cooldowns(alice);
 
         // Second cooldown (should accumulate)
-        naraUSDPlus.cooldownShares(300e18);
-        (uint104 cooldownEnd2, uint152 amount2) = naraUSDPlus.cooldowns(alice);
+        naraUsdPlus.cooldownShares(300e18);
+        (uint104 cooldownEnd2, uint152 amount2) = naraUsdPlus.cooldowns(alice);
 
         assertGt(amount2, amount1, "Should accumulate");
         assertEq(cooldownEnd2, block.timestamp + 7 days, "Cooldown reset");
@@ -181,27 +179,27 @@ contract NaraUSDPlusTest is TestHelper {
 
         // Alice deposits
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), depositAmount);
-        uint256 sharesBefore = naraUSDPlus.deposit(depositAmount, alice);
+        naraUsd.approve(address(naraUsdPlus), depositAmount);
+        uint256 sharesBefore = naraUsdPlus.deposit(depositAmount, alice);
         vm.stopPrank();
 
         // Distribute rewards (test contract has REWARDER_ROLE)
-        naraUSD.approve(address(naraUSDPlus), rewardsAmount);
-        naraUSDPlus.transferInRewards(rewardsAmount);
+        naraUsd.approve(address(naraUsdPlus), rewardsAmount);
+        naraUsdPlus.transferInRewards(rewardsAmount);
 
         // Fast forward past vesting
         vm.warp(block.timestamp + 8 hours);
 
         // Bob deposits after rewards (should get fewer shares)
         vm.startPrank(bob);
-        naraUSD.approve(address(naraUSDPlus), depositAmount);
-        uint256 sharesAfter = naraUSDPlus.deposit(depositAmount, bob);
+        naraUsd.approve(address(naraUsdPlus), depositAmount);
+        uint256 sharesAfter = naraUsdPlus.deposit(depositAmount, bob);
         vm.stopPrank();
 
         assertLt(sharesAfter, sharesBefore, "Should receive fewer shares after rewards");
 
         // Alice's shares should be worth more
-        uint256 aliceAssets = naraUSDPlus.convertToAssets(sharesBefore);
+        uint256 aliceAssets = naraUsdPlus.convertToAssets(sharesBefore);
         assertGt(aliceAssets, depositAmount, "Alice's shares appreciated");
     }
 
@@ -213,26 +211,26 @@ contract NaraUSDPlusTest is TestHelper {
 
         // Deposit initial amount
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        naraUSDPlus.deposit(1000e18, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        naraUsdPlus.deposit(1000e18, alice);
         vm.stopPrank();
 
         // Distribute rewards (test contract has REWARDER_ROLE)
-        naraUSD.approve(address(naraUSDPlus), rewardsAmount);
-        naraUSDPlus.transferInRewards(rewardsAmount);
+        naraUsd.approve(address(naraUsdPlus), rewardsAmount);
+        naraUsdPlus.transferInRewards(rewardsAmount);
 
         // Check unvested amount immediately
-        uint256 unvested0 = naraUSDPlus.getUnvestedAmount();
+        uint256 unvested0 = naraUsdPlus.getUnvestedAmount();
         assertEq(unvested0, rewardsAmount, "All rewards unvested initially");
 
         // Half vesting period
         vm.warp(block.timestamp + 4 hours);
-        uint256 unvested1 = naraUSDPlus.getUnvestedAmount();
+        uint256 unvested1 = naraUsdPlus.getUnvestedAmount();
         assertApproxEqRel(unvested1, rewardsAmount / 2, 0.01e18, "Half vested");
 
         // Full vesting period
         vm.warp(block.timestamp + 4 hours);
-        uint256 unvested2 = naraUSDPlus.getUnvestedAmount();
+        uint256 unvested2 = naraUsdPlus.getUnvestedAmount();
         assertEq(unvested2, 0, "Fully vested");
     }
 
@@ -242,23 +240,23 @@ contract NaraUSDPlusTest is TestHelper {
     function test_BurnAssets() public {
         // Deposit
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        naraUSDPlus.deposit(1000e18, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        naraUsdPlus.deposit(1000e18, alice);
         vm.stopPrank();
 
-        uint256 contractBalance = naraUSD.balanceOf(address(naraUSDPlus));
+        uint256 contractBalance = naraUsd.balanceOf(address(naraUsdPlus));
         uint256 burnAmount = 100e18;
 
         // Burn (test contract has REWARDER_ROLE)
-        naraUSDPlus.burnAssets(burnAmount);
+        naraUsdPlus.burnAssets(burnAmount);
 
-        // naraUSD and MCT should be burned
-        assertEq(naraUSD.balanceOf(address(naraUSDPlus)), contractBalance - burnAmount, "naraUSD burned");
+        // naraUsd and MCT should be burned
+        assertEq(naraUsd.balanceOf(address(naraUsdPlus)), contractBalance - burnAmount, "naraUsd burned");
 
         // Exchange rate should worsen (same shares, fewer assets) - deflationary event
-        uint256 aliceAssets = naraUSDPlus.convertToAssets(naraUSDPlus.balanceOf(alice));
+        uint256 aliceAssets = naraUsdPlus.convertToAssets(naraUsdPlus.balanceOf(alice));
         assertLt(aliceAssets, 1000e18, "Alice's shares worth less after deflationary burn");
-        assertApproxEqAbs(aliceAssets, 900e18, 1e18, "Should be ~900 naraUSD (1000 - 10% burn)");
+        assertApproxEqAbs(aliceAssets, 900e18, 1e18, "Should be ~900 naraUsd (1000 - 10% burn)");
     }
 
     /**
@@ -267,18 +265,18 @@ contract NaraUSDPlusTest is TestHelper {
     function test_FullBlacklist() public {
         // Alice deposits first
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        naraUSDPlus.deposit(1000e18, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        naraUsdPlus.deposit(1000e18, alice);
         vm.stopPrank();
 
         // Blacklist alice
-        naraUSDPlus.addToBlacklist(alice);
+        naraUsdPlus.addToBlacklist(alice);
 
         // Alice can't transfer
         vm.startPrank(alice);
 
         vm.expectRevert();
-        naraUSDPlus.transfer(bob, 100e18);
+        naraUsdPlus.transfer(bob, 100e18);
 
         vm.stopPrank();
 
@@ -286,7 +284,7 @@ contract NaraUSDPlusTest is TestHelper {
         vm.startPrank(alice);
 
         vm.expectRevert();
-        naraUSDPlus.redeem(100e18, alice, alice);
+        naraUsdPlus.redeem(100e18, alice, alice);
 
         vm.stopPrank();
     }
@@ -296,16 +294,16 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_RemoveFromBlacklist() public {
         // Blacklist and remove
-        naraUSDPlus.addToBlacklist(alice);
-        naraUSDPlus.removeFromBlacklist(alice);
+        naraUsdPlus.addToBlacklist(alice);
+        naraUsdPlus.removeFromBlacklist(alice);
 
         // Alice can deposit now
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        naraUSDPlus.deposit(1000e18, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        naraUsdPlus.deposit(1000e18, alice);
         vm.stopPrank();
 
-        assertEq(naraUSDPlus.balanceOf(alice), 1000e18, "Deposit successful");
+        assertEq(naraUsdPlus.balanceOf(alice), 1000e18, "Deposit successful");
     }
 
     /**
@@ -314,20 +312,20 @@ contract NaraUSDPlusTest is TestHelper {
     function test_RedistributeLockedAmount() public {
         // Alice deposits
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        naraUSDPlus.deposit(1000e18, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        naraUsdPlus.deposit(1000e18, alice);
         vm.stopPrank();
 
         // Blacklist alice
-        naraUSDPlus.addToBlacklist(alice);
+        naraUsdPlus.addToBlacklist(alice);
 
-        uint256 aliceShares = naraUSDPlus.balanceOf(alice);
+        uint256 aliceShares = naraUsdPlus.balanceOf(alice);
 
         // Redistribute to bob
-        naraUSDPlus.redistributeLockedAmount(alice, bob);
+        naraUsdPlus.redistributeLockedAmount(alice, bob);
 
-        assertEq(naraUSDPlus.balanceOf(alice), 0, "Alice shares burned");
-        assertEq(naraUSDPlus.balanceOf(bob), aliceShares, "Bob received shares");
+        assertEq(naraUsdPlus.balanceOf(alice), 0, "Alice shares burned");
+        assertEq(naraUsdPlus.balanceOf(bob), aliceShares, "Bob received shares");
     }
 
     /**
@@ -336,41 +334,41 @@ contract NaraUSDPlusTest is TestHelper {
     function test_RedistributeAndBurn() public {
         // Alice deposits
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        naraUSDPlus.deposit(1000e18, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        naraUsdPlus.deposit(1000e18, alice);
         vm.stopPrank();
 
         // Blacklist alice
-        naraUSDPlus.addToBlacklist(alice);
+        naraUsdPlus.addToBlacklist(alice);
 
         // Redistribute to burn
-        naraUSDPlus.redistributeLockedAmount(alice, address(0));
+        naraUsdPlus.redistributeLockedAmount(alice, address(0));
 
-        assertEq(naraUSDPlus.balanceOf(alice), 0, "Alice shares burned");
+        assertEq(naraUsdPlus.balanceOf(alice), 0, "Alice shares burned");
     }
 
     /**
      * @notice Test pause functionality
      */
     function test_Pause() public {
-        naraUSDPlus.pause();
+        naraUsdPlus.pause();
 
         // Can't deposit when paused
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
 
         vm.expectRevert();
-        naraUSDPlus.deposit(1000e18, alice);
+        naraUsdPlus.deposit(1000e18, alice);
 
         vm.stopPrank();
 
         // Unpause
-        naraUSDPlus.unpause();
+        naraUsdPlus.unpause();
 
         // Should work now
         vm.startPrank(alice);
-        naraUSDPlus.deposit(1000e18, alice);
-        assertEq(naraUSDPlus.balanceOf(alice), 1000e18, "Deposit after unpause");
+        naraUsdPlus.deposit(1000e18, alice);
+        assertEq(naraUsdPlus.balanceOf(alice), 1000e18, "Deposit after unpause");
         vm.stopPrank();
     }
 
@@ -380,14 +378,14 @@ contract NaraUSDPlusTest is TestHelper {
     function test_MinSharesProtection() public {
         // Try to create dust position (should fail)
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1e18);
+        naraUsd.approve(address(naraUsdPlus), 1e18);
 
         // First deposit sets the bar
-        naraUSDPlus.deposit(1e18, alice);
+        naraUsdPlus.deposit(1e18, alice);
 
         // Now redeem most of it to get below MIN_SHARES
         vm.expectRevert();
-        naraUSDPlus.redeem(0.5e18, alice, alice);
+        naraUsdPlus.redeem(0.5e18, alice, alice);
 
         vm.stopPrank();
     }
@@ -397,9 +395,9 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_RescueTokens() public {
         MockERC20 otherToken = new MockERC20("Other", "OTH", 18);
-        otherToken.mint(address(naraUSDPlus), 1000e18);
+        otherToken.mint(address(naraUsdPlus), 1000e18);
 
-        naraUSDPlus.rescueTokens(address(otherToken), 1000e18, owner);
+        naraUsdPlus.rescueTokens(address(otherToken), 1000e18, owner);
 
         assertEq(otherToken.balanceOf(owner), 1000e18, "Tokens rescued");
     }
@@ -409,7 +407,7 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_RevertIf_RescueAsset() public {
         vm.expectRevert();
-        naraUSDPlus.rescueTokens(address(naraUSD), 1000e18, owner);
+        naraUsdPlus.rescueTokens(address(naraUsd), 1000e18, owner);
     }
 
     /**
@@ -417,25 +415,25 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_CooldownDurationToggle() public {
         // Start with cooldown off (0)
-        assertEq(naraUSDPlus.cooldownDuration(), 0);
+        assertEq(naraUsdPlus.cooldownDuration(), 0);
 
         // Can use standard redeem
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        naraUSDPlus.deposit(1000e18, alice);
-        naraUSDPlus.redeem(500e18, alice, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        naraUsdPlus.deposit(1000e18, alice);
+        naraUsdPlus.redeem(500e18, alice, alice);
         vm.stopPrank();
 
         // Turn on cooldown
-        naraUSDPlus.setCooldownDuration(7 days);
+        naraUsdPlus.setCooldownDuration(7 days);
 
         // Now standard redeem should fail
         vm.startPrank(alice);
         vm.expectRevert();
-        naraUSDPlus.redeem(500e18, alice, alice);
+        naraUsdPlus.redeem(500e18, alice, alice);
 
         // But cooldown should work
-        naraUSDPlus.cooldownShares(500e18);
+        naraUsdPlus.cooldownShares(500e18);
         vm.stopPrank();
     }
 
@@ -444,7 +442,7 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_RevertIf_CooldownTooLong() public {
         vm.expectRevert();
-        naraUSDPlus.setCooldownDuration(91 days); // Max is 90
+        naraUsdPlus.setCooldownDuration(91 days); // Max is 90
     }
 
     /**
@@ -452,12 +450,12 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_RevertIf_StillVesting() public {
         // Distribute rewards (test contract has REWARDER_ROLE)
-        naraUSD.approve(address(naraUSDPlus), 200e18);
-        naraUSDPlus.transferInRewards(100e18);
+        naraUsd.approve(address(naraUsdPlus), 200e18);
+        naraUsdPlus.transferInRewards(100e18);
 
         // Try to distribute again immediately (should fail)
         vm.expectRevert();
-        naraUSDPlus.transferInRewards(100e18);
+        naraUsdPlus.transferInRewards(100e18);
     }
 
     /**
@@ -465,10 +463,10 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_RevertIf_DepositZero() public {
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
 
         vm.expectRevert();
-        naraUSDPlus.deposit(0, alice);
+        naraUsdPlus.deposit(0, alice);
 
         vm.stopPrank();
     }
@@ -478,11 +476,11 @@ contract NaraUSDPlusTest is TestHelper {
      */
     function test_RevertIf_RedeemZero() public {
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        naraUSDPlus.deposit(1000e18, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        naraUsdPlus.deposit(1000e18, alice);
 
         vm.expectRevert();
-        naraUSDPlus.redeem(0, alice, alice);
+        naraUsdPlus.redeem(0, alice, alice);
 
         vm.stopPrank();
     }
@@ -494,9 +492,9 @@ contract NaraUSDPlusTest is TestHelper {
         amount = bound(amount, 1e18, 100_000e18);
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), amount);
+        naraUsd.approve(address(naraUsdPlus), amount);
 
-        uint256 shares = naraUSDPlus.deposit(amount, alice);
+        uint256 shares = naraUsdPlus.deposit(amount, alice);
 
         assertEq(shares, amount, "Should receive 1:1 initially");
 
@@ -510,10 +508,10 @@ contract NaraUSDPlusTest is TestHelper {
         amount = bound(amount, 1e18, 100_000e18);
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), amount);
+        naraUsd.approve(address(naraUsdPlus), amount);
 
-        uint256 shares = naraUSDPlus.deposit(amount, alice);
-        uint256 assets = naraUSDPlus.redeem(shares, alice, alice);
+        uint256 shares = naraUsdPlus.deposit(amount, alice);
+        uint256 assets = naraUsdPlus.redeem(shares, alice, alice);
 
         assertEq(assets, amount, "Should get same amount back");
 
@@ -526,24 +524,24 @@ contract NaraUSDPlusTest is TestHelper {
     function test_ExchangeRate() public {
         // Deposit
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), 1000e18);
-        uint256 shares = naraUSDPlus.deposit(1000e18, alice);
+        naraUsd.approve(address(naraUsdPlus), 1000e18);
+        uint256 shares = naraUsdPlus.deposit(1000e18, alice);
         vm.stopPrank();
 
         // Add rewards (test contract has REWARDER_ROLE)
-        naraUSD.approve(address(naraUSDPlus), 100e18);
-        naraUSDPlus.transferInRewards(100e18);
+        naraUsd.approve(address(naraUsdPlus), 100e18);
+        naraUsdPlus.transferInRewards(100e18);
 
         // Warp past vesting
         vm.warp(block.timestamp + 8 hours);
 
         // Check exchange rate improved
-        uint256 assetsPerShare = naraUSDPlus.convertToAssets(1e18);
+        uint256 assetsPerShare = naraUsdPlus.convertToAssets(1e18);
         assertGt(assetsPerShare, 1e18, "Exchange rate improved");
 
         // Alice can redeem for more than deposited
         vm.startPrank(alice);
-        uint256 assets = naraUSDPlus.redeem(shares, alice, alice);
+        uint256 assets = naraUsdPlus.redeem(shares, alice, alice);
         assertGt(assets, 1000e18, "Redeemed more than deposited");
         vm.stopPrank();
     }

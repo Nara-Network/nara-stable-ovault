@@ -55,8 +55,8 @@ contract NaraUSDRedeemSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgrad
     }
 
     /**
-     * @notice Update naraUSD token address (only owner, for deployment flexibility)
-     * @param narausd The new naraUSD token address
+     * @notice Update naraUsd token address (only owner, for deployment flexibility)
+     * @param narausd The new naraUsd token address
      */
     function setNaraUsd(address narausd) external onlyOwner {
         if (narausd == address(0)) revert InvalidZeroAddress();
@@ -64,8 +64,12 @@ contract NaraUSDRedeemSilo is Initializable, UUPSUpgradeable, Ownable2StepUpgrad
     }
 
     modifier onlyVault() {
-        if (msg.sender != vault) revert OnlyVault();
+        _onlyVault();
         _;
+    }
+
+    function _onlyVault() internal view {
+        if (msg.sender != vault) revert OnlyVault();
     }
 
     /// @notice Withdraw NaraUSD from silo (only callable by vault)

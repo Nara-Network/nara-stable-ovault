@@ -7,7 +7,6 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { VaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/VaultComposerSync.sol";
 import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 import { IOFT, SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
-import { IVaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/interfaces/IVaultComposerSync.sol";
 
 interface INaraUSD {
     function mintWithCollateral(

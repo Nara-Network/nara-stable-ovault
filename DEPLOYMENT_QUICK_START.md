@@ -143,18 +143,18 @@ console.log("NaraUSD balance:", ethers.utils.formatEther(balance));
 ### 4. Stake NaraUSD
 
 ```javascript
-const naraUSDPlus = await ethers.getContractAt(
+const naraUsdPlus = await ethers.getContractAt(
   "narausd-plus/NaraUSDPlus",
   "YOUR_STAKED_NARAUSD_ADDRESS",
 );
 
 // Stake 50 NaraUSD
 const stakeAmount = ethers.utils.parseEther("50");
-await narausd.approve(naraUSDPlus.address, stakeAmount);
-await naraUSDPlus.deposit(stakeAmount, (await ethers.getSigners())[0].address);
+await narausd.approve(naraUsdPlus.address, stakeAmount);
+await naraUsdPlus.deposit(stakeAmount, (await ethers.getSigners())[0].address);
 
 // Check NaraUSD+ balance
-const sBalance = await naraUSDPlus.balanceOf(
+const sBalance = await naraUsdPlus.balanceOf(
   (await ethers.getSigners())[0].address,
 );
 console.log("NaraUSD+ balance:", ethers.utils.formatEther(sBalance));

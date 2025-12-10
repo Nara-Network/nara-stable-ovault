@@ -2,43 +2,41 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { NaraUSDComposer } from "../../contracts/narausd/NaraUSDComposer.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SendParam } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
 /**
  * @title NaraUSDComposerTest
  * @notice Unit tests for NaraUSDComposer contract
- * @dev Tests the custom compose logic for cross-chain naraUSD minting with collateral
+ * @dev Tests the custom compose logic for cross-chain naraUsd minting with collateral
  */
 contract NaraUSDComposerTest is TestHelper {
     /**
      * @notice Verify constructor sets up immutables correctly
      */
     function test_Constructor() public view {
-        assertEq(address(naraUSDComposer.VAULT()), address(naraUSD), "Vault should be naraUSD");
-        assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
+        assertEq(address(naraUsdComposer.VAULT()), address(naraUsd), "Vault should be naraUsd");
+        assertEq(address(naraUsdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
         assertEq(
-            address(naraUSDComposer.SHARE_OFT()),
-            address(naraUSDAdapter),
+            address(naraUsdComposer.SHARE_OFT()),
+            address(naraUsdAdapter),
             "SHARE_OFT should be NaraUSDOFTAdapter"
         );
-        
+
         // Check USDC is whitelisted
-        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
-        assertEq(naraUSDComposer.getWhitelistedCollateralsCount(), 1, "Should have 1 whitelisted collateral");
-        assertEq(naraUSDComposer.collateralToOft(address(usdc)), address(usdc), "USDC OFT should be USDC");
-        assertEq(naraUSDComposer.oftToCollateral(address(usdc)), address(usdc), "USDC collateral should be USDC");
-        
-        assertEq(address(naraUSDComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
+        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUsdComposer.getWhitelistedCollateralsCount(), 1, "Should have 1 whitelisted collateral");
+        assertEq(naraUsdComposer.collateralToOft(address(usdc)), address(usdc), "USDC OFT should be USDC");
+        assertEq(naraUsdComposer.oftToCollateral(address(usdc)), address(usdc), "USDC collateral should be USDC");
+
+        assertEq(address(naraUsdComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
     }
 
     /**
      * @notice Verify constructor approves collateral to its OFT
      */
     function test_Constructor_ApprovesCollateral() public view {
-        uint256 allowance = usdc.allowance(address(naraUSDComposer), address(usdc));
+        uint256 allowance = usdc.allowance(address(naraUsdComposer), address(usdc));
         assertEq(allowance, type(uint256).max, "Should approve max allowance for collateral refunds");
     }
 
@@ -52,34 +50,34 @@ contract NaraUSDComposerTest is TestHelper {
         uint256 depositAmount = 100e6; // 100 USDC
 
         // Grant composer MINTER_ROLE
-        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(naraUSDComposer));
+        naraUsd.grantRole(naraUsd.MINTER_ROLE(), address(naraUsdComposer));
 
         // Fund the composer with USDC (simulating cross-chain arrival)
-        usdc.mint(address(naraUSDComposer), depositAmount);
+        usdc.mint(address(naraUsdComposer), depositAmount);
 
         // Track balances
-        uint256 composerUsdcBefore = usdc.balanceOf(address(naraUSDComposer));
-        uint256 composerNarausdBefore = naraUSD.balanceOf(address(naraUSDComposer));
+        uint256 composerUsdcBefore = usdc.balanceOf(address(naraUsdComposer));
+        uint256 composerNarausdBefore = naraUsd.balanceOf(address(naraUsdComposer));
 
-        // Approve naraUSD to pull USDC from composer
-        vm.prank(address(naraUSDComposer));
-        usdc.approve(address(naraUSD), depositAmount);
+        // Approve naraUsd to pull USDC from composer
+        vm.prank(address(naraUsdComposer));
+        usdc.approve(address(naraUsd), depositAmount);
 
-        // Mint naraUSD with collateral (simulating what _depositCollateralAndSend does)
-        vm.prank(address(naraUSDComposer));
-        uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), depositAmount);
+        // Mint naraUsd with collateral (simulating what _depositCollateralAndSend does)
+        vm.prank(address(naraUsdComposer));
+        uint256 naraUsdAmount = naraUsd.mintWithCollateral(address(usdc), depositAmount);
 
         // Verify the flow
         assertEq(
-            usdc.balanceOf(address(naraUSDComposer)),
+            usdc.balanceOf(address(naraUsdComposer)),
             composerUsdcBefore - depositAmount,
             "Composer should transfer USDC"
         );
-        assertGt(naraUsdAmount, 0, "Should mint naraUSD");
+        assertGt(naraUsdAmount, 0, "Should mint naraUsd");
         assertEq(
-            naraUSD.balanceOf(address(naraUSDComposer)),
+            naraUsd.balanceOf(address(naraUsdComposer)),
             composerNarausdBefore + naraUsdAmount,
-            "Composer should receive naraUSD"
+            "Composer should receive naraUsd"
         );
     }
 
@@ -96,7 +94,7 @@ contract NaraUSDComposerTest is TestHelper {
 
         vm.prank(alice);
         vm.expectRevert(); // Will revert with OnlyEndpoint
-        naraUSDComposer.lzCompose(address(usdc), bytes32(0), message, address(0), "");
+        naraUsdComposer.lzCompose(address(usdc), bytes32(0), message, address(0), "");
     }
 
     /**
@@ -114,7 +112,7 @@ contract NaraUSDComposerTest is TestHelper {
 
         vm.prank(address(endpoints[HUB_EID]));
         vm.expectRevert(abi.encodeWithSignature("CollateralOFTNotWhitelisted(address)", address(invalidToken)));
-        naraUSDComposer.lzCompose(address(invalidToken), bytes32(0), message, address(0), "");
+        naraUsdComposer.lzCompose(address(invalidToken), bytes32(0), message, address(0), "");
     }
 
     /**
@@ -122,7 +120,7 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsAssetOFT() public view {
         // ASSET_OFT should be in the valid senders list
-        assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
+        assertEq(address(naraUsdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
     }
 
     /**
@@ -131,8 +129,8 @@ contract NaraUSDComposerTest is TestHelper {
     function test_LzCompose_AcceptsShareOFT() public view {
         // SHARE_OFT should be in the valid senders list
         assertEq(
-            address(naraUSDComposer.SHARE_OFT()),
-            address(naraUSDAdapter),
+            address(naraUsdComposer.SHARE_OFT()),
+            address(naraUsdAdapter),
             "SHARE_OFT should be NaraUSDOFTAdapter"
         );
     }
@@ -142,8 +140,8 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_LzCompose_AcceptsWhitelistedCollateralOFTs() public view {
         // USDC should be whitelisted as a collateral OFT
-        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
-        assertEq(naraUSDComposer.oftToCollateral(address(usdc)), address(usdc), "USDC OFT should map to USDC");
+        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUsdComposer.oftToCollateral(address(usdc)), address(usdc), "USDC OFT should map to USDC");
     }
 
     /**
@@ -157,35 +155,35 @@ contract NaraUSDComposerTest is TestHelper {
 
         vm.prank(alice);
         vm.expectRevert(); // Will revert with OnlySelf
-        naraUSDComposer._handleComposeInternal(address(usdc), bytes32(0), composeMsg, 100e6);
+        naraUsdComposer._handleComposeInternal(address(usdc), bytes32(0), composeMsg, 100e6);
     }
 
     /**
      * @notice Test immutable values cannot be zero address
      * @dev Tests constructor validation
      */
-    function test_Constructor_ValidatesAddresses() public {
+    function test_Constructor_ValidatesAddresses() public view {
         // All constructor params should be non-zero
         // This is implicitly tested by the setUp not reverting,
         // but we can verify the values are set correctly
-        assertTrue(address(naraUSDComposer.VAULT()) != address(0), "Vault should not be zero");
-        assertTrue(address(naraUSDComposer.ASSET_OFT()) != address(0), "ASSET_OFT should not be zero");
-        assertTrue(address(naraUSDComposer.SHARE_OFT()) != address(0), "SHARE_OFT should not be zero");
-        
+        assertTrue(address(naraUsdComposer.VAULT()) != address(0), "Vault should not be zero");
+        assertTrue(address(naraUsdComposer.ASSET_OFT()) != address(0), "ASSET_OFT should not be zero");
+        assertTrue(address(naraUsdComposer.SHARE_OFT()) != address(0), "SHARE_OFT should not be zero");
+
         // Verify USDC was whitelisted
-        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
-        assertEq(naraUSDComposer.getWhitelistedCollateralsCount(), 1, "Should have 1 whitelisted collateral");
+        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUsdComposer.getWhitelistedCollateralsCount(), 1, "Should have 1 whitelisted collateral");
     }
 
     /**
      * @notice Test that collateral is approved to vault for minting
      */
     function test_CollateralApproval() public view {
-        // Composer should have approval set for USDC -> naraUSD
+        // Composer should have approval set for USDC -> naraUsd
         // This is set during _depositCollateralAndSend via forceApprove
         // We can't directly test internal function, but we verify the pattern in integration tests
-        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
-        assertEq(naraUSDComposer.oftToCollateral(address(usdc)), address(usdc), "Collateral should be USDC");
+        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUsdComposer.oftToCollateral(address(usdc)), address(usdc), "Collateral should be USDC");
     }
 
     /**
@@ -197,19 +195,19 @@ contract NaraUSDComposerTest is TestHelper {
         amount = bound(amount, 1e6, 1_000_000e6); // 1 USDC to 1M USDC
 
         // Grant composer MINTER_ROLE
-        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(naraUSDComposer));
+        naraUsd.grantRole(naraUsd.MINTER_ROLE(), address(naraUsdComposer));
 
         // Fund composer with USDC
-        usdc.mint(address(naraUSDComposer), amount);
+        usdc.mint(address(naraUsdComposer), amount);
 
         // Simulate deposit flow
-        vm.startPrank(address(naraUSDComposer));
-        usdc.approve(address(naraUSD), amount);
-        uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), amount);
+        vm.startPrank(address(naraUsdComposer));
+        usdc.approve(address(naraUsd), amount);
+        uint256 naraUsdAmount = naraUsd.mintWithCollateral(address(usdc), amount);
         vm.stopPrank();
 
         // Verify proportional minting
-        assertGt(naraUsdAmount, 0, "Should mint some naraUSD");
+        assertGt(naraUsdAmount, 0, "Should mint some naraUsd");
         assertApproxEqAbs(naraUsdAmount, amount * 1e12, 1e18, "Should mint ~1:1 (accounting for decimals)");
     }
 
@@ -222,18 +220,18 @@ contract NaraUSDComposerTest is TestHelper {
         uint256 depositAmount = 100e6; // 100 USDT
 
         // Grant composer MINTER_ROLE
-        naraUSD.grantRole(naraUSD.MINTER_ROLE(), address(naraUSDComposer));
+        naraUsd.grantRole(naraUsd.MINTER_ROLE(), address(naraUsdComposer));
 
         // Fund composer with USDT
-        usdt.mint(address(naraUSDComposer), depositAmount);
+        usdt.mint(address(naraUsdComposer), depositAmount);
 
         // Simulate deposit flow
-        vm.startPrank(address(naraUSDComposer));
-        usdt.approve(address(naraUSD), depositAmount);
-        uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdt), depositAmount);
+        vm.startPrank(address(naraUsdComposer));
+        usdt.approve(address(naraUsd), depositAmount);
+        uint256 naraUsdAmount = naraUsd.mintWithCollateral(address(usdt), depositAmount);
         vm.stopPrank();
 
-        assertGt(naraUsdAmount, 0, "Should mint naraUSD with USDT");
+        assertGt(naraUsdAmount, 0, "Should mint naraUsd with USDT");
     }
 
     /**
@@ -241,11 +239,11 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_MCT_NeverDirectlyUsed() public view {
         // MCT should never have approval from composer
-        uint256 mctAllowance = mct.allowance(address(naraUSDComposer), address(mct));
+        uint256 mctAllowance = mct.allowance(address(naraUsdComposer), address(mct));
         assertEq(mctAllowance, 0, "Composer should never approve MCT");
 
         // MCT balance should always be 0
-        uint256 mctBalance = mct.balanceOf(address(naraUSDComposer));
+        uint256 mctBalance = mct.balanceOf(address(naraUsdComposer));
         assertEq(mctBalance, 0, "Composer should never hold MCT");
     }
 
@@ -254,21 +252,18 @@ contract NaraUSDComposerTest is TestHelper {
      */
     function test_AssetOFT_ValidationOnly() public view {
         // ASSET_OFT points to MCTOFTAdapter but is never used operationally
-        assertEq(address(naraUSDComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT is MCTOFTAdapter");
+        assertEq(address(naraUsdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT is MCTOFTAdapter");
 
         // The actual deposit flow uses whitelisted collateral (USDC), not ASSET_OFT
-        assertTrue(naraUSDComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
-        assertTrue(
-            address(naraUSDComposer.ASSET_OFT()) != address(usdc),
-            "ASSET_OFT != collateral"
-        );
+        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertTrue(address(naraUsdComposer.ASSET_OFT()) != address(usdc), "ASSET_OFT != collateral");
     }
 
     /**
      * @notice Test endpoint is correctly set
      */
     function test_Endpoint() public view {
-        assertEq(address(naraUSDComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
+        assertEq(address(naraUsdComposer.ENDPOINT()), address(endpoints[HUB_EID]), "Endpoint should be hub endpoint");
     }
 
     /**

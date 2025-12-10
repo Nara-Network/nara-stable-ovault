@@ -115,11 +115,11 @@ const upgradeNaraUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) =>
 
         // Step 6: Optional - Test a function call to ensure contract works
         console.log('\nStep 4: Testing contract functionality...')
-        const naraUSD = await hre.ethers.getContractAt('contracts/narausd/NaraUSD.sol:NaraUSD', proxyAddress)
+        const naraUsd = await hre.ethers.getContractAt('contracts/narausd/NaraUSD.sol:NaraUSD', proxyAddress)
         try {
             // Test a simple view function
-            const name = await naraUSD.name()
-            const symbol = await naraUSD.symbol()
+            const name = await naraUsd.name()
+            const symbol = await naraUsd.symbol()
             console.log(`   ✓ Contract is responsive`)
             console.log(`   ✓ Name: ${name}, Symbol: ${symbol}`)
         } catch (error) {

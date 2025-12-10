@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 
 /**
  * Sets up LayerZero peer connections for NaraUSD+ OFT infrastructure
- * This allows naraUSD+ to be bridged between Arbitrum (hub) and Base (spoke)
+ * This allows naraUsd+ to be bridged between Arbitrum (hub) and Base (spoke)
  *
  * Run:
  * npx hardhat run scripts/setup-staked-narausd-peers.ts --network arbitrum-sepolia

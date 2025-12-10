@@ -24,6 +24,7 @@ When you upgrade, you deploy a new implementation and point the proxy to it. Use
 The upgrade script (`deploy/UpgradeNaraUSD.example.ts`) uses tags to ensure it only runs when explicitly requested. This prevents accidental upgrades during regular deployments.
 
 **Usage Options:**
+
 - **Recommended**: `npx hardhat deploy --tags UpgradeNaraUSD` (uses hardhat-deploy tags)
 - **Alternative**: `npx hardhat run deploy/UpgradeNaraUSD.example.ts` (direct script execution)
 
@@ -118,7 +119,9 @@ import { type HardhatRuntimeEnvironment } from "hardhat/types";
 import { type DeployFunction } from "hardhat-deploy/types";
 import { upgradeContract } from "../devtools/utils";
 
-const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
+const upgradeNaraUSDV2: DeployFunction = async (
+  hre: HardhatRuntimeEnvironment,
+) => {
   const { getNamedAccounts } = hre;
   const { deployer } = await getNamedAccounts();
 
@@ -270,9 +273,9 @@ console.log("Implementation:", impl);
 ### 3. Test Contract Functions
 
 ```javascript
-const naraUSD = await ethers.getContractAt("NaraUSD", proxyAddress);
-const name = await naraUSD.name();
-const symbol = await naraUSD.symbol();
+const naraUsd = await ethers.getContractAt("NaraUSD", proxyAddress);
+const name = await naraUsd.name();
+const symbol = await naraUsd.symbol();
 console.log(`${name} (${symbol})`);
 ```
 
@@ -299,9 +302,9 @@ Before upgrading on mainnet:
 **Solution**: Ensure your account has `DEFAULT_ADMIN_ROLE`. Check:
 
 ```javascript
-const naraUSD = await ethers.getContractAt("NaraUSD", proxyAddress);
-const ADMIN_ROLE = await naraUSD.DEFAULT_ADMIN_ROLE();
-const hasRole = await naraUSD.hasRole(ADMIN_ROLE, deployerAddress);
+const naraUsd = await ethers.getContractAt("NaraUSD", proxyAddress);
+const ADMIN_ROLE = await naraUsd.DEFAULT_ADMIN_ROLE();
+const hasRole = await naraUsd.hasRole(ADMIN_ROLE, deployerAddress);
 console.log("Has admin role:", hasRole);
 ```
 
@@ -331,6 +334,7 @@ For projects that will have multiple upgrades, it's important to maintain a clea
 ### Recommended Approach: Versioned Upgrade Scripts
 
 **Structure:**
+
 ```
 deploy/
 └── upgrades/
@@ -343,6 +347,7 @@ deploy/
 ```
 
 **Key Principles:**
+
 1. **Keep the example as a template** - `UpgradeNaraUSD.example.ts` is for reference only
 2. **Create versioned files for each upgrade** - `UpgradeNaraUSD.v2.ts`, `UpgradeNaraUSD.v3.ts`, etc.
 3. **Use versioned tags** - `UpgradeNaraUSD-V2`, `UpgradeNaraUSD-V3`, etc.
@@ -382,7 +387,7 @@ Document what this upgrade does:
 ```typescript
 // ⚠️ IMPORTANT: Uncomment and update the tags below!
 // Change 'UpgradeNaraUSD-V2' to match your version (V3, V4, etc.)
-upgradeNaraUSDV2.tags = ['UpgradeNaraUSD-V2', 'Upgrade', 'NaraUSD']
+upgradeNaraUSDV2.tags = ["UpgradeNaraUSD-V2", "Upgrade", "NaraUSD"];
 ```
 
 #### Step 4: Add Migration Logic (if needed)
@@ -390,13 +395,13 @@ upgradeNaraUSDV2.tags = ['UpgradeNaraUSD-V2', 'Upgrade', 'NaraUSD']
 If your upgrade requires migration:
 
 ```typescript
-const result = await upgradeContract(hre, proxyAddress, 'NaraUSD', {
-    call: {
-        fn: 'migrateToV2',
-        args: [],
-    },
-    log: true,
-})
+const result = await upgradeContract(hre, proxyAddress, "NaraUSD", {
+  call: {
+    fn: "migrateToV2",
+    args: [],
+  },
+  log: true,
+});
 ```
 
 #### Step 5: Test on Testnet
@@ -418,10 +423,11 @@ npx hardhat deploy --network arbitrum --tags UpgradeNaraUSD-V2
 Use versioned tags for clarity and safety:
 
 ```typescript
-upgradeNaraUSDV2.tags = ['UpgradeNaraUSD-V2', 'Upgrade', 'NaraUSD']
+upgradeNaraUSDV2.tags = ["UpgradeNaraUSD-V2", "Upgrade", "NaraUSD"];
 ```
 
 **Usage:**
+
 ```bash
 # Run specific version
 npx hardhat deploy --tags UpgradeNaraUSD-V2
@@ -431,6 +437,7 @@ npx hardhat deploy --tags Upgrade
 ```
 
 **Why versioned tags?**
+
 - Clear versioning
 - Can run specific upgrades
 - Easy to track which upgrade ran
@@ -454,6 +461,7 @@ Or maintain a separate `docs/UPGRADE_HISTORY.md` file with all upgrade records.
 ### Example Workflow
 
 **First Upgrade (V2):**
+
 1. Make contract changes
 2. Compile: `pnpm compile:hardhat`
 3. Create script: `cp deploy/upgrades/templates/UpgradeNaraUSD.v2.example.ts deploy/upgrades/UpgradeNaraUSD.v2.ts`
@@ -463,6 +471,7 @@ Or maintain a separate `docs/UPGRADE_HISTORY.md` file with all upgrade records.
 7. Deploy: `npx hardhat deploy --network arbitrum --tags UpgradeNaraUSD-V2`
 
 **Second Upgrade (V3):**
+
 1. Make contract changes
 2. Compile: `pnpm compile:hardhat`
 3. Create script: `cp deploy/upgrades/templates/UpgradeNaraUSD.v2.example.ts deploy/upgrades/UpgradeNaraUSD.v3.ts`

@@ -37,4 +37,4 @@ runs = 1000
 runs = 16
 
 [lint]
-exclude_lints = ["unaliased-plain-import", "unsafe-typecast"]
+exclude_lints = ["unaliased-plain-import", "unsafe-typecast", "erc20-unchecked-transfer"]
