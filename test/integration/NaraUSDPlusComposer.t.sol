@@ -33,20 +33,20 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test local stake and send (no compose)
      */
     function test_LocalStakeAndSend() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
 
         _switchToHub();
 
         // Stake NaraUSD to get NaraUSD+
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 naraUSDPlusAmountReceived = naraUSDPlus.deposit(naraUSDAmount, alice);
-        assertGt(naraUSDPlusAmountReceived, 0, "Should receive NaraUSD+");
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 naraUsdPlusAmountReceived = naraUSDPlus.deposit(naraUsdAmount, alice);
+        assertGt(naraUsdPlusAmountReceived, 0, "Should receive NaraUSD+");
 
         // Send NaraUSD+ cross-chain via adapter
-        naraUSDPlus.approve(address(naraUSDPlusAdapter), naraUSDPlusAmountReceived);
+        naraUSDPlus.approve(address(naraUSDPlusAdapter), naraUsdPlusAmountReceived);
 
-        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDPlusAmountReceived);
+        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUsdPlusAmountReceived);
         MessagingFee memory fee = _getMessagingFee(address(naraUSDPlusAdapter), sendParam);
 
         naraUSDPlusAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -56,21 +56,21 @@ contract NaraUSDPlusComposerTest is TestHelper {
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDPlusOFT)));
 
         _switchToSpoke();
-        assertEq(naraUSDPlusOFT.balanceOf(bob), naraUSDPlusAmountReceived, "Bob should have NaraUSD+ on spoke");
+        assertEq(naraUSDPlusOFT.balanceOf(bob), naraUsdPlusAmountReceived, "Bob should have NaraUSD+ on spoke");
     }
 
     /**
      * @notice Test cross-chain staking: send NaraUSD from spoke, receive NaraUSD+ back on spoke
      */
     function test_CrossChainStaking() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
 
         // First, send NaraUSD to spoke
         _switchToHub();
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDAdapter), naraUSDAmount);
+        naraUSD.approve(address(naraUSDAdapter), naraUsdAmount);
 
-        SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, naraUSDAmount);
+        SendParam memory sendParam1 = _buildBasicSendParam(SPOKE_EID, bob, naraUsdAmount);
         MessagingFee memory fee1 = _getMessagingFee(address(naraUSDAdapter), sendParam1);
 
         naraUSDAdapter.send{ value: fee1.nativeFee }(sendParam1, fee1, alice);
@@ -80,13 +80,13 @@ contract NaraUSDPlusComposerTest is TestHelper {
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
         _switchToSpoke();
-        assertEq(naraUSDOFT.balanceOf(bob), naraUSDAmount, "Bob should have NaraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(bob), naraUsdAmount, "Bob should have NaraUSD on spoke");
 
         // Now Bob sends NaraUSD back to hub to stake via composer
         vm.startPrank(bob);
 
         // Build send param for staking - send back to bob on spoke
-        SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDAmount);
+        SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, naraUsdAmount);
         MessagingFee memory hopFee = _getMessagingFee(address(naraUSDPlusAdapter), hopParam);
 
         // Build compose message
@@ -96,8 +96,8 @@ contract NaraUSDPlusComposerTest is TestHelper {
         SendParam memory sendParam2 = _buildSendParam(
             HUB_EID,
             address(naraUSDPlusComposer),
-            naraUSDAmount,
-            (naraUSDAmount * 99) / 100, // 1% slippage
+            naraUsdAmount,
+            (naraUsdAmount * 99) / 100, // 1% slippage
             _buildComposeOptions(300000, 500000),
             composeMsg,
             ""
@@ -124,7 +124,7 @@ contract NaraUSDPlusComposerTest is TestHelper {
         _switchToHub();
         // The composer should have received the NaraUSD (waiting for compose execution)
         uint256 composerBalance = naraUSD.balanceOf(address(naraUSDPlusComposer));
-        assertEq(composerBalance, naraUSDAmount, "Composer should have received NaraUSD");
+        assertEq(composerBalance, naraUsdAmount, "Composer should have received NaraUSD");
 
         // TODO: Full compose flow testing requires more complex LayerZero mock setup
         // The actual staking and return send would happen in lzCompose()
@@ -137,18 +137,18 @@ contract NaraUSDPlusComposerTest is TestHelper {
         // First, get some NaraUSD+ on spoke
         test_LocalStakeAndSend();
 
-        uint256 naraUSDPlusAmountAmount = 50e18;
+        uint256 naraUsdPlusAmount = 50e18;
 
         _switchToSpoke();
 
         uint256 bobBalance = naraUSDPlusOFT.balanceOf(bob);
-        require(bobBalance >= naraUSDPlusAmountAmount, "Insufficient balance");
+        require(bobBalance >= naraUsdPlusAmount, "Insufficient balance");
 
         // Bob sends NaraUSD+ back to unstake and receive NaraUSD on spoke
         vm.startPrank(bob);
 
         // Build hop param for sending NaraUSD back to bob on spoke
-        SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDPlusAmountAmount);
+        SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, naraUsdPlusAmount);
         MessagingFee memory hopFee = _getMessagingFee(address(naraUSDAdapter), hopParam);
 
         // Build compose message
@@ -158,8 +158,8 @@ contract NaraUSDPlusComposerTest is TestHelper {
         SendParam memory sendParam = _buildSendParam(
             HUB_EID,
             address(naraUSDPlusComposer),
-            naraUSDPlusAmountAmount,
-            (naraUSDPlusAmountAmount * 99) / 100,
+            naraUsdPlusAmount,
+            (naraUsdPlusAmount * 99) / 100,
             _buildComposeOptions(300000, 500000),
             composeMsg,
             ""
@@ -187,7 +187,7 @@ contract NaraUSDPlusComposerTest is TestHelper {
         _switchToHub();
         // The composer should have received the NaraUSD+ (waiting for compose execution)
         uint256 composerBalance = naraUSDPlus.balanceOf(address(naraUSDPlusComposer));
-        assertEq(composerBalance, naraUSDPlusAmountAmount, "Composer should have received NaraUSD+");
+        assertEq(composerBalance, naraUsdPlusAmount, "Composer should have received NaraUSD+");
 
         // TODO: Full compose flow testing requires more complex LayerZero mock setup
         // The actual unstaking and return send would happen in lzCompose()
@@ -209,11 +209,11 @@ contract NaraUSDPlusComposerTest is TestHelper {
             totalStaked += amount;
 
             // Stake on hub
-            uint256 naraUSDPlusAmountAmount = naraUSDPlus.deposit(amount, alice);
+            uint256 naraUsdPlusAmount = naraUSDPlus.deposit(amount, alice);
 
             // Send to spoke
-            naraUSDPlus.approve(address(naraUSDPlusAdapter), naraUSDPlusAmountAmount);
-            SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDPlusAmountAmount);
+            naraUSDPlus.approve(address(naraUSDPlusAdapter), naraUsdPlusAmount);
+            SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUsdPlusAmount);
             MessagingFee memory fee = _getMessagingFee(address(naraUSDPlusAdapter), sendParam);
 
             naraUSDPlusAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -229,15 +229,15 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test staking with rewards (exchange rate > 1)
      */
     function test_StakingWithRewards() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
         uint256 rewardsAmount = 10e18;
 
         _switchToHub();
 
         // First stake
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 initialShares = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 initialShares = naraUSDPlus.deposit(naraUsdAmount, alice);
         vm.stopPrank();
 
         // Add rewards (test contract has REWARDER_ROLE)
@@ -250,8 +250,8 @@ contract NaraUSDPlusComposerTest is TestHelper {
 
         // Alice stakes more
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 secondShares = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 secondShares = naraUSDPlus.deposit(naraUsdAmount, alice);
 
         // Second stake should give fewer shares due to rewards
         assertLt(secondShares, initialShares, "Should receive fewer shares after rewards");
@@ -292,26 +292,26 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test vault deposit and redeem
      */
     function test_VaultDepositAndRedeem() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
 
         _switchToHub();
 
         // Deposit
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
 
-        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
-        uint256 naraUSDPlusAmountReceived = naraUSDPlus.deposit(naraUSDAmount, alice);
+        uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
+        uint256 naraUsdPlusAmountReceived = naraUSDPlus.deposit(naraUsdAmount, alice);
         uint256 aliceNaraUSDAfter = naraUSD.balanceOf(alice);
 
-        assertEq(aliceNaraUSDBefore - aliceNaraUSDAfter, naraUSDAmount, "naraUSD should be transferred");
-        assertEq(naraUSDPlusAmountReceived, naraUSDAmount, "Should receive 1:1 initially");
-        assertEq(naraUSDPlus.balanceOf(alice), naraUSDPlusAmountReceived, "Alice should have naraUSD+");
+        assertEq(aliceNaraUsdBefore - aliceNaraUSDAfter, naraUsdAmount, "naraUSD should be transferred");
+        assertEq(naraUsdPlusAmountReceived, naraUsdAmount, "Should receive 1:1 initially");
+        assertEq(naraUSDPlus.balanceOf(alice), naraUsdPlusAmountReceived, "Alice should have naraUSD+");
 
         // Redeem
-        uint256 naraUSDRedeemed = naraUSDPlus.redeem(naraUSDPlusAmountReceived, alice, alice);
+        uint256 naraUsdRedeemed = naraUSDPlus.redeem(naraUsdPlusAmountReceived, alice, alice);
 
-        assertEq(naraUSDRedeemed, naraUSDAmount, "Should redeem 1:1");
+        assertEq(naraUsdRedeemed, naraUsdAmount, "Should redeem 1:1");
         assertEq(naraUSDPlus.balanceOf(alice), 0, "naraUSD+ should be burned");
         vm.stopPrank();
     }
@@ -320,7 +320,7 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test cooldown mechanism
      */
     function test_Cooldown() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
 
         _switchToHub();
 
@@ -329,8 +329,8 @@ contract NaraUSDPlusComposerTest is TestHelper {
 
         // Stake
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 shares = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 shares = naraUSDPlus.deposit(naraUsdAmount, alice);
 
         // Start cooldown
         uint256 assets = naraUSDPlus.cooldownShares(shares);
@@ -359,14 +359,14 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test cross-chain staking with slippage protection
      */
     function test_CrossChainStakingWithSlippage() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
         uint256 minShares = 99e18; // 1% slippage
 
         _switchToHub();
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 shares = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 shares = naraUSDPlus.deposit(naraUsdAmount, alice);
 
         naraUSDPlus.approve(address(naraUSDPlusAdapter), shares);
 
@@ -395,13 +395,13 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test quote for cross-chain staking
      */
     function test_QuoteCrossChainStaking() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
 
         _switchToHub();
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 shares = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 shares = naraUSDPlus.deposit(naraUsdAmount, alice);
         vm.stopPrank();
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
@@ -417,15 +417,15 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test failed stake reverts properly
      */
     function test_RevertIf_InsufficientBalance() public {
-        uint256 naraUSDAmount = INITIAL_BALANCE_18 + 1;
+        uint256 naraUsdAmount = INITIAL_BALANCE_18 + 1;
 
         _switchToHub();
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
 
         vm.expectRevert();
-        naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSDPlus.deposit(naraUsdAmount, alice);
         vm.stopPrank();
     }
 
@@ -433,13 +433,13 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test that adapter locks naraUSD+ tokens
      */
     function test_AdapterLocksTokens() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
 
         _switchToHub();
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 shares = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 shares = naraUSDPlus.deposit(naraUsdAmount, alice);
 
         uint256 adapterBalanceBefore = naraUSDPlus.balanceOf(address(naraUSDPlusAdapter));
 
@@ -461,13 +461,13 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test spoke OFT mints and burns correctly
      */
     function test_SpokeOFTMintAndBurn() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
 
         _switchToHub();
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 shares = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 shares = naraUSDPlus.deposit(naraUsdAmount, alice);
 
         naraUSDPlus.approve(address(naraUSDPlusAdapter), shares);
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, shares);
@@ -497,14 +497,14 @@ contract NaraUSDPlusComposerTest is TestHelper {
     /**
      * @notice Fuzz test for various stake amounts
      */
-    function testFuzz_CrossChainStaking(uint256 naraUSDAmount) public {
-        naraUSDAmount = bound(naraUSDAmount, 1e18, INITIAL_BALANCE_18 / 2);
+    function testFuzz_CrossChainStaking(uint256 naraUsdAmount) public {
+        naraUsdAmount = bound(naraUsdAmount, 1e18, INITIAL_BALANCE_18 / 2);
 
         _switchToHub();
 
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 shares = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 shares = naraUSDPlus.deposit(naraUsdAmount, alice);
 
         naraUSDPlus.approve(address(naraUSDPlusAdapter), shares);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
@@ -542,17 +542,17 @@ contract NaraUSDPlusComposerTest is TestHelper {
         // Step 1: Alice mints naraUSD with USDC
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), usdcAmount);
-        uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(naraUSDAmount, expectedNaraUSD, "Should mint expected naraUSD");
+        uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
+        assertEq(naraUsdAmount, expectedNaraUSD, "Should mint expected naraUSD");
 
         // Step 2: Alice stakes naraUSD to get naraUSD+
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 naraUSDPlusAmountAmount = naraUSDPlus.deposit(naraUSDAmount, alice);
-        assertGt(naraUSDPlusAmountAmount, 0, "Should receive naraUSD+");
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 naraUsdPlusAmount = naraUSDPlus.deposit(naraUsdAmount, alice);
+        assertGt(naraUsdPlusAmount, 0, "Should receive naraUSD+");
 
         // Step 3: Alice sends naraUSD+ to Bob on spoke chain
-        naraUSDPlus.approve(address(naraUSDPlusAdapter), naraUSDPlusAmountAmount);
-        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDPlusAmountAmount);
+        naraUSDPlus.approve(address(naraUSDPlusAdapter), naraUsdPlusAmount);
+        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUsdPlusAmount);
         MessagingFee memory fee = _getMessagingFee(address(naraUSDPlusAdapter), sendParam);
         naraUSDPlusAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
@@ -562,10 +562,10 @@ contract NaraUSDPlusComposerTest is TestHelper {
 
         // Step 4: Verify Bob has naraUSD+ on spoke
         _switchToSpoke();
-        assertEq(naraUSDPlusOFT.balanceOf(bob), naraUSDPlusAmountAmount, "Bob should have naraUSD+ on spoke");
+        assertEq(naraUSDPlusOFT.balanceOf(bob), naraUsdPlusAmount, "Bob should have naraUSD+ on spoke");
 
         // Step 5: Bob sends half back to alice on hub
-        uint256 sendBackAmount = naraUSDPlusAmountAmount / 2;
+        uint256 sendBackAmount = naraUsdPlusAmount / 2;
         vm.startPrank(bob);
         SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, sendBackAmount);
         MessagingFee memory fee2 = _getMessagingFee(address(naraUSDPlusOFT), sendParam2);
@@ -582,8 +582,8 @@ contract NaraUSDPlusComposerTest is TestHelper {
         // Step 7: Alice redeems naraUSD+ for naraUSD
         vm.startPrank(alice);
         uint256 aliceSNarausd = naraUSDPlus.balanceOf(alice);
-        uint256 naraUSDRedeemed = naraUSDPlus.redeem(aliceSNarausd, alice, alice);
-        assertGt(naraUSDRedeemed, 0, "Should redeem naraUSD");
+        uint256 naraUsdRedeemed = naraUSDPlus.redeem(aliceSNarausd, alice, alice);
+        assertGt(naraUsdRedeemed, 0, "Should redeem naraUSD");
         vm.stopPrank();
     }
 
@@ -591,15 +591,15 @@ contract NaraUSDPlusComposerTest is TestHelper {
      * @notice Test rewards distribution affects exchange rate
      */
     function test_RewardsAffectExchangeRate() public {
-        uint256 naraUSDAmount = 100e18;
+        uint256 naraUsdAmount = 100e18;
         uint256 rewardsAmount = 20e18;
 
         _switchToHub();
 
         // First stake
         vm.startPrank(alice);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 sharesBefore = naraUSDPlus.deposit(naraUSDAmount, alice);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 sharesBefore = naraUSDPlus.deposit(naraUsdAmount, alice);
         vm.stopPrank();
 
         // Distribute rewards (test contract has REWARDER_ROLE)
@@ -612,14 +612,14 @@ contract NaraUSDPlusComposerTest is TestHelper {
 
         // Second stake should give fewer shares
         vm.startPrank(bob);
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 sharesAfter = naraUSDPlus.deposit(naraUSDAmount, bob);
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 sharesAfter = naraUSDPlus.deposit(naraUsdAmount, bob);
         vm.stopPrank();
 
         assertLt(sharesAfter, sharesBefore, "Should receive fewer shares after rewards");
 
         // Verify exchange rate
         uint256 aliceAssets = naraUSDPlus.convertToAssets(sharesBefore);
-        assertGt(aliceAssets, naraUSDAmount, "Alice's shares should be worth more after rewards");
+        assertGt(aliceAssets, naraUsdAmount, "Alice's shares should be worth more after rewards");
     }
 }

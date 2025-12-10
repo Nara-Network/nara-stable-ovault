@@ -27,21 +27,21 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 1: User deposits collateral to mint NaraUSD ===
         vm.startPrank(alice);
-        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
         usdc.approve(address(naraUSD), usdcAmount);
-        uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
-        assertEq(naraUSDAmount, expectedNaraUSD, "Step 1: Should mint correct NaraUSD");
+        uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
+        assertEq(naraUsdAmount, expectedNaraUSD, "Step 1: Should mint correct NaraUSD");
         assertEq(
-            naraUSD.balanceOf(alice) - aliceNaraUSDBefore,
+            naraUSD.balanceOf(alice) - aliceNaraUsdBefore,
             expectedNaraUSD,
             "Step 1: Alice should have additional NaraUSD"
         );
 
         // === STEP 2: User stakes NaraUSD to earn yield ===
-        naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
-        uint256 naraUSDPlusAmountAmount = naraUSDPlus.deposit(naraUSDAmount, alice);
-        assertEq(naraUSDPlusAmountAmount, naraUSDAmount, "Step 2: Should receive 1:1 NaraUSD+ initially");
-        assertEq(naraUSDPlus.balanceOf(alice), naraUSDPlusAmountAmount, "Step 2: Alice should have NaraUSD+");
+        naraUSD.approve(address(naraUSDPlus), naraUsdAmount);
+        uint256 naraUsdPlusAmount = naraUSDPlus.deposit(naraUsdAmount, alice);
+        assertEq(naraUsdPlusAmount, naraUsdAmount, "Step 2: Should receive 1:1 NaraUSD+ initially");
+        assertEq(naraUSDPlus.balanceOf(alice), naraUsdPlusAmount, "Step 2: Alice should have NaraUSD+");
 
         // === STEP 3: Rewards are distributed (time passes) ===
         vm.stopPrank();
@@ -56,10 +56,10 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 4: User transfers NaraUSD+ to another chain ===
         vm.startPrank(alice);
-        uint256 aliceSNaraUSD = naraUSDPlus.balanceOf(alice);
-        naraUSDPlus.approve(address(naraUSDPlusAdapter), aliceSNaraUSD);
+        uint256 aliceSNaraUsd = naraUSDPlus.balanceOf(alice);
+        naraUSDPlus.approve(address(naraUSDPlusAdapter), aliceSNaraUsd);
 
-        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSNaraUSD);
+        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, aliceSNaraUsd);
         MessagingFee memory fee = _getMessagingFee(address(naraUSDPlusAdapter), sendParam);
 
         naraUSDPlusAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
@@ -70,11 +70,11 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 5: Verify Bob received NaraUSD+ on spoke chain ===
         _switchToSpoke();
-        assertEq(naraUSDPlusOFT.balanceOf(bob), aliceSNaraUSD, "Step 5: Bob should have NaraUSD+ on spoke");
+        assertEq(naraUSDPlusOFT.balanceOf(bob), aliceSNaraUsd, "Step 5: Bob should have NaraUSD+ on spoke");
 
         // === STEP 6: Bob sends NaraUSD+ back to hub ===
         vm.startPrank(bob);
-        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSNaraUSD);
+        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, bob, aliceSNaraUsd);
         MessagingFee memory fee2 = _getMessagingFee(address(naraUSDPlusOFT), sendParam2);
 
         naraUSDPlusOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, bob);
@@ -85,13 +85,13 @@ contract EndToEndTest is TestHelper {
 
         // === STEP 7: Bob unstakes on hub to get NaraUSD back ===
         _switchToHub();
-        uint256 bobSNaraUSD = naraUSDPlus.balanceOf(bob);
-        assertEq(bobSNaraUSD, aliceSNaraUSD, "Step 7: Bob should have NaraUSD+ on hub");
+        uint256 bobSNaraUsd = naraUSDPlus.balanceOf(bob);
+        assertEq(bobSNaraUsd, aliceSNaraUsd, "Step 7: Bob should have NaraUSD+ on hub");
 
         vm.startPrank(bob);
-        uint256 naraUSDRedeemed = naraUSDPlus.redeem(bobSNaraUSD, bob, bob);
-        assertGt(naraUSDRedeemed, naraUSDAmount, "Step 7: Should redeem more NaraUSD due to rewards");
-        assertEq(naraUSD.balanceOf(bob), naraUSDRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have NaraUSD");
+        uint256 naraUsdRedeemed = naraUSDPlus.redeem(bobSNaraUsd, bob, bob);
+        assertGt(naraUsdRedeemed, naraUsdAmount, "Step 7: Should redeem more NaraUSD due to rewards");
+        assertEq(naraUSD.balanceOf(bob), naraUsdRedeemed + INITIAL_BALANCE_18, "Step 7: Bob should have NaraUSD");
         vm.stopPrank();
     }
 
@@ -151,11 +151,11 @@ contract EndToEndTest is TestHelper {
         vm.startPrank(alice);
         uint256 usdcAmount = 100e6; // 100 USDC
         usdc.approve(address(naraUSD), usdcAmount);
-        uint256 naraUSDAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
+        uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
 
         // Send to spoke
-        naraUSD.approve(address(naraUSDAdapter), naraUSDAmount);
-        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, naraUSDAmount);
+        naraUSD.approve(address(naraUSDAdapter), naraUsdAmount);
+        SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, alice, naraUsdAmount);
         MessagingFee memory fee = _getMessagingFee(address(naraUSDAdapter), sendParam);
         naraUSDAdapter.send{ value: fee.nativeFee }(sendParam, fee, alice);
         vm.stopPrank();
@@ -166,7 +166,7 @@ contract EndToEndTest is TestHelper {
         // On spoke, send back to hub
         _switchToSpoke();
         vm.startPrank(alice);
-        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, naraUSDAmount);
+        SendParam memory sendParam2 = _buildBasicSendParam(HUB_EID, alice, naraUsdAmount);
         MessagingFee memory fee2 = _getMessagingFee(address(naraUSDOFT), sendParam2);
         naraUSDOFT.send{ value: fee2.nativeFee }(sendParam2, fee2, alice);
         vm.stopPrank();
@@ -180,7 +180,7 @@ contract EndToEndTest is TestHelper {
 
         // Instant redeem (liquidity available)
         uint256 aliceUsdcBefore = usdc.balanceOf(alice);
-        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), naraUSDAmount, false);
+        (uint256 collateralAmount, bool wasQueued) = naraUSD.redeem(address(usdc), naraUsdAmount, false);
         assertEq(wasQueued, false, "Should be instant redemption");
         assertGt(collateralAmount, 0, "Should receive collateral amount");
         assertGt(usdc.balanceOf(alice) - aliceUsdcBefore, 0, "Should receive collateral");
@@ -242,8 +242,8 @@ contract EndToEndTest is TestHelper {
         // Alice redeems and should have accumulated rewards
         _switchToHub();
         vm.startPrank(alice);
-        uint256 naraUSDRedeemed = naraUSDPlus.redeem(shares, alice, alice);
-        assertGt(naraUSDRedeemed, stakeAmount, "Should have earned rewards");
+        uint256 naraUsdRedeemed = naraUSDPlus.redeem(shares, alice, alice);
+        assertGt(naraUsdRedeemed, stakeAmount, "Should have earned rewards");
         vm.stopPrank();
     }
 

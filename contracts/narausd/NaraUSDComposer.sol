@@ -13,11 +13,11 @@ interface INaraUSD {
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external returns (uint256 naraUSDAmount);
+    ) external returns (uint256 naraUsdAmount);
 
     function redeem(
         address collateralAsset,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         bool allowQueue
     ) external returns (uint256 collateralAmount, bool wasQueued);
 

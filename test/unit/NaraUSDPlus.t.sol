@@ -63,12 +63,12 @@ contract NaraUSDPlusTest is TestHelper {
         uint256 shares = naraUSDPlus.deposit(depositAmount, alice);
 
         // Redeem
-        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
         uint256 assets = naraUSDPlus.redeem(shares, alice, alice);
         uint256 aliceNaraUSDAfter = naraUSD.balanceOf(alice);
 
         assertEq(assets, depositAmount, "Should redeem 1:1");
-        assertEq(aliceNaraUSDAfter - aliceNaraUSDBefore, depositAmount, "naraUSD returned");
+        assertEq(aliceNaraUSDAfter - aliceNaraUsdBefore, depositAmount, "naraUSD returned");
         assertEq(naraUSDPlus.balanceOf(alice), 0, "naraUSD+ burned");
 
         vm.stopPrank();
@@ -84,7 +84,7 @@ contract NaraUSDPlusTest is TestHelper {
         // Deposit
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
 
         naraUSD.approve(address(naraUSDPlus), depositAmount);
         uint256 shares = naraUSDPlus.deposit(depositAmount, alice);
@@ -108,7 +108,7 @@ contract NaraUSDPlusTest is TestHelper {
         // Unstake
         naraUSDPlus.unstake(alice);
 
-        assertEq(naraUSD.balanceOf(alice), aliceNaraUSDBefore, "naraUSD returned");
+        assertEq(naraUSD.balanceOf(alice), aliceNaraUsdBefore, "naraUSD returned");
 
         vm.stopPrank();
     }
@@ -121,7 +121,7 @@ contract NaraUSDPlusTest is TestHelper {
 
         uint256 depositAmount = 1000e18;
         vm.startPrank(alice);
-        uint256 aliceNaraUSDBefore = naraUSD.balanceOf(alice);
+        uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
 
         naraUSD.approve(address(naraUSDPlus), depositAmount);
         naraUSDPlus.deposit(depositAmount, alice);
@@ -140,7 +140,7 @@ contract NaraUSDPlusTest is TestHelper {
         // Should have returned 500 (depositAmount - cooldownAssets is still staked)
         assertEq(
             naraUSD.balanceOf(alice),
-            aliceNaraUSDBefore - depositAmount + cooldownAssets,
+            aliceNaraUsdBefore - depositAmount + cooldownAssets,
             "Partial naraUSD returned"
         );
 

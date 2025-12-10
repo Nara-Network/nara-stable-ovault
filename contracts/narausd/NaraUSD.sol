@@ -152,12 +152,12 @@ contract NaraUSD is
         address indexed beneficiary,
         address indexed collateralAsset,
         uint256 collateralAmount,
-        uint256 naraUSDAmount
+        uint256 naraUsdAmount
     );
     event Redeem(
         address indexed beneficiary,
         address indexed collateralAsset,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         uint256 collateralAmount
     );
     event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
@@ -165,14 +165,14 @@ contract NaraUSD is
     event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
     event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
     event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
-    event RedemptionRequested(address indexed user, uint256 naraUSDAmount, address indexed collateralAsset);
+    event RedemptionRequested(address indexed user, uint256 naraUsdAmount, address indexed collateralAsset);
     event RedemptionCompleted(
         address indexed user,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         address indexed collateralAsset,
         uint256 collateralAmount
     );
-    event RedemptionCancelled(address indexed user, uint256 naraUSDAmount);
+    event RedemptionCancelled(address indexed user, uint256 naraUsdAmount);
     event MintFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
@@ -345,12 +345,12 @@ contract NaraUSD is
      * @notice Mint NaraUSD by depositing collateral
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
-     * @return naraUSDAmount The amount of NaraUSD minted
+     * @return naraUsdAmount The amount of NaraUSD minted
      */
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external nonReentrant whenNotPaused returns (uint256 naraUSDAmount) {
+    ) external nonReentrant whenNotPaused returns (uint256 naraUsdAmount) {
         return _mintWithCollateral(collateralAsset, collateralAmount, msg.sender);
     }
 
@@ -359,13 +359,13 @@ contract NaraUSD is
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
      * @param beneficiary The address to receive minted NaraUSD
-     * @return naraUSDAmount The amount of NaraUSD minted
+     * @return naraUsdAmount The amount of NaraUSD minted
      */
     function mintWithCollateralFor(
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) external nonReentrant whenNotPaused returns (uint256 naraUSDAmount) {
+    ) external nonReentrant whenNotPaused returns (uint256 naraUsdAmount) {
         if (delegatedSigner[msg.sender][beneficiary] != DelegatedSignerStatus.ACCEPTED) {
             revert InvalidSignature();
         }
@@ -392,21 +392,21 @@ contract NaraUSD is
     /**
      * @notice Redeem NaraUSD for collateral - instant if liquidity available, otherwise queued
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD to redeem
+     * @param naraUsdAmount The amount of NaraUSD to redeem
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
      */
     function redeem(
         address collateralAsset,
-        uint256 naraUSDAmount,
+        uint256 naraUsdAmount,
         bool allowQueue
     ) external nonReentrant whenNotPaused returns (uint256 collateralAmount, bool wasQueued) {
-        if (naraUSDAmount == 0) revert InvalidAmount();
+        if (naraUsdAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
 
         // Check minimum redeem amount
-        if (minRedeemAmount > 0 && naraUSDAmount < minRedeemAmount) {
+        if (minRedeemAmount > 0 && naraUsdAmount < minRedeemAmount) {
             revert BelowMinimumAmount();
         }
 
@@ -419,19 +419,19 @@ contract NaraUSD is
         _checkKeyringCredential(msg.sender);
 
         // Calculate collateral needed
-        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, naraUSDAmount);
+        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, naraUsdAmount);
 
         // Check if MCT has sufficient collateral for instant redemption
         uint256 availableCollateral = mct.collateralBalance(collateralAsset);
 
         if (availableCollateral >= collateralNeeded) {
             // Instant redemption path
-            collateralAmount = _instantRedeem(msg.sender, collateralAsset, naraUSDAmount);
+            collateralAmount = _instantRedeem(msg.sender, collateralAsset, naraUsdAmount);
             return (collateralAmount, false);
         } else {
             // Queue path
             if (!allowQueue) revert InsufficientCollateral();
-            _queueRedeem(msg.sender, collateralAsset, naraUSDAmount);
+            _queueRedeem(msg.sender, collateralAsset, naraUsdAmount);
             return (0, true);
         }
     }
@@ -552,15 +552,15 @@ contract NaraUSD is
 
         if (request.naraUSDAmount == 0) revert NoRedemptionRequest();
 
-        uint256 naraUSDAmount = request.naraUSDAmount;
+        uint256 naraUsdAmount = request.naraUSDAmount;
 
         // Clear redemption request
         delete redemptionRequests[msg.sender];
 
         // Return NaraUSD from silo to user
-        redeemSilo.withdraw(msg.sender, naraUSDAmount);
+        redeemSilo.withdraw(msg.sender, naraUsdAmount);
 
-        emit RedemptionCancelled(msg.sender, naraUSDAmount);
+        emit RedemptionCancelled(msg.sender, naraUsdAmount);
     }
 
     /* --------------- ADMIN FUNCTIONS --------------- */
@@ -847,13 +847,13 @@ contract NaraUSD is
      * @param collateralAsset The collateral asset
      * @param collateralAmount The amount of collateral
      * @param beneficiary The address to receive NaraUSD
-     * @return naraUSDAmount The amount of NaraUSD minted
+     * @return naraUsdAmount The amount of NaraUSD minted
      */
     function _mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) internal belowMaxMintPerBlock(collateralAmount) returns (uint256 naraUSDAmount) {
+    ) internal belowMaxMintPerBlock(collateralAmount) returns (uint256 naraUsdAmount) {
         if (collateralAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (beneficiary == address(0)) revert ZeroAddressException();
@@ -867,15 +867,15 @@ contract NaraUSD is
         _checkKeyringCredential(msg.sender);
 
         // Convert collateral to NaraUSD amount (normalize decimals)
-        naraUSDAmount = _convertToNaraUSDAmount(collateralAsset, collateralAmount);
+        naraUsdAmount = _convertToNaraUSDAmount(collateralAsset, collateralAmount);
 
         // Check minimum mint amount
-        if (minMintAmount > 0 && naraUSDAmount < minMintAmount) {
+        if (minMintAmount > 0 && naraUsdAmount < minMintAmount) {
             revert BelowMinimumAmount();
         }
 
         // Track minted amount
-        mintedPerBlock[block.number] += naraUSDAmount;
+        mintedPerBlock[block.number] += naraUsdAmount;
 
         // Transfer collateral from user to this contract
         IERC20(collateralAsset).safeTransferFrom(beneficiary, address(this), collateralAmount);
@@ -938,23 +938,23 @@ contract NaraUSD is
     /**
      * @notice Convert NaraUSD amount to collateral amount (denormalize decimals)
      * @param collateralAsset The collateral asset address
-     * @param naraUSDAmount The amount of NaraUSD (18 decimals)
+     * @param naraUsdAmount The amount of NaraUSD (18 decimals)
      * @return The equivalent collateral amount
      */
     function _convertToCollateralAmount(
         address collateralAsset,
-        uint256 naraUSDAmount
+        uint256 naraUsdAmount
     ) internal view returns (uint256) {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         if (collateralDecimals == 18) {
-            return naraUSDAmount;
+            return naraUsdAmount;
         } else if (collateralDecimals < 18) {
             // Scale down (e.g., 18 decimals -> USDC 6 decimals)
-            return naraUSDAmount / (10 ** (18 - collateralDecimals));
+            return naraUsdAmount / (10 ** (18 - collateralDecimals));
         } else {
             // Scale up (shouldn't happen with standard stablecoins)
-            return naraUSDAmount * (10 ** (collateralDecimals - 18));
+            return naraUsdAmount * (10 ** (collateralDecimals - 18));
         }
     }
 
@@ -991,10 +991,10 @@ contract NaraUSD is
     /**
      * @notice Override ERC4626 redeem - disabled in favor of custom redeem flow
      * @dev The ERC4626 redeem(shares, receiver, owner) is replaced by our custom
-     *      redeem(collateralAsset, naraUSDAmount, allowQueue) function
+     *      redeem(collateralAsset, naraUsdAmount, allowQueue) function
      */
     function redeem(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
-        revert("Use redeem(collateralAsset, naraUSDAmount, allowQueue)");
+        revert("Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
     }
 
     /// @dev Override decimals to ensure 18 decimals
@@ -1112,24 +1112,24 @@ contract NaraUSD is
      * @notice Internal function to execute instant redemption
      * @param user The user redeeming
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD to redeem
+     * @param naraUsdAmount The amount of NaraUSD to redeem
      * @return collateralAmount The amount of collateral sent to user (after fees)
      */
     function _instantRedeem(
         address user,
         address collateralAsset,
-        uint256 naraUSDAmount
-    ) internal belowMaxRedeemPerBlock(naraUSDAmount) returns (uint256 collateralAmount) {
+        uint256 naraUsdAmount
+    ) internal belowMaxRedeemPerBlock(naraUsdAmount) returns (uint256 collateralAmount) {
         // Track redeemed amount for per-block limit
-        redeemedPerBlock[block.number] += naraUSDAmount;
+        redeemedPerBlock[block.number] += naraUsdAmount;
 
         // Burn NaraUSD from user
-        _burn(user, naraUSDAmount);
+        _burn(user, naraUsdAmount);
 
         // Execute redemption and transfer to user
-        collateralAmount = _executeRedemption(user, collateralAsset, naraUSDAmount);
+        collateralAmount = _executeRedemption(user, collateralAsset, naraUsdAmount);
 
-        emit Redeem(user, collateralAsset, naraUSDAmount, collateralAmount);
+        emit Redeem(user, collateralAsset, naraUsdAmount, collateralAmount);
 
         return collateralAmount;
     }
@@ -1138,21 +1138,21 @@ contract NaraUSD is
      * @notice Internal function to queue a redemption request
      * @param user The user requesting redemption
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD to lock
+     * @param naraUsdAmount The amount of NaraUSD to lock
      */
-    function _queueRedeem(address user, address collateralAsset, uint256 naraUSDAmount) internal {
+    function _queueRedeem(address user, address collateralAsset, uint256 naraUsdAmount) internal {
         if (redemptionRequests[user].naraUSDAmount > 0) revert ExistingRedemptionRequest();
 
         // Transfer NaraUSD from user to silo (escrow)
-        _transfer(user, address(redeemSilo), naraUSDAmount);
+        _transfer(user, address(redeemSilo), naraUsdAmount);
 
         // Record redemption request (valid until completed or cancelled)
         redemptionRequests[user] = RedemptionRequest({
-            naraUSDAmount: uint152(naraUSDAmount),
+            naraUSDAmount: uint152(naraUsdAmount),
             collateralAsset: collateralAsset
         });
 
-        emit RedemptionRequested(user, naraUSDAmount, collateralAsset);
+        emit RedemptionRequested(user, naraUsdAmount, collateralAsset);
     }
 
     /**
@@ -1174,28 +1174,28 @@ contract NaraUSD is
         // Check Keyring credentials
         _checkKeyringCredential(user);
 
-        uint256 naraUSDAmount = request.naraUSDAmount;
+        uint256 naraUsdAmount = request.naraUSDAmount;
         address collateralAsset = request.collateralAsset;
 
         // Check per-block redemption limit
-        _checkBelowMaxRedeemPerBlock(naraUSDAmount);
+        _checkBelowMaxRedeemPerBlock(naraUsdAmount);
 
         // Track redeemed amount for per-block limit
-        redeemedPerBlock[block.number] += naraUSDAmount;
+        redeemedPerBlock[block.number] += naraUsdAmount;
 
         // Clear redemption request
         delete redemptionRequests[user];
 
         // Withdraw NaraUSD from silo back to this contract
-        redeemSilo.withdraw(address(this), naraUSDAmount);
+        redeemSilo.withdraw(address(this), naraUsdAmount);
 
         // Burn NaraUSD
-        _burn(address(this), naraUSDAmount);
+        _burn(address(this), naraUsdAmount);
 
         // Execute redemption and transfer to user
-        collateralAmount = _executeRedemption(user, collateralAsset, naraUSDAmount);
+        collateralAmount = _executeRedemption(user, collateralAsset, naraUsdAmount);
 
-        emit RedemptionCompleted(user, naraUSDAmount, collateralAsset, collateralAmount);
+        emit RedemptionCompleted(user, naraUsdAmount, collateralAsset, collateralAmount);
 
         return collateralAmount;
     }
@@ -1204,16 +1204,16 @@ contract NaraUSD is
      * @notice Internal function to execute MCT redemption with fee handling
      * @param user The user receiving collateral
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of NaraUSD being redeemed
+     * @param naraUsdAmount The amount of NaraUSD being redeemed
      * @return collateralAmount The amount of collateral sent to user (after fees)
      */
     function _executeRedemption(
         address user,
         address collateralAsset,
-        uint256 naraUSDAmount
+        uint256 naraUsdAmount
     ) internal returns (uint256 collateralAmount) {
         // Redeem MCT for collateral to this contract
-        uint256 receivedCollateral = mct.redeem(collateralAsset, naraUSDAmount, address(this));
+        uint256 receivedCollateral = mct.redeem(collateralAsset, naraUsdAmount, address(this));
 
         // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
         uint256 receivedCollateral18 = _convertToNaraUSDAmount(collateralAsset, receivedCollateral);
