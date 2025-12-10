@@ -23,8 +23,8 @@ interface IStakingRewardsDistributor {
     /* --------------- FUNCTIONS --------------- */
 
     /**
-     * @notice Transfer naraUSD rewards to the staking contract
-     * @param _rewardsAmount The amount of naraUSD to send
+     * @notice Transfer NaraUSD rewards to the staking contract
+     * @param _rewardsAmount The amount of NaraUSD to send
      */
     function transferInRewards(uint256 _rewardsAmount) external;
 

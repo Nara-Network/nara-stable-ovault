@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 /**
  * @title MultiCollateralToken (MCT)
  * @notice Multi-collateral token that can accept various assets and mint MCT tokens
- * @dev This token serves as the underlying asset for naraUSD OVault
+ * @dev This token serves as the underlying asset for NaraUSD OVault
  */
 contract MultiCollateralToken is ERC20, ERC20Burnable, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;

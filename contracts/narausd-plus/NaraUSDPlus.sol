@@ -105,7 +105,7 @@ contract NaraUSDPlus is AccessControl, ReentrancyGuard, ERC20Permit, ERC4626, IN
         IERC20 _asset,
         address _initialRewarder,
         address _admin
-    ) ERC20("NaraUSD+", "naraUSD+") ERC4626(_asset) ERC20Permit("naraUSD+") {
+    ) ERC20("Nara USD+", "NaraUSD+") ERC4626(_asset) ERC20Permit("NaraUSD+") {
         if (_admin == address(0) || _initialRewarder == address(0) || address(_asset) == address(0)) {
             revert InvalidZeroAddress();
         }

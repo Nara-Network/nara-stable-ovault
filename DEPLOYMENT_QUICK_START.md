@@ -1,4 +1,4 @@
-# ⚡ Quick Start - Deploy naraUSD OVault System
+# ⚡ Quick Start - Deploy NaraUSD OVault System
 
 Fast deployment guide for both testnet and mainnet with environment-based configuration.
 
@@ -38,8 +38,8 @@ That's it! ✅
 | Contract                  | Description           | Address (after deployment) |
 | ------------------------- | --------------------- | -------------------------- |
 | MultiCollateralToken      | Holds USDC collateral | Check console output       |
-| naraUSD                      | Stablecoin vault      | Check console output       |
-| NaraUSDPlus                | Staking vault         | Check console output       |
+| NaraUSD                   | Stablecoin vault      | Check console output       |
+| NaraUSDPlus               | Staking vault         | Check console output       |
 | StakingRewardsDistributor | Automated rewards     | Check console output       |
 
 ---
@@ -72,8 +72,8 @@ The deployment uses environment-based configuration. Settings are automatically 
 
 ### Limits
 
-- **Max Mint Per Block**: 1,000,000 naraUSD
-- **Max Redeem Per Block**: 1,000,000 naraUSD
+- **Max Mint Per Block**: 1,000,000 NaraUSD
+- **Max Redeem Per Block**: 1,000,000 NaraUSD
 
 ---
 
@@ -107,7 +107,7 @@ Or use faucet: https://faucet.circle.com/ (then bridge)
 
 - Bridge USDC from Ethereum mainnet or use a DEX
 
-### 3. Mint naraUSD
+### 3. Mint NaraUSD
 
 ```bash
 # Testnet
@@ -124,9 +124,12 @@ const usdc = await ethers.getContractAt(
   "IERC20",
   "YOUR_USDC_ADDRESS", // Check deployConfig for the correct address
 );
-const narausd = await ethers.getContractAt("narausd/NaraUSD", "YOUR_NARAUSD_ADDRESS");
+const narausd = await ethers.getContractAt(
+  "narausd/NaraUSD",
+  "YOUR_NARAUSD_ADDRESS",
+);
 
-// Mint 100 naraUSD with 100 USDC
+// Mint 100 NaraUSD with 100 USDC
 const amount = ethers.utils.parseUnits("100", 6); // 100 USDC (6 decimals)
 await usdc.approve(narausd.address, amount);
 await narausd.mintWithCollateral(usdc.address, amount);
@@ -134,10 +137,10 @@ await narausd.mintWithCollateral(usdc.address, amount);
 // Check balance
 const [signer] = await ethers.getSigners();
 const balance = await narausd.balanceOf(signer.address);
-console.log("naraUSD balance:", ethers.utils.formatEther(balance));
+console.log("NaraUSD balance:", ethers.utils.formatEther(balance));
 ```
 
-### 4. Stake naraUSD
+### 4. Stake NaraUSD
 
 ```javascript
 const naraUSDPlus = await ethers.getContractAt(
@@ -145,16 +148,16 @@ const naraUSDPlus = await ethers.getContractAt(
   "YOUR_STAKED_NARAUSD_ADDRESS",
 );
 
-// Stake 50 naraUSD
+// Stake 50 NaraUSD
 const stakeAmount = ethers.utils.parseEther("50");
 await narausd.approve(naraUSDPlus.address, stakeAmount);
 await naraUSDPlus.deposit(stakeAmount, (await ethers.getSigners())[0].address);
 
-// Check naraUSD+ balance
+// Check NaraUSD+ balance
 const sBalance = await naraUSDPlus.balanceOf(
   (await ethers.getSigners())[0].address,
 );
-console.log("naraUSD+ balance:", ethers.utils.formatEther(sBalance));
+console.log("NaraUSD+ balance:", ethers.utils.formatEther(sBalance));
 ```
 
 ### 5. Distribute Rewards (as Operator)
@@ -165,7 +168,7 @@ const distributor = await ethers.getContractAt(
   "YOUR_DISTRIBUTOR_ADDRESS",
 );
 
-// Transfer naraUSD to distributor
+// Transfer NaraUSD to distributor
 const rewardsAmount = ethers.utils.parseEther("10");
 await narausd.transfer(distributor.address, rewardsAmount);
 
@@ -188,7 +191,7 @@ DEPLOYMENT COMPLETE ✅
 
 📦 Deployed Contracts:
    MultiCollateralToken: 0x1234...
-   naraUSD: 0x5678...
+   NaraUSD: 0x5678...
    NaraUSDPlus: 0x9abc...
    StakingRewardsDistributor: 0xdef0...
 
@@ -200,7 +203,7 @@ DEPLOYMENT COMPLETE ✅
    Max Redeem/Block: 1000000000000000000000000
 
 🔑 Granted Roles:
-   MCT.MINTER_ROLE → naraUSD
+   MCT.MINTER_ROLE → NaraUSD
    NaraUSDPlus.REWARDER_ROLE → StakingRewardsDistributor
    NaraUSDPlus.BLACKLIST_MANAGER_ROLE → Admin
 ```
@@ -223,7 +226,7 @@ Run these commands to verify each contract on Arbiscan.
 
 ## 🌐 Add Cross-Chain Support (Optional)
 
-To enable cross-chain naraUSD and naraUSD+:
+To enable cross-chain NaraUSD and NaraUSD+:
 
 ### 1. Configuration
 
@@ -240,7 +243,7 @@ You can update spoke chains and other settings in these files.
 
 ```bash
 # On Arbitrum Sepolia (hub)
-# 1) Deploy naraUSD OFT infra (deploys NaraUSDOFTAdapter and NaraUSDComposer on hub)
+# 1) Deploy NaraUSD OFT infra (deploys NaraUSDOFTAdapter and NaraUSDComposer on hub)
 DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # 2) Deploy NaraUSDPlus OFT adapter on hub (required for NaraUSDPlusComposer)
@@ -277,20 +280,20 @@ Update the contract addresses in respective config files. Then, run these comman
 **Testnet:**
 
 ```bash
-# naraUSD peers (hub adapter ↔ spoke OFT)
+# NaraUSD peers (hub adapter ↔ spoke OFT)
 DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd.config.ts
 
-# naraUSD+ peers (hub adapter ↔ spoke OFT)
+# NaraUSD+ peers (hub adapter ↔ spoke OFT)
 DEPLOY_ENV=testnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd-plus.config.ts
 ```
 
 **Mainnet:**
 
 ```bash
-# naraUSD peers (hub adapter ↔ spoke OFT)
+# NaraUSD peers (hub adapter ↔ spoke OFT)
 DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd.config.ts
 
-# naraUSD+ peers (hub adapter ↔ spoke OFT)
+# NaraUSD+ peers (hub adapter ↔ spoke OFT)
 DEPLOY_ENV=mainnet npx hardhat lz:oapp:wire --oapp-config layerzero.narausd-plus.config.ts
 ```
 
@@ -311,7 +314,10 @@ await mct.addSupportedAsset("0xNewAssetAddress...");
 ### Update Rate Limits
 
 ```javascript
-const narausd = await ethers.getContractAt("narausd/NaraUSD", "NARAUSD_ADDRESS");
+const narausd = await ethers.getContractAt(
+  "narausd/NaraUSD",
+  "NARAUSD_ADDRESS",
+);
 await narausd.setMaxMintPerBlock(ethers.utils.parseEther("2000000"));
 await narausd.setMaxRedeemPerBlock(ethers.utils.parseEther("2000000"));
 ```
@@ -395,7 +401,7 @@ npx hardhat deploy --network arbitrum-sepolia --reset
 **Understanding the System?**
 
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - Overview
-- [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - naraUSD details
+- [OVAULT_INTEGRATION.md](./OVAULT_INTEGRATION.md) - NaraUSD details
 - [STAKED_NARAUSD_INTEGRATION.md](./STAKED_NARAUSD_INTEGRATION.md) - Staking details
 
 ---

@@ -13,7 +13,7 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
 
     struct UserCooldown {
         uint104 cooldownEnd;
-        uint152 sharesAmount; // Amount of naraUSD+ shares locked in silo
+        uint152 sharesAmount; // Amount of NaraUSD+ shares locked in silo
     }
 
     /* --------------- EVENTS --------------- */
@@ -53,8 +53,8 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
     function transferInRewards(uint256 amount) external;
 
     /**
-     * @notice Burn naraUSD from the contract to decrease naraUSD+ exchange rate
-     * @param amount The amount of naraUSD to burn
+     * @notice Burn NaraUSD from the contract to decrease NaraUSD+ exchange rate
+     * @param amount The amount of NaraUSD to burn
      */
     function burnAssets(uint256 amount) external;
 
@@ -88,7 +88,7 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
     /* --------------- VIEW FUNCTIONS --------------- */
 
     /**
-     * @notice Returns the amount of naraUSD tokens that are unvested
+     * @notice Returns the amount of NaraUSD tokens that are unvested
      * @return The unvested amount
      */
     function getUnvestedAmount() external view returns (uint256);
@@ -135,7 +135,7 @@ interface INaraUSDPlus is IERC4626, IERC20Permit {
 
     /**
      * @notice Claim the staking amount after the cooldown has finished
-     * @param receiver Address to receive the redeemed naraUSD
+     * @param receiver Address to receive the redeemed NaraUSD
      */
     function unstake(address receiver) external;
 

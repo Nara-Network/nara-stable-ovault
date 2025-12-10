@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
  * @title INaraUSD
- * @notice Interface for the naraUSD contract
+ * @notice Interface for the NaraUSD contract
  */
 interface INaraUSD is IERC4626, IERC20Permit {
     /* --------------- ENUMS --------------- */
@@ -91,10 +91,10 @@ interface INaraUSD is IERC4626, IERC20Permit {
     /* --------------- FUNCTIONS --------------- */
 
     /**
-     * @notice Mint naraUSD by depositing collateral
+     * @notice Mint NaraUSD by depositing collateral
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
-     * @return naraUSDAmount The amount of naraUSD minted
+     * @return naraUSDAmount The amount of NaraUSD minted
      */
     function mintWithCollateral(
         address collateralAsset,
@@ -102,11 +102,11 @@ interface INaraUSD is IERC4626, IERC20Permit {
     ) external returns (uint256 naraUSDAmount);
 
     /**
-     * @notice Mint naraUSD on behalf of a beneficiary
+     * @notice Mint NaraUSD on behalf of a beneficiary
      * @param collateralAsset The collateral asset to deposit
      * @param collateralAmount The amount of collateral to deposit
-     * @param beneficiary The address to receive minted naraUSD
-     * @return naraUSDAmount The amount of naraUSD minted
+     * @param beneficiary The address to receive minted NaraUSD
+     * @return naraUSDAmount The amount of NaraUSD minted
      */
     function mintWithCollateralFor(
         address collateralAsset,
@@ -115,17 +115,21 @@ interface INaraUSD is IERC4626, IERC20Permit {
     ) external returns (uint256 naraUSDAmount);
 
     /**
-     * @notice Redeem naraUSD for collateral - instant if liquidity available, otherwise queued
+     * @notice Redeem NaraUSD for collateral - instant if liquidity available, otherwise queued
      * @param collateralAsset The collateral asset to receive
-     * @param naraUSDAmount The amount of naraUSD to redeem
+     * @param naraUSDAmount The amount of NaraUSD to redeem
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
      */
-    function redeem(address collateralAsset, uint256 naraUSDAmount, bool allowQueue) external returns (uint256 collateralAmount, bool wasQueued);
+    function redeem(
+        address collateralAsset,
+        uint256 naraUSDAmount,
+        bool allowQueue
+    ) external returns (uint256 collateralAmount, bool wasQueued);
 
     /**
-     * @notice Complete queued redemption for a specific user - redeems naraUSD for collateral
+     * @notice Complete queued redemption for a specific user - redeems NaraUSD for collateral
      * @param user The address whose redemption request should be completed
      * @return collateralAmount The amount of collateral received
      */
@@ -139,12 +143,12 @@ interface INaraUSD is IERC4626, IERC20Permit {
 
     /**
      * @notice Update queued redemption request amount
-     * @param newAmount The new amount of naraUSD to redeem
+     * @param newAmount The new amount of NaraUSD to redeem
      */
     function updateRedemptionRequest(uint256 newAmount) external;
 
     /**
-     * @notice Cancel queued redemption request and return locked naraUSD to user
+     * @notice Cancel queued redemption request and return locked NaraUSD to user
      */
     function cancelRedeem() external;
 
@@ -257,14 +261,14 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function redistributeLockedAmount(address from, address to) external;
 
     /**
-     * @notice Mint naraUSD without collateral backing (protocol controlled)
-     * @param to The recipient of newly minted naraUSD
+     * @notice Mint NaraUSD without collateral backing (protocol controlled)
+     * @param to The recipient of newly minted NaraUSD
      * @param amount The amount to mint
      */
     function mint(address to, uint256 amount) external;
 
     /**
-     * @notice Burn naraUSD and underlying MCT without withdrawing collateral
+     * @notice Burn NaraUSD and underlying MCT without withdrawing collateral
      * @param amount The amount to burn (from msg.sender)
      */
     function burn(uint256 amount) external;
