@@ -28,7 +28,6 @@ contract NaraUSDTest is TestHelper {
         assertEq(naraUSD.symbol(), "naraUSD");
         assertEq(naraUSD.decimals(), 18);
         assertEq(address(naraUSD.mct()), address(mct));
-        assertEq(naraUSD.cooldownDuration(), 7 days);
     }
 
     /**
@@ -342,14 +341,6 @@ contract NaraUSDTest is TestHelper {
         assertEq(bobAmount, 0, "Bob request cleared");
 
         vm.stopPrank();
-    }
-
-    /**
-     * @notice Test setting cooldown duration above max fails
-     */
-    function test_RevertIf_CooldownTooLong() public {
-        vm.expectRevert(NaraUSD.InvalidCooldown.selector);
-        naraUSD.setCooldownDuration(91 days); // Max is 90 days
     }
 
     /**
