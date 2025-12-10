@@ -84,6 +84,6 @@
     "hardhat-deploy": "^0.12.1"
   },
   "dependencies": {
-    "@openzeppelin/hardhat-upgrades": "^3.9.1"
+    "@openzeppelin/hardhat-upgrades": "^1.28.0"
   }
 }
