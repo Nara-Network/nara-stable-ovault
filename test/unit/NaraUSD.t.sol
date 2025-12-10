@@ -266,12 +266,9 @@ contract NaraUSDTest is TestHelper {
      * @notice Test completing redemption without request fails
      */
     function test_RevertIf_NoRedemptionRequest() public {
-        vm.startPrank(owner);
-
+        // Use test contract which has COLLATERAL_MANAGER_ROLE
         vm.expectRevert(NaraUSD.NoRedemptionRequest.selector);
         naraUsd.completeRedeem(alice);
-
-        vm.stopPrank();
     }
 
     /**
