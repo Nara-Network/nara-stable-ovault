@@ -35,7 +35,7 @@ contract NaraUSDTest is TestHelper {
      */
     function test_MintWithCollateral_USDC() public {
         uint256 usdcAmount = 1000e6;
-        uint256 expectedNaraUSD = 1000e18;
+        uint256 expectedNaraUsd = 1000e18;
 
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), usdcAmount);
@@ -48,10 +48,10 @@ contract NaraUSDTest is TestHelper {
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
         // Verify naraUSD minted
-        assertEq(naraUsdAmount, expectedNaraUSD, "Should mint 1000 naraUSD");
+        assertEq(naraUsdAmount, expectedNaraUsd, "Should mint 1000 naraUSD");
         assertEq(
             naraUSD.balanceOf(alice) - aliceNaraUsdBefore,
-            expectedNaraUSD,
+            expectedNaraUsd,
             "Alice should have additional naraUSD"
         );
 
@@ -61,7 +61,7 @@ contract NaraUSDTest is TestHelper {
         // Verify MCT created (held by naraUSD contract)
         assertEq(
             mct.balanceOf(address(naraUSD)) - naraUsdContractMctBefore,
-            expectedNaraUSD,
+            expectedNaraUsd,
             "naraUSD holds additional MCT"
         );
 
@@ -73,7 +73,7 @@ contract NaraUSDTest is TestHelper {
      */
     function test_MintWithCollateral_USDT() public {
         uint256 usdtAmount = 500e6;
-        uint256 expectedNaraUSD = 500e18;
+        uint256 expectedNaraUsd = 500e18;
 
         vm.startPrank(alice);
         usdt.approve(address(naraUSD), usdtAmount);
@@ -81,10 +81,10 @@ contract NaraUSDTest is TestHelper {
         uint256 aliceNaraUsdBefore = naraUSD.balanceOf(alice);
         uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdt), usdtAmount);
 
-        assertEq(naraUsdAmount, expectedNaraUSD, "Should mint 500 naraUSD");
+        assertEq(naraUsdAmount, expectedNaraUsd, "Should mint 500 naraUSD");
         assertEq(
             naraUSD.balanceOf(alice) - aliceNaraUsdBefore,
-            expectedNaraUSD,
+            expectedNaraUsd,
             "Alice should have additional naraUSD"
         );
 
@@ -633,10 +633,10 @@ contract NaraUSDTest is TestHelper {
         usdc.mint(alice, amount);
         usdc.approve(address(naraUSD), amount);
 
-        uint256 expectedNaraUSD = amount * 1e12; // 6 to 18 decimals
+        uint256 expectedNaraUsd = amount * 1e12; // 6 to 18 decimals
         uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), amount);
 
-        assertEq(naraUsdAmount, expectedNaraUSD, "Should mint correct amount");
+        assertEq(naraUsdAmount, expectedNaraUsd, "Should mint correct amount");
 
         vm.stopPrank();
     }
@@ -867,7 +867,7 @@ contract NaraUSDTest is TestHelper {
         naraUSD.setFeeTreasury(treasury);
 
         uint256 usdcAmount = 1000e6;
-        uint256 expectedNaraUSD = 1000e18;
+        uint256 expectedNaraUsd = 1000e18;
 
         vm.startPrank(alice);
         uint256 aliceBalanceBefore = naraUSD.balanceOf(alice);
@@ -877,10 +877,10 @@ contract NaraUSDTest is TestHelper {
         uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
 
         // Verify user receives full amount
-        assertEq(naraUsdAmount, expectedNaraUSD, "User should receive full amount");
+        assertEq(naraUsdAmount, expectedNaraUsd, "User should receive full amount");
         assertEq(
             naraUSD.balanceOf(alice) - aliceBalanceBefore,
-            expectedNaraUSD,
+            expectedNaraUsd,
             "Alice balance increase should be full amount"
         );
 
@@ -939,7 +939,7 @@ contract NaraUSDTest is TestHelper {
         // Don't set treasury
 
         uint256 usdcAmount = 1000e6;
-        uint256 expectedNaraUSD = 1000e18; // Full amount since treasury not set
+        uint256 expectedNaraUsd = 1000e18; // Full amount since treasury not set
 
         vm.startPrank(alice);
         usdc.approve(address(naraUSD), usdcAmount);
@@ -947,7 +947,7 @@ contract NaraUSDTest is TestHelper {
         uint256 naraUsdAmount = naraUSD.mintWithCollateral(address(usdc), usdcAmount);
 
         // Verify user receives full amount when treasury not set
-        assertEq(naraUsdAmount, expectedNaraUSD, "User should receive full amount without treasury");
+        assertEq(naraUsdAmount, expectedNaraUsd, "User should receive full amount without treasury");
 
         vm.stopPrank();
     }
@@ -1348,13 +1348,13 @@ contract NaraUSDTest is TestHelper {
 
         naraUSD.setMinMintAmount(minAmount);
 
-        uint256 expectedNaraUSD = mintAmount * 1e12; // Convert USDC to naraUSD
+        uint256 expectedNaraUsd = mintAmount * 1e12; // Convert USDC to naraUSD
 
         vm.startPrank(alice);
         usdc.mint(alice, mintAmount);
         usdc.approve(address(naraUSD), mintAmount);
 
-        if (expectedNaraUSD < minAmount) {
+        if (expectedNaraUsd < minAmount) {
             vm.expectRevert(NaraUSD.BelowMinimumAmount.selector);
             naraUSD.mintWithCollateral(address(usdc), mintAmount);
         } else {
