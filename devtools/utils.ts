@@ -1,3 +1,4 @@
+import { Contract } from 'ethers'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { DeployResult } from 'hardhat-deploy/types'
 
@@ -36,6 +37,64 @@ export async function deployContract(
     }
 
     return deployment
+}
+
+/**
+ * Deploy an upgradeable contract using UUPS proxy pattern
+ * @param hre Hardhat runtime environment
+ * @param contractName Name of the contract to deploy
+ * @param deployer Address of the deployer
+ * @param initializeArgs Arguments for the initialize function
+ * @param options Deployment options
+ * @returns Object containing proxy address, implementation address, and proxy contract instance
+ */
+export async function deployUpgradeableContract(
+    hre: HardhatRuntimeEnvironment,
+    contractName: string,
+    deployer: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    initializeArgs: any[],
+    options: {
+        initializer?: string
+        kind?: 'uups' | 'transparent'
+        log?: boolean
+    } = {}
+): Promise<{
+    proxyAddress: string
+    implementationAddress: string
+    proxy: Contract
+}> {
+    const { initializer = 'initialize', kind = 'uups', log = true } = options
+
+    if (log) {
+        console.log(`Deploying upgradeable ${contractName} (${kind.toUpperCase()} proxy)...`)
+        console.log(`   Initialize function: ${initializer}`)
+        console.log(`   Args: ${JSON.stringify(initializeArgs, null, 2)}`)
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { upgrades } = require('@openzeppelin/hardhat-upgrades')
+    const ContractFactory = await hre.ethers.getContractFactory(contractName)
+
+    const proxy = await upgrades.deployProxy(ContractFactory, initializeArgs, {
+        initializer,
+        kind,
+    })
+
+    await proxy.deployed()
+
+    const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxy.address)
+
+    if (log) {
+        console.log(`   ✓ Proxy deployed at: ${proxy.address}`)
+        console.log(`   ✓ Implementation deployed at: ${implementationAddress}`)
+    }
+
+    return {
+        proxyAddress: proxy.address,
+        implementationAddress,
+        proxy,
+    }
 }
 
 // Network validation
