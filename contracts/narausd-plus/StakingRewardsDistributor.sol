@@ -31,7 +31,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     /// @notice Staking vault contract
     NaraUSDPlus public immutable STAKING_VAULT;
 
-    /// @notice naraUSD token
+    /// @notice NaraUSD token
     IERC20 public immutable NARAUSD_TOKEN;
 
     /* --------------- STATE VARIABLES --------------- */
@@ -58,7 +58,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     /**
      * @notice Constructor for StakingRewardsDistributor
      * @param _stakingVault The staking vault contract
-     * @param _narausd The naraUSD token contract
+     * @param _narausd The NaraUSD token contract
      * @param _admin The admin address (multisig)
      * @param _operator The operator address (delegated signer)
      */
@@ -76,7 +76,7 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
         // Set the operator
         setOperator(_operator);
 
-        // Approve naraUSD to the staking contract
+        // Approve NaraUSD to the staking contract
         NARAUSD_TOKEN.safeIncreaseAllowance(address(STAKING_VAULT), type(uint256).max);
 
         if (msg.sender != _admin) {
@@ -87,23 +87,23 @@ contract StakingRewardsDistributor is Ownable2Step, ReentrancyGuard {
     /* --------------- EXTERNAL --------------- */
 
     /**
-     * @notice Transfer naraUSD rewards to the staking contract
-     * @param _rewardsAmount The amount of naraUSD to send
+     * @notice Transfer NaraUSD rewards to the staking contract
+     * @param _rewardsAmount The amount of NaraUSD to send
      * @dev Only the operator can call this function
      * @dev This contract must have REWARDER_ROLE in the staking contract
      */
     function transferInRewards(uint256 _rewardsAmount) external nonReentrant {
         if (msg.sender != operator) revert OnlyOperator();
 
-        // Check that this contract holds enough naraUSD balance
+        // Check that this contract holds enough NaraUSD balance
         if (NARAUSD_TOKEN.balanceOf(address(this)) < _rewardsAmount) revert InsufficientFunds();
 
         STAKING_VAULT.transferInRewards(_rewardsAmount);
     }
 
     /**
-     * @notice Burn naraUSD assets from the staking contract to decrease naraUSD+ exchange rate
-     * @param _amount The amount of naraUSD to burn from staking vault
+     * @notice Burn NaraUSD assets from the staking contract to decrease NaraUSD+ exchange rate
+     * @param _amount The amount of NaraUSD to burn from staking vault
      * @dev Only the operator can call this function
      * @dev This contract must have REWARDER_ROLE in the staking contract
      */

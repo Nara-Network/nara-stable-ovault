@@ -9,7 +9,7 @@ import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Opti
 /**
  * @title NaraUSDPlusComposerTest
  * @notice Integration tests for NaraUSDPlusComposer cross-chain staking functionality
- * @dev Tests the full flow: deposit naraUSD -> stake to naraUSD+ -> send cross-chain
+ * @dev Tests the full flow: deposit NaraUSD -> stake to NaraUSD+ -> send cross-chain
  */
 contract NaraUSDPlusComposerTest is TestHelper {
     using OFTComposeMsgCodec for bytes;
@@ -37,13 +37,13 @@ contract NaraUSDPlusComposerTest is TestHelper {
 
         _switchToHub();
 
-        // Stake naraUSD to get naraUSD+
+        // Stake NaraUSD to get NaraUSD+
         vm.startPrank(alice);
         naraUSD.approve(address(naraUSDPlus), naraUSDAmount);
         uint256 naraUSDPlusAmountReceived = naraUSDPlus.deposit(naraUSDAmount, alice);
-        assertGt(naraUSDPlusAmountReceived, 0, "Should receive naraUSD+");
+        assertGt(naraUSDPlusAmountReceived, 0, "Should receive NaraUSD+");
 
-        // Send naraUSD+ cross-chain via adapter
+        // Send NaraUSD+ cross-chain via adapter
         naraUSDPlus.approve(address(naraUSDPlusAdapter), naraUSDPlusAmountReceived);
 
         SendParam memory sendParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDPlusAmountReceived);
@@ -56,16 +56,16 @@ contract NaraUSDPlusComposerTest is TestHelper {
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDPlusOFT)));
 
         _switchToSpoke();
-        assertEq(naraUSDPlusOFT.balanceOf(bob), naraUSDPlusAmountReceived, "Bob should have naraUSD+ on spoke");
+        assertEq(naraUSDPlusOFT.balanceOf(bob), naraUSDPlusAmountReceived, "Bob should have NaraUSD+ on spoke");
     }
 
     /**
-     * @notice Test cross-chain staking: send naraUSD from spoke, receive naraUSD+ back on spoke
+     * @notice Test cross-chain staking: send NaraUSD from spoke, receive NaraUSD+ back on spoke
      */
     function test_CrossChainStaking() public {
         uint256 naraUSDAmount = 100e18;
 
-        // First, send naraUSD to spoke
+        // First, send NaraUSD to spoke
         _switchToHub();
         vm.startPrank(alice);
         naraUSD.approve(address(naraUSDAdapter), naraUSDAmount);
@@ -80,9 +80,9 @@ contract NaraUSDPlusComposerTest is TestHelper {
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUSDOFT)));
 
         _switchToSpoke();
-        assertEq(naraUSDOFT.balanceOf(bob), naraUSDAmount, "Bob should have naraUSD on spoke");
+        assertEq(naraUSDOFT.balanceOf(bob), naraUSDAmount, "Bob should have NaraUSD on spoke");
 
-        // Now Bob sends naraUSD back to hub to stake via composer
+        // Now Bob sends NaraUSD back to hub to stake via composer
         vm.startPrank(bob);
 
         // Build send param for staking - send back to bob on spoke
@@ -115,26 +115,26 @@ contract NaraUSDPlusComposerTest is TestHelper {
 
         // Note: The compose message execution in mock LayerZero environment has limitations.
         // In production, the compose would automatically trigger naraUSDPlusComposer.lzCompose()
-        // which would stake naraUSD and send naraUSD+ back to Bob on spoke.
+        // which would stake NaraUSD and send NaraUSD+ back to Bob on spoke.
         //
         // For now, we verify that:
-        // 1. The naraUSD was successfully sent from spoke to hub
-        // 2. The composer received the naraUSD (compose will be triggered by LayerZero in production)
+        // 1. The NaraUSD was successfully sent from spoke to hub
+        // 2. The composer received the NaraUSD (compose will be triggered by LayerZero in production)
 
         _switchToHub();
-        // The composer should have received the naraUSD (waiting for compose execution)
+        // The composer should have received the NaraUSD (waiting for compose execution)
         uint256 composerBalance = naraUSD.balanceOf(address(naraUSDPlusComposer));
-        assertEq(composerBalance, naraUSDAmount, "Composer should have received naraUSD");
+        assertEq(composerBalance, naraUSDAmount, "Composer should have received NaraUSD");
 
         // TODO: Full compose flow testing requires more complex LayerZero mock setup
         // The actual staking and return send would happen in lzCompose()
     }
 
     /**
-     * @notice Test cross-chain unstaking: send naraUSD+ from spoke, receive naraUSD back
+     * @notice Test cross-chain unstaking: send NaraUSD+ from spoke, receive NaraUSD back
      */
     function test_CrossChainUnstaking() public {
-        // First, get some naraUSD+ on spoke
+        // First, get some NaraUSD+ on spoke
         test_LocalStakeAndSend();
 
         uint256 naraUSDPlusAmountAmount = 50e18;
@@ -144,10 +144,10 @@ contract NaraUSDPlusComposerTest is TestHelper {
         uint256 bobBalance = naraUSDPlusOFT.balanceOf(bob);
         require(bobBalance >= naraUSDPlusAmountAmount, "Insufficient balance");
 
-        // Bob sends naraUSD+ back to unstake and receive naraUSD on spoke
+        // Bob sends NaraUSD+ back to unstake and receive NaraUSD on spoke
         vm.startPrank(bob);
 
-        // Build hop param for sending naraUSD back to bob on spoke
+        // Build hop param for sending NaraUSD back to bob on spoke
         SendParam memory hopParam = _buildBasicSendParam(SPOKE_EID, bob, naraUSDPlusAmountAmount);
         MessagingFee memory hopFee = _getMessagingFee(address(naraUSDAdapter), hopParam);
 
@@ -178,16 +178,16 @@ contract NaraUSDPlusComposerTest is TestHelper {
 
         // Note: The compose message execution in mock LayerZero environment has limitations.
         // In production, the compose would automatically trigger naraUSDPlusComposer.lzCompose()
-        // which would redeem naraUSD+ to naraUSD and send naraUSD back to Bob on spoke.
+        // which would redeem NaraUSD+ to NaraUSD and send NaraUSD back to Bob on spoke.
         //
         // For now, we verify that:
-        // 1. The naraUSD+ was successfully sent from spoke to hub
-        // 2. The composer received the naraUSD+ (compose will be triggered by LayerZero in production)
+        // 1. The NaraUSD+ was successfully sent from spoke to hub
+        // 2. The composer received the NaraUSD+ (compose will be triggered by LayerZero in production)
 
         _switchToHub();
-        // The composer should have received the naraUSD+ (waiting for compose execution)
+        // The composer should have received the NaraUSD+ (waiting for compose execution)
         uint256 composerBalance = naraUSDPlus.balanceOf(address(naraUSDPlusComposer));
-        assertEq(composerBalance, naraUSDPlusAmountAmount, "Composer should have received naraUSD+");
+        assertEq(composerBalance, naraUSDPlusAmountAmount, "Composer should have received NaraUSD+");
 
         // TODO: Full compose flow testing requires more complex LayerZero mock setup
         // The actual unstaking and return send would happen in lzCompose()

@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title NaraUSDPlusSilo
- * @notice The Silo allows to store staking vault tokens (naraUSD+) during the stake cooldown process.
+ * @notice The Silo allows to store staking vault tokens (NaraUSD+) during the stake cooldown process.
  */
 contract NaraUSDPlusSilo {
     /// @notice Error emitted when the staking vault is not the caller

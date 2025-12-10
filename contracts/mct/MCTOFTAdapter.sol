@@ -18,7 +18,7 @@ import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
  * @dev Architecture Explanation:
  *
  * User Flow:
- * - Users deposit collateral (USDC/USDT) via naraUSD.mintWithCollateral()
+ * - Users deposit collateral (USDC/USDT) via NaraUSD.mintWithCollateral()
  * - MCT is created internally by NaraUSD contract (users never see it)
  * - Users receive NaraUSD shares
  * - MCT NEVER leaves the hub chain
@@ -45,7 +45,7 @@ import { OFTAdapter } from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
  * Actual Cross-Chain Flow (without using this adapter):
  * 1. User sends USDC via Stargate/collateral OFT
  * 2. NaraUSDComposer receives USDC on hub
- * 3. Composer calls naraUSD.mintWithCollateral(USDC, amount)
+ * 3. Composer calls NaraUSD.mintWithCollateral(USDC, amount)
  * 4. NaraUSD internally manages MCT (user never sees it)
  * 5. Composer sends NaraUSD shares cross-chain via NaraUSDOFTAdapter
  * 6. User receives NaraUSD on destination chain
