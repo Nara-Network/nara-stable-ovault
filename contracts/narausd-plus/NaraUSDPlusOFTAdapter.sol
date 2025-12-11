@@ -13,7 +13,7 @@ import { OFTAdapterUpgradeable } from "@layerzerolabs/oft-evm-upgradeable/contra
  * @dev A mint-burn adapter would not work since it transforms totalSupply()
  * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract NaraUSDPlusOFTAdapter is Initializable, OFTAdapterUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
+contract NaraUSDPlusOFTAdapter is Initializable, OFTAdapterUpgradeable, UUPSUpgradeable {
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(address _token, address _lzEndpoint) OFTAdapterUpgradeable(_token, _lzEndpoint) {
         _disableInitializers();
