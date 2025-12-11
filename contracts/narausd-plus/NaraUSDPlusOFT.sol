@@ -45,7 +45,7 @@ contract NaraUSDPlusOFT is OFT, AccessControl {
     constructor(
         address _lzEndpoint,
         address _delegate
-    ) OFT("NaraUSD+", "naraUsd+", _lzEndpoint, _delegate) Ownable(_delegate) {
+    ) OFT("Nara USD+", "NaraUSD+", _lzEndpoint, _delegate) Ownable(_delegate) {
         _grantRole(DEFAULT_ADMIN_ROLE, _delegate);
         _grantRole(BLACKLIST_MANAGER_ROLE, _delegate);
     }

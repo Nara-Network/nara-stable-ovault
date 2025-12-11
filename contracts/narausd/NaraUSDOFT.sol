@@ -42,7 +42,10 @@ contract NaraUSDOFT is OFT, AccessControl {
      * @param _lzEndpoint The address of the LayerZero endpoint on this chain
      * @param _delegate The address that will have owner privileges
      */
-    constructor(address _lzEndpoint, address _delegate) OFT("naraUsd", "naraUsd", _lzEndpoint, _delegate) Ownable(_delegate) {
+    constructor(
+        address _lzEndpoint,
+        address _delegate
+    ) OFT("Nara USD", "NaraUSD", _lzEndpoint, _delegate) Ownable(_delegate) {
         _grantRole(DEFAULT_ADMIN_ROLE, _delegate);
         _grantRole(BLACKLIST_MANAGER_ROLE, _delegate);
     }
