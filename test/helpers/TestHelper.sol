@@ -179,14 +179,30 @@ abstract contract TestHelper is TestHelperOz5 {
         plusSilo.setStakingVault(address(naraUsdPlus));
         plusSilo.setToken(address(naraUsdPlus));
 
-        // Deploy OFT Adapters
+        // Deploy OFT Adapters (upgradeable)
         // Note: MCT adapter exists on hub but MCT never actually goes cross-chain
         // It's only needed to satisfy composer validation checks
         mctAdapter = new MCTOFTAdapter(address(mct), address(endpoints[HUB_EID]), delegate);
 
-        naraUsdAdapter = new NaraUSDOFTAdapter(address(naraUsd), address(endpoints[HUB_EID]), delegate);
+        // Deploy NaraUSDOFTAdapter (upgradeable)
+        NaraUSDOFTAdapter naraUsdAdapterImpl = new NaraUSDOFTAdapter(address(naraUsd), address(endpoints[HUB_EID]));
+        bytes memory naraUsdAdapterInitData = abi.encodeWithSelector(NaraUSDOFTAdapter.initialize.selector, delegate);
+        naraUsdAdapter = NaraUSDOFTAdapter(
+            address(new ERC1967Proxy(address(naraUsdAdapterImpl), naraUsdAdapterInitData))
+        );
 
-        naraUsdPlusAdapter = new NaraUSDPlusOFTAdapter(address(naraUsdPlus), address(endpoints[HUB_EID]), delegate);
+        // Deploy NaraUSDPlusOFTAdapter (upgradeable)
+        NaraUSDPlusOFTAdapter naraUsdPlusAdapterImpl = new NaraUSDPlusOFTAdapter(
+            address(naraUsdPlus),
+            address(endpoints[HUB_EID])
+        );
+        bytes memory naraUsdPlusAdapterInitData = abi.encodeWithSelector(
+            NaraUSDPlusOFTAdapter.initialize.selector,
+            delegate
+        );
+        naraUsdPlusAdapter = NaraUSDPlusOFTAdapter(
+            address(new ERC1967Proxy(address(naraUsdPlusAdapterImpl), naraUsdPlusAdapterInitData))
+        );
 
         // Deploy Composers
         naraUsdComposer = new NaraUSDComposer(
@@ -212,10 +228,15 @@ abstract contract TestHelper is TestHelperOz5 {
     function _deploySpokeContracts() internal {
         // Simulates spoke chain using mock endpoints (no Foundry fork switching)
 
-        // Deploy OFTs on spoke chain
-        naraUsdOft = new NaraUSDOFT(address(endpoints[SPOKE_EID]), delegate);
+        // Deploy NaraUSDOFT (upgradeable)
+        NaraUSDOFT naraUsdOftImpl = new NaraUSDOFT(address(endpoints[SPOKE_EID]));
+        bytes memory naraUsdOftInitData = abi.encodeWithSelector(NaraUSDOFT.initialize.selector, delegate);
+        naraUsdOft = NaraUSDOFT(address(new ERC1967Proxy(address(naraUsdOftImpl), naraUsdOftInitData)));
 
-        naraUsdPlusOft = new NaraUSDPlusOFT(address(endpoints[SPOKE_EID]), delegate);
+        // Deploy NaraUSDPlusOFT (upgradeable)
+        NaraUSDPlusOFT naraUsdPlusOftImpl = new NaraUSDPlusOFT(address(endpoints[SPOKE_EID]));
+        bytes memory naraUsdPlusOftInitData = abi.encodeWithSelector(NaraUSDPlusOFT.initialize.selector, delegate);
+        naraUsdPlusOft = NaraUSDPlusOFT(address(new ERC1967Proxy(address(naraUsdPlusOftImpl), naraUsdPlusOftInitData)));
     }
 
     /**
