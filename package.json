@@ -84,6 +84,7 @@
     "hardhat-deploy": "^0.12.1"
   },
   "dependencies": {
+    "@layerzerolabs/oft-evm-upgradeable": "^4.0.1",
     "@openzeppelin/hardhat-upgrades": "^1.28.0"
   }
 }
