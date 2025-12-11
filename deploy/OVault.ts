@@ -2,7 +2,7 @@ import assert from 'assert'
 
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-import { DEPLOYMENT_CONFIG, isVaultChain, shouldDeployShare } from '../devtools'
+import { DEPLOYMENT_CONFIG, deployUpgradeableContract, isVaultChain, shouldDeployShare } from '../devtools'
 
 import { handleDeploymentWithRetry } from './utils'
 
@@ -128,26 +128,23 @@ const deploy: DeployFunction = async (hre) => {
     // SHARE OFT (naraUsd) - Deploy on spoke chains, Adapter on hub
     // ========================================
     if (shouldDeployShare(networkEid)) {
-        // Spoke chain: Deploy NaraUSDOFT (mint/burn)
-        console.log('📦 Deploying Share OFT (naraUsd) on spoke chain...')
+        // Spoke chain: Deploy NaraUSDOFT (mint/burn) - upgradeable
+        console.log('📦 Deploying Share OFT (naraUsd) on spoke chain (upgradeable)...')
 
-        const naraUsdOFT = await handleDeploymentWithRetry(
+        const naraUsdOFTDeployment = await deployUpgradeableContract(
             hre,
-            deployments.deploy('NaraUSDOFT', {
-                contract: 'contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT',
-                from: deployer,
-                args: [
-                    endpointV2.address, // _lzEndpoint
-                    deployer, // _delegate
-                ],
-                log: true,
-                skipIfAlreadyDeployed: true,
-            }),
             'NaraUSDOFT',
-            'contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT'
+            deployer,
+            [deployer], // _delegate (for initialize)
+            {
+                initializer: 'initialize',
+                kind: 'uups',
+                log: true,
+            }
         )
-        deployedContracts.naraUsdOFT = naraUsdOFT.address
-        console.log(`   ✓ NaraUSDOFT deployed at: ${naraUsdOFT.address}`)
+        deployedContracts.naraUsdOFT = naraUsdOFTDeployment.proxyAddress
+        console.log(`   ✓ NaraUSDOFT proxy deployed at: ${naraUsdOFTDeployment.proxyAddress}`)
+        console.log(`   ✓ Implementation deployed at: ${naraUsdOFTDeployment.implementationAddress}`)
     } else if (DEPLOYMENT_CONFIG.vault.shareOFTAdapterAddress && !isVaultChain(networkEid)) {
         console.log('⏭️  Skipping share OFT deployment (existing mesh)')
     }
@@ -171,22 +168,22 @@ const deploy: DeployFunction = async (hre) => {
             )
         }
 
-        // Deploy NaraUSDOFTAdapter (lockbox for naraUsd shares)
-        console.log('   → Deploying NaraUSDOFTAdapter (lockbox)...')
-        const naraUsdAdapter = await handleDeploymentWithRetry(
+        // Deploy NaraUSDOFTAdapter (lockbox for naraUsd shares) - upgradeable
+        console.log('   → Deploying NaraUSDOFTAdapter (lockbox, upgradeable)...')
+        const naraUsdAdapterDeployment = await deployUpgradeableContract(
             hre,
-            deployments.deploy('NaraUSDOFTAdapter', {
-                contract: 'contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter',
-                from: deployer,
-                args: [naraUsdAddress, endpointV2.address, deployer],
-                log: true,
-                skipIfAlreadyDeployed: true,
-            }),
             'NaraUSDOFTAdapter',
-            'contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter'
+            deployer,
+            [deployer], // _delegate (for initialize)
+            {
+                initializer: 'initialize',
+                kind: 'uups',
+                log: true,
+            }
         )
-        deployedContracts.naraUsdAdapter = naraUsdAdapter.address
-        console.log(`   ✓ NaraUSDOFTAdapter deployed at: ${naraUsdAdapter.address}`)
+        deployedContracts.naraUsdAdapter = naraUsdAdapterDeployment.proxyAddress
+        console.log(`   ✓ NaraUSDOFTAdapter proxy deployed at: ${naraUsdAdapterDeployment.proxyAddress}`)
+        console.log(`   ✓ Implementation deployed at: ${naraUsdAdapterDeployment.implementationAddress}`)
 
         // Deploy NaraUSDComposer if collateral asset is configured
         const collateralAsset = DEPLOYMENT_CONFIG.vault.collateralAssetAddress
@@ -220,7 +217,7 @@ const deploy: DeployFunction = async (hre) => {
             console.log('   → Validating addresses for NaraUSDComposer...')
             console.log(`      Vault (naraUsd): ${naraUsdAddress}`)
             console.log(`      Asset OFT (MCT Adapter): ${mctAssetOFTAddress}`)
-            console.log(`      Share OFT (naraUsd Adapter): ${naraUsdAdapter.address}`)
+            console.log(`      Share OFT (naraUsd Adapter): ${naraUsdAdapterDeployment.proxyAddress}`)
             console.log(`      Collateral Asset (to whitelist): ${collateralAsset}`)
             console.log(`      Collateral Asset OFT (to whitelist): ${collateralAssetOFT}`)
 
@@ -235,9 +232,9 @@ const deploy: DeployFunction = async (hre) => {
                 throw new Error(`MCTOFTAdapter at ${mctAssetOFTAddress} is not a contract`)
             }
 
-            const shareOftCodeSize = await hre.ethers.provider.getCode(naraUsdAdapter.address)
+            const shareOftCodeSize = await hre.ethers.provider.getCode(naraUsdAdapterDeployment.proxyAddress)
             if (shareOftCodeSize === '0x') {
-                throw new Error(`NaraUSDOFTAdapter at ${naraUsdAdapter.address} is not a contract`)
+                throw new Error(`NaraUSDOFTAdapter at ${naraUsdAdapterDeployment.proxyAddress} is not a contract`)
             }
 
             const codeSize = await hre.ethers.provider.getCode(collateralAsset)
@@ -263,7 +260,7 @@ const deploy: DeployFunction = async (hre) => {
                     args: [
                         naraUsdAddress, // vault (naraUsd)
                         mctAssetOFTAddress, // asset OFT (MCT adapter)
-                        naraUsdAdapter.address, // share OFT adapter
+                        naraUsdAdapterDeployment.proxyAddress, // share OFT adapter
                     ],
                     log: true,
                     skipIfAlreadyDeployed: true,
@@ -341,7 +338,7 @@ const deploy: DeployFunction = async (hre) => {
                 from: deployer,
                 args: [
                     naraUsdPlusAddress, // NaraUSDPlus vault
-                    naraUsdAdapter.address, // naraUsd OFT adapter (asset)
+                    naraUsdAdapterDeployment.proxyAddress, // naraUsd OFT adapter (asset)
                     naraUsdPlusAdapterAddress, // naraUsd+ OFT adapter (share)
                 ],
                 log: true,
@@ -410,29 +407,30 @@ const deploy: DeployFunction = async (hre) => {
 
             if (deployedContracts.naraUsdAdapter) {
                 const naraUsd = await hre.deployments.get('NaraUSD')
-                console.log(`# NaraUSDOFTAdapter`)
+                const naraUsdAdapterDeployment = await hre.deployments.get('NaraUSDOFTAdapter_Implementation')
+                console.log(`# NaraUSDOFTAdapter (verify implementation, not proxy)`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter --network ${hre.network.name} ${deployedContracts.naraUsdAdapter} "${naraUsd.address}" "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFTAdapter.sol:NaraUSDOFTAdapter --network ${hre.network.name} ${naraUsdAdapterDeployment?.address || 'IMPLEMENTATION_ADDRESS'} "${naraUsd.address}" "${endpointV2.address}"\n`
                 )
             }
 
             if (deployedContracts.composer) {
                 const naraUsd = await hre.deployments.get('NaraUSD')
                 const mctAdapter = await hre.deployments.get('MCTOFTAdapter')
-                const naraUsdAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
+                const naraUsdAdapterDeployment = await hre.deployments.get('NaraUSDOFTAdapter')
                 console.log(`# NaraUSDComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${naraUsd.address}" "${mctAdapter.address}" "${naraUsdAdapter.address}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDComposer.sol:NaraUSDComposer --network ${hre.network.name} ${deployedContracts.composer} "${naraUsd.address}" "${mctAdapter.address}" "${naraUsdAdapterDeployment.address}"\n`
                 )
             }
 
             if (deployedContracts.naraUsdPlusComposer) {
                 const naraUsdPlus = await hre.deployments.get('NaraUSDPlus')
-                const naraUsdAdapter = await hre.deployments.get('NaraUSDOFTAdapter')
+                const naraUsdAdapterDeployment = await hre.deployments.get('NaraUSDOFTAdapter')
                 const naraUsdPlusAdapter = await hre.deployments.get('NaraUSDPlusOFTAdapter')
                 console.log(`# NaraUSDPlusComposer`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer --network ${hre.network.name} ${deployedContracts.naraUsdPlusComposer} "${naraUsdPlus.address}" "${naraUsdAdapter.address}" "${naraUsdPlusAdapter.address}"\n`
+                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusComposer.sol:NaraUSDPlusComposer --network ${hre.network.name} ${deployedContracts.naraUsdPlusComposer} "${naraUsdPlus.address}" "${naraUsdAdapterDeployment.address}" "${naraUsdPlusAdapter.address}"\n`
                 )
             }
         } else {
@@ -440,9 +438,10 @@ const deploy: DeployFunction = async (hre) => {
             // Note: MCTOFT is not deployed on spoke chains (MCT is hub-only)
 
             if (deployedContracts.naraUsdOFT) {
-                console.log(`# NaraUSDOFT`)
+                const naraUsdOFTDeployment = await hre.deployments.get('NaraUSDOFT_Implementation')
+                console.log(`# NaraUSDOFT (verify implementation, not proxy)`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT --network ${hre.network.name} ${deployedContracts.naraUsdOFT} "${endpointV2.address}" "${deployer}"\n`
+                    `npx hardhat verify --contract contracts/narausd/NaraUSDOFT.sol:NaraUSDOFT --network ${hre.network.name} ${naraUsdOFTDeployment?.address || 'IMPLEMENTATION_ADDRESS'} "${endpointV2.address}"\n`
                 )
             }
         }
