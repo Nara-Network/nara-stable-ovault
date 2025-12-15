@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.22;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import { OFTUpgradeable } from "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTUpgradeable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
 
 /**
  * @title NaraUSDOFT
  * @notice OFT for NaraUSD vault shares on spoke chains
  * @dev This is deployed on spoke chains to represent NaraUSD shares cross-chain
- * @dev This contract is upgradeable using UUPS proxy pattern
  */
-contract NaraUSDOFT is Initializable, OFTUpgradeable, AccessControlUpgradeable, UUPSUpgradeable {
+contract NaraUSDOFT is OFT, AccessControl {
     /* --------------- CONSTANTS --------------- */
 
     /// @notice Role that can blacklist and un-blacklist addresses
@@ -39,30 +37,18 @@ contract NaraUSDOFT is Initializable, OFTUpgradeable, AccessControlUpgradeable, 
         if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
     }
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(address _lzEndpoint) OFTUpgradeable(_lzEndpoint) {
-        _disableInitializers();
-    }
-
     /**
-     * @notice Initializes the NaraUSD Share OFT contract for spoke chains
+     * @notice Constructs the NaraUSD Share OFT contract for spoke chains
+     * @param _lzEndpoint The address of the LayerZero endpoint on this chain
      * @param _delegate The address that will have owner privileges
      */
-    function initialize(address _delegate) public initializer {
-        __OFT_init("Nara USD", "NaraUSD", _delegate);
-        __Ownable_init(_delegate);
-        __AccessControl_init();
-        __UUPSUpgradeable_init();
-
+    constructor(
+        address _lzEndpoint,
+        address _delegate
+    ) OFT("Nara USD", "NaraUSD", _lzEndpoint, _delegate) Ownable(_delegate) {
         _grantRole(DEFAULT_ADMIN_ROLE, _delegate);
         _grantRole(BLACKLIST_MANAGER_ROLE, _delegate);
     }
-
-    /**
-     * @notice Authorize upgrade (UUPS pattern)
-     * @dev Only owner can authorize upgrades
-     */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
      * @notice Add an address to blacklist
