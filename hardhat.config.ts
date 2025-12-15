@@ -9,7 +9,7 @@ import 'hardhat-deploy'
 import 'hardhat-contract-sizer'
 import '@nomiclabs/hardhat-ethers'
 import '@layerzerolabs/toolbox-hardhat'
-import '@nomiclabs/hardhat-etherscan'
+import '@nomicfoundation/hardhat-verify'
 import '@openzeppelin/hardhat-upgrades'
 import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
 
@@ -104,6 +104,7 @@ const config: HardhatUserConfig = {
         },
     },
     etherscan: {
+        enabled: true,
         apiKey: {
             arbitrum: process.env.ARBISCAN_API_KEY || '',
             base: process.env.BASESCAN_API_KEY || '',

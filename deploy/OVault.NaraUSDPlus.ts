@@ -2,7 +2,7 @@ import assert from 'assert'
 
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-import { deployUpgradeableContract, isNaraUSDPlusVaultChain, shouldDeployNaraUSDPlusShare } from '../devtools'
+import { isNaraUSDPlusVaultChain, shouldDeployNaraUSDPlusShare } from '../devtools'
 
 import { handleDeploymentWithRetry } from './utils'
 
@@ -63,22 +63,22 @@ const deploy: DeployFunction = async (hre) => {
             )
         }
 
-        // Deploy NaraUSDPlusOFTAdapter (lockbox) - upgradeable
-        console.log('   → Deploying NaraUSDPlusOFTAdapter (lockbox, upgradeable)...')
-        const naraUsdPlusAdapterDeployment = await deployUpgradeableContract(
+        // Deploy NaraUSDPlusOFTAdapter (lockbox)
+        console.log('   → Deploying NaraUSDPlusOFTAdapter (lockbox)...')
+        const naraUsdPlusAdapter = await handleDeploymentWithRetry(
             hre,
-            'NaraUSDPlusOFTAdapter',
-            deployer,
-            [deployer], // _delegate (for initialize)
-            {
-                initializer: 'initialize',
-                kind: 'uups',
+            deployments.deploy('NaraUSDPlusOFTAdapter', {
+                contract: 'contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol:NaraUSDPlusOFTAdapter',
+                from: deployer,
+                args: [naraUsdPlusAddress, endpointV2.address, deployer],
                 log: true,
-            }
+                skipIfAlreadyDeployed: true,
+            }),
+            'NaraUSDPlusOFTAdapter',
+            'contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol:NaraUSDPlusOFTAdapter'
         )
-        deployedContracts.naraUsdPlusAdapter = naraUsdPlusAdapterDeployment.proxyAddress
-        console.log(`   ✓ NaraUSDPlusOFTAdapter proxy deployed at: ${naraUsdPlusAdapterDeployment.proxyAddress}`)
-        console.log(`   ✓ Implementation deployed at: ${naraUsdPlusAdapterDeployment.implementationAddress}`)
+        deployedContracts.naraUsdPlusAdapter = naraUsdPlusAdapter.address
+        console.log(`   ✓ NaraUSDPlusOFTAdapter deployed at: ${naraUsdPlusAdapter.address}`)
     }
 
     // ========================================
@@ -87,22 +87,25 @@ const deploy: DeployFunction = async (hre) => {
     if (shouldDeployNaraUSDPlusShare(networkEid)) {
         console.log('📦 Deploying Spoke Chain Component (NaraUSDPlusOFT)...')
 
-        // Deploy NaraUSDPlusOFT (mint/burn) - upgradeable
-        console.log('   → Deploying NaraUSDPlusOFT (mint/burn, upgradeable)...')
-        const naraUsdPlusOftDeployment = await deployUpgradeableContract(
+        // Deploy NaraUSDPlusOFT (mint/burn)
+        console.log('   → Deploying NaraUSDPlusOFT (mint/burn)...')
+        const naraUsdPlusOft = await handleDeploymentWithRetry(
             hre,
-            'NaraUSDPlusOFT',
-            deployer,
-            [deployer], // _delegate (for initialize)
-            {
-                initializer: 'initialize',
-                kind: 'uups',
+            deployments.deploy('NaraUSDPlusOFT', {
+                contract: 'contracts/narausd-plus/NaraUSDPlusOFT.sol:NaraUSDPlusOFT',
+                from: deployer,
+                args: [
+                    endpointV2.address, // _lzEndpoint
+                    deployer, // _delegate
+                ],
                 log: true,
-            }
+                skipIfAlreadyDeployed: true,
+            }),
+            'NaraUSDPlusOFT',
+            'contracts/narausd-plus/NaraUSDPlusOFT.sol:NaraUSDPlusOFT'
         )
-        deployedContracts.naraUsdPlusOft = naraUsdPlusOftDeployment.proxyAddress
-        console.log(`   ✓ NaraUSDPlusOFT proxy deployed at: ${naraUsdPlusOftDeployment.proxyAddress}`)
-        console.log(`   ✓ Implementation deployed at: ${naraUsdPlusOftDeployment.implementationAddress}`)
+        deployedContracts.naraUsdPlusOft = naraUsdPlusOft.address
+        console.log(`   ✓ NaraUSDPlusOFT deployed at: ${naraUsdPlusOft.address}`)
     }
 
     // ========================================
@@ -138,19 +141,17 @@ const deploy: DeployFunction = async (hre) => {
             // Hub chain verification commands
             if (deployedContracts.naraUsdPlusAdapter) {
                 const naraUsdPlus = await hre.deployments.get('NaraUSDPlus')
-                const naraUsdPlusAdapterDeployment = await hre.deployments.get('NaraUSDPlusOFTAdapter_Implementation')
-                console.log(`# NaraUSDPlusOFTAdapter (verify implementation, not proxy)`)
+                console.log(`# NaraUSDPlusOFTAdapter`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol:NaraUSDPlusOFTAdapter --network ${hre.network.name} ${naraUsdPlusAdapterDeployment?.address || 'IMPLEMENTATION_ADDRESS'} "${naraUsdPlus.address}" "${endpointV2.address}"\n`
+                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusOFTAdapter.sol:NaraUSDPlusOFTAdapter --network ${hre.network.name} ${deployedContracts.naraUsdPlusAdapter} "${naraUsdPlus.address}" "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         } else {
             // Spoke chain verification commands
             if (deployedContracts.naraUsdPlusOft) {
-                const naraUsdPlusOftDeployment = await hre.deployments.get('NaraUSDPlusOFT_Implementation')
-                console.log(`# NaraUSDPlusOFT (verify implementation, not proxy)`)
+                console.log(`# NaraUSDPlusOFT`)
                 console.log(
-                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusOFT.sol:NaraUSDPlusOFT --network ${hre.network.name} ${naraUsdPlusOftDeployment?.address || 'IMPLEMENTATION_ADDRESS'} "${endpointV2.address}"\n`
+                    `npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusOFT.sol:NaraUSDPlusOFT --network ${hre.network.name} ${deployedContracts.naraUsdPlusOft} "${endpointV2.address}" "${deployer}"\n`
                 )
             }
         }
