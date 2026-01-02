@@ -795,12 +795,12 @@ contract NaraUSD is
      * @notice Internal mint logic with collateral
      * @param collateralAsset The collateral asset
      * @param collateralAmount The amount of collateral
-     * @return naraUsdAmount The amount of NaraUSD minted
+     * @return The amount of NaraUSD minted (after fees)
      */
     function _mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) internal returns (uint256 naraUsdAmount) {
+    ) internal returns (uint256) {
         if (collateralAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
 
@@ -813,7 +813,7 @@ contract NaraUSD is
         _checkKeyringCredential(msg.sender);
 
         // Convert collateral to NaraUSD amount (normalize decimals)
-        naraUsdAmount = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
+        uint256 naraUsdAmount = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
 
         // Calculate mint fee to determine actual mint amount
         uint256 feeAmount18 = _calculateMintFee(naraUsdAmount);
@@ -859,7 +859,6 @@ contract NaraUSD is
 
         emit Mint(msg.sender, collateralAsset, collateralAmount, mctAmount);
 
-        // Return the actual amount minted (after fees)
         return mctAmount;
     }
 
@@ -1156,25 +1155,25 @@ contract NaraUSD is
      * @param user The user receiving collateral
      * @param collateralAsset The collateral asset to receive
      * @param naraUsdAmount The amount of NaraUSD being redeemed
-     * @return collateralAmount The amount of collateral sent to user (after fees)
+     * @return The amount of collateral sent to user (after fees)
      */
     function _executeRedemption(
         address user,
         address collateralAsset,
         uint256 naraUsdAmount
-    ) internal returns (uint256 collateralAmount) {
+    ) internal returns (uint256) {
         // Redeem MCT for collateral to this contract
         uint256 receivedCollateral = mct.redeem(collateralAsset, naraUsdAmount, address(this));
 
         // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
         uint256 receivedCollateral18 = _convertToNaraUsdAmount(collateralAsset, receivedCollateral);
         uint256 feeAmount18 = _calculateRedeemFee(receivedCollateral18);
-        uint256 collateralAfterFee = receivedCollateral;
+        uint256 collateralAmount = receivedCollateral;
 
         if (feeAmount18 > 0) {
             // Convert fee from 18 decimals back to collateral decimals
             uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
-            collateralAfterFee = receivedCollateral - feeAmountCollateral;
+            collateralAmount = receivedCollateral - feeAmountCollateral;
 
             // Transfer fee in collateral to treasury
             IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmountCollateral);
@@ -1182,9 +1181,9 @@ contract NaraUSD is
         }
 
         // Transfer remaining collateral to user
-        IERC20(collateralAsset).safeTransfer(user, collateralAfterFee);
+        IERC20(collateralAsset).safeTransfer(user, collateralAmount);
 
-        return collateralAfterFee;
+        return collateralAmount;
     }
 
     /**

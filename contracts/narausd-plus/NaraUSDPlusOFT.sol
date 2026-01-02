@@ -29,8 +29,12 @@ contract NaraUSDPlusOFT is OFT, AccessControl {
 
     /// @notice Ensure blacklist target is not admin
     modifier notAdmin(address target) {
-        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
+        _notAdmin(target);
         _;
+    }
+
+    function _notAdmin(address target) internal view {
+        if (hasRole(DEFAULT_ADMIN_ROLE, target)) revert CantBlacklistOwner();
     }
 
     /**

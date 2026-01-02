@@ -2,7 +2,6 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { NaraUSD } from "../../contracts/narausd/NaraUSD.sol";
 import { INaraUSD } from "../../contracts/interfaces/narausd/INaraUSD.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockKeyring } from "../mocks/MockKeyring.sol";
@@ -115,8 +114,8 @@ contract NaraUSDTest is TestHelper {
         assertEq(naraUsd.balanceOf(alice), aliceNaraUsdBefore - naraUsdAmount, "naraUsd burned");
 
         // Verify no redemption request exists
-        INaraUSD.RedemptionRequest memory req_amount = naraUsd.redemptionRequests(alice);
-        uint152 amount = req_amount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqAmount = naraUsd.redemptionRequests(alice);
+        uint152 amount = reqAmount.naraUsdAmount;
         assertEq(amount, 0, "No redemption request");
 
         vm.stopPrank();
@@ -146,9 +145,9 @@ contract NaraUSDTest is TestHelper {
         assertEq(collateralAmount, 0, "Collateral amount should be 0 when queued");
 
         // Verify redemption request
-        INaraUSD.RedemptionRequest memory req_lockedAmount = naraUsd.redemptionRequests(alice);
-        uint152 lockedAmount = req_lockedAmount.naraUsdAmount;
-        address collateral = req_lockedAmount.collateralAsset;
+        INaraUSD.RedemptionRequest memory reqLockedAmount = naraUsd.redemptionRequests(alice);
+        uint152 lockedAmount = reqLockedAmount.naraUsdAmount;
+        address collateral = reqLockedAmount.collateralAsset;
         assertEq(lockedAmount, naraUsdAmount, "Amount should be locked");
         assertEq(collateral, address(usdc), "Collateral should be USDC");
 
@@ -173,8 +172,8 @@ contract NaraUSDTest is TestHelper {
         assertEq(naraUsd.balanceOf(alice), aliceNaraUsdBefore, "naraUsd burned, balance back to initial");
 
         // Verify request cleared
-        INaraUSD.RedemptionRequest memory req_amountAfter = naraUsd.redemptionRequests(alice);
-        uint152 amountAfter = req_amountAfter.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqAmountAfter = naraUsd.redemptionRequests(alice);
+        uint152 amountAfter = reqAmountAfter.naraUsdAmount;
         assertEq(amountAfter, 0, "Amount cleared");
 
         vm.stopPrank();
@@ -237,8 +236,8 @@ contract NaraUSDTest is TestHelper {
         assertEq(naraUsd.balanceOf(address(naraUsd.redeemSilo())), 0, "Silo empty");
 
         // Verify request cleared
-        INaraUSD.RedemptionRequest memory req_amount = naraUsd.redemptionRequests(alice);
-        uint152 amount = req_amount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqAmount = naraUsd.redemptionRequests(alice);
+        uint152 amount = reqAmount.naraUsdAmount;
         assertEq(amount, 0, "Amount cleared");
 
         vm.stopPrank();
@@ -306,7 +305,7 @@ contract NaraUSDTest is TestHelper {
 
         // Queue redemption
         vm.startPrank(alice);
-        (uint256 collateralAmount, bool wasQueued) = naraUsd.redeem(address(usdc), naraUsdAmount, true);
+        (, bool wasQueued) = naraUsd.redeem(address(usdc), naraUsdAmount, true);
         assertEq(wasQueued, true, "Should be queued");
         vm.stopPrank();
 
@@ -376,10 +375,10 @@ contract NaraUSDTest is TestHelper {
         assertEq(usdc.balanceOf(bob) - bobUsdcBefore, 500e6, "Bob should receive USDC");
 
         // Verify requests cleared
-        INaraUSD.RedemptionRequest memory req_aliceAmount = naraUsd.redemptionRequests(alice);
-        uint152 aliceAmount = req_aliceAmount.naraUsdAmount;
-        INaraUSD.RedemptionRequest memory req_bobAmount = naraUsd.redemptionRequests(bob);
-        uint152 bobAmount = req_bobAmount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqAliceAmount = naraUsd.redemptionRequests(alice);
+        uint152 aliceAmount = reqAliceAmount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqBobAmount = naraUsd.redemptionRequests(bob);
+        uint152 bobAmount = reqBobAmount.naraUsdAmount;
         assertEq(aliceAmount, 0, "Alice request cleared");
         assertEq(bobAmount, 0, "Bob request cleared");
 
@@ -414,8 +413,8 @@ contract NaraUSDTest is TestHelper {
         assertEq(aliceBalanceAfter - aliceBalanceBefore, 500e18, "Should receive excess NaraUSD back");
 
         // Verify updated request
-        INaraUSD.RedemptionRequest memory req_amount = naraUsd.redemptionRequests(alice);
-        uint152 amount = req_amount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqAmount = naraUsd.redemptionRequests(alice);
+        uint152 amount = reqAmount.naraUsdAmount;
         assertEq(amount, 500e18, "Request should be updated to 500e18");
 
         vm.stopPrank();
@@ -447,8 +446,8 @@ contract NaraUSDTest is TestHelper {
         assertEq(aliceBalanceBefore - aliceBalanceAfter, 500e18, "Should send additional NaraUSD to silo");
 
         // Verify updated request
-        INaraUSD.RedemptionRequest memory req_amount = naraUsd.redemptionRequests(alice);
-        uint152 amount = req_amount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqAmount = naraUsd.redemptionRequests(alice);
+        uint152 amount = reqAmount.naraUsdAmount;
         assertEq(amount, 1500e18, "Request should be updated to 1500e18");
 
         vm.stopPrank();
@@ -554,8 +553,8 @@ contract NaraUSDTest is TestHelper {
         assertEq(naraUsd.balanceOf(alice), aliceBalanceAfterMint - 1000e18, "1000e18 NaraUSD should be burned");
 
         // Verify request cleared
-        INaraUSD.RedemptionRequest memory req_amount = naraUsd.redemptionRequests(alice);
-        uint152 amount = req_amount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqAmount = naraUsd.redemptionRequests(alice);
+        uint152 amount = reqAmount.naraUsdAmount;
         assertEq(amount, 0, "Request should be cleared");
 
         vm.stopPrank();
@@ -1688,9 +1687,9 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
 
         // 3. Verify escrowed amount and wallet balance
-        INaraUSD.RedemptionRequest memory req_escrowedAmount = naraUsd.redemptionRequests(alice);
-        uint152 escrowedAmount = req_escrowedAmount.naraUsdAmount;
-        address collateralAsset = req_escrowedAmount.collateralAsset;
+        INaraUSD.RedemptionRequest memory reqEscrowedAmount = naraUsd.redemptionRequests(alice);
+        uint152 escrowedAmount = reqEscrowedAmount.naraUsdAmount;
+        address collateralAsset = reqEscrowedAmount.collateralAsset;
         assertEq(escrowedAmount, redeemAmount, "Should have escrowed amount");
         assertEq(collateralAsset, address(usdc), "Should be USDC");
         assertEq(naraUsd.balanceOf(alice), 0, "Wallet balance should be 0");
@@ -1712,8 +1711,8 @@ contract NaraUSDTest is TestHelper {
         naraUsd.redistributeLockedAmount(alice, bob);
 
         // 7. Verify results
-        INaraUSD.RedemptionRequest memory req_escrowedAmountAfter = naraUsd.redemptionRequests(alice);
-        uint152 escrowedAmountAfter = req_escrowedAmountAfter.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqEscrowedAmountAfter = naraUsd.redemptionRequests(alice);
+        uint152 escrowedAmountAfter = reqEscrowedAmountAfter.naraUsdAmount;
         assertEq(escrowedAmountAfter, 0, "Redemption request should be cleared");
         assertEq(naraUsd.balanceOf(bob), bobBalanceBefore + redeemAmount, "Bob should receive escrowed amount");
     }
@@ -1782,8 +1781,8 @@ contract NaraUSDTest is TestHelper {
 
         // 5. Verify results
         assertEq(naraUsd.balanceOf(alice), 0, "Alice wallet balance should be 0");
-        INaraUSD.RedemptionRequest memory req_escrowedAmount = naraUsd.redemptionRequests(alice);
-        uint152 escrowedAmount = req_escrowedAmount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqEscrowedAmount = naraUsd.redemptionRequests(alice);
+        uint152 escrowedAmount = reqEscrowedAmount.naraUsdAmount;
         assertEq(escrowedAmount, 0, "Redemption request should be cleared");
         assertEq(naraUsd.balanceOf(bob), bobBalanceBefore + totalAmount, "Bob should receive total amount");
     }
@@ -1825,8 +1824,8 @@ contract NaraUSDTest is TestHelper {
 
         // 5. Verify results
         assertEq(naraUsd.balanceOf(alice), 0, "Alice wallet balance should be 0");
-        INaraUSD.RedemptionRequest memory req_escrowedAmount = naraUsd.redemptionRequests(alice);
-        uint152 escrowedAmount = req_escrowedAmount.naraUsdAmount;
+        INaraUSD.RedemptionRequest memory reqEscrowedAmount = naraUsd.redemptionRequests(alice);
+        uint152 escrowedAmount = reqEscrowedAmount.naraUsdAmount;
         assertEq(escrowedAmount, 0, "Redemption request should be cleared");
         assertEq(naraUsd.totalSupply(), totalSupplyBefore - totalAmount, "Total supply should decrease");
     }
