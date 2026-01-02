@@ -47,6 +47,9 @@ contract StakingRewardsDistributor is
     /// @notice Operator address authorized to invoke transferInRewards
     address public operator;
 
+    /// @dev Storage gap for future upgrades
+    uint256[47] private __gap;
+
     /* --------------- EVENTS --------------- */
 
     event TokensRescued(address indexed token, address indexed to, uint256 amount);
@@ -94,8 +97,8 @@ contract StakingRewardsDistributor is
         stakingVault = _stakingVault;
         narausdToken = _narausd;
 
-        // Set the operator
-        setOperator(_operator);
+        operator = _operator;
+        emit OperatorUpdated(_operator, address(0));
 
         // Approve NaraUSD to the staking contract
         narausdToken.safeIncreaseAllowance(address(stakingVault), type(uint256).max);

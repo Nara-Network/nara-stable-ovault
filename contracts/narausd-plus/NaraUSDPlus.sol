@@ -50,6 +50,9 @@ contract NaraUSDPlus is
     /// @notice Role that prevents an address from transferring, staking, or unstaking
     bytes32 public constant FULL_RESTRICTED_STAKER_ROLE = keccak256("FULL_RESTRICTED_STAKER_ROLE");
 
+    /// @notice Role for pause/unpause operations (aligns with NaraUSD's GATEKEEPER_ROLE pattern)
+    bytes32 public constant GATEKEEPER_ROLE = keccak256("GATEKEEPER_ROLE");
+
     /// @notice Minimum non-zero shares to prevent donation attack
     uint256 public constant MIN_SHARES = 1 ether;
 
@@ -86,6 +89,9 @@ contract NaraUSDPlus is
 
     /// @notice Silo contract for holding NaraUSD+ during cooldown
     NaraUSDPlusSilo public silo;
+
+    /// @dev Storage gap for future upgrades
+    uint256[44] private __gap;
 
     /* --------------- MODIFIERS --------------- */
 
@@ -151,6 +157,7 @@ contract NaraUSDPlus is
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(REWARDER_ROLE, _initialRewarder);
         _grantRole(BLACKLIST_MANAGER_ROLE, _admin);
+        _grantRole(GATEKEEPER_ROLE, _admin);
 
         // Set silo (must be deployed separately as upgradeable proxy)
         silo = _silo;
@@ -160,7 +167,7 @@ contract NaraUSDPlus is
 
     /**
      * @notice Authorize upgrade (UUPS pattern)
-     * @dev Only DEFAULT_ADMIN_ROLE can authorize upgrades
+     * @dev Only DEFAULT_ADMIN_ROLE can upgrade.
      */
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
@@ -186,12 +193,16 @@ contract NaraUSDPlus is
      * @dev This calls NaraUSD's burn function which burns both NaraUSD and underlying MCT
      * @dev Collateral stays in MCT, making remaining tokens more valuable (deflationary)
      * @dev Unlike transferInRewards, this happens instantly without vesting
+     * @dev Deflationary - burns reduce all stakers' claimable amount.
      * @param amount The amount of NaraUSD to burn
      */
     function burnAssets(uint256 amount) external nonReentrant onlyRole(REWARDER_ROLE) notZero(amount) {
         // Verify contract has enough NaraUSD balance
         uint256 contractBalance = IERC20(asset()).balanceOf(address(this));
         if (contractBalance < amount) revert InvalidAmount();
+        // Prevent underflow in totalAssets()
+        uint256 unvested = getUnvestedAmount();
+        if (contractBalance - amount < unvested) revert InvalidAmount();
         if (contractBalance - amount < 1 ether) revert ReserveTooLowAfterBurn();
 
         // Call NaraUSD's burn function to properly burn NaraUSD and MCT
@@ -210,6 +221,7 @@ contract NaraUSDPlus is
      * @param target The address to blacklist
      */
     function addToBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
+        if (target == address(0)) revert InvalidZeroAddress();
         _grantRole(FULL_RESTRICTED_STAKER_ROLE, target);
     }
 
@@ -233,35 +245,62 @@ contract NaraUSDPlus is
         uint256 amount,
         address to
     ) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (address(token) == asset()) revert InvalidToken();
+        if (token == address(0)) revert InvalidZeroAddress();
+        if (to == address(0)) revert InvalidZeroAddress();
+        if (amount == 0) revert InvalidAmount();
+        if (token == asset()) revert InvalidToken();
         IERC20(token).safeTransfer(to, amount);
     }
 
     /**
      * @notice Redistribute locked amount from full restricted user
+     * @dev Handles both direct balance and silo-held shares from cooldown
      * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_STAKER_ROLE)
-     * @param to The address to mint the entire balance to (or address(0) to burn)
+     * @param to The address to mint the entire balance to, or address(0) to burn NaraUSD+ and vest underlying NaraUSD
      */
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_isBlacklisted(from) && !_isBlacklisted(to)) {
-            uint256 amountToDistribute = balanceOf(from);
-            uint256 naraUsdToVest = previewRedeem(amountToDistribute);
-
-            // Bypass blacklist check by calling super._update directly for the burn
-            // This is safe because it's admin-only and explicitly for moving frozen funds
-            super._update(from, address(0), amountToDistribute);
-
-            // to address of address(0) enables burning
-            if (to == address(0)) {
-                _updateVestingAmount(naraUsdToVest);
-            } else {
-                _mint(to, amountToDistribute);
-            }
-
-            emit LockedAmountRedistributed(from, to, amountToDistribute);
-        } else {
+        if (!_isBlacklisted(from) || _isBlacklisted(to)) {
             revert OperationNotAllowed();
         }
+
+        uint256 amountToDistribute = balanceOf(from);
+
+        // Include shares locked in cooldown
+        UserCooldown storage userCooldown = cooldowns[from];
+        uint256 siloShares = userCooldown.sharesAmount;
+        if (siloShares > 0) {
+            delete cooldowns[from];
+            // Withdraw silo shares to this contract first
+            silo.withdraw(address(this), siloShares);
+            amountToDistribute += siloShares;
+        }
+
+        if (amountToDistribute == 0) revert InvalidAmount();
+
+        uint256 naraUsdToVest = previewRedeem(amountToDistribute);
+
+        // Bypass blacklist check by calling super._update directly for the burn
+        // This is safe because it's admin-only and explicitly for moving frozen funds
+        // Burn direct balance from 'from'
+        uint256 directBalance = balanceOf(from);
+        if (directBalance > 0) {
+            super._update(from, address(0), directBalance);
+        }
+        // Burn silo shares that were withdrawn to this contract
+        if (siloShares > 0) {
+            super._update(address(this), address(0), siloShares);
+        }
+
+        // to address of address(0) enables burning
+        if (to == address(0)) {
+            _updateVestingAmount(naraUsdToVest);
+        } else {
+            _mint(to, amountToDistribute);
+        }
+
+        _checkMinShares();
+
+        emit LockedAmountRedistributed(from, to, amountToDistribute);
     }
 
     /**
@@ -296,6 +335,8 @@ contract NaraUSDPlus is
      * @param receiver Address to receive the redeemed NaraUSD
      */
     function unstake(address receiver) external {
+        if (_isBlacklisted(msg.sender)) revert OperationNotAllowed();
+
         UserCooldown storage userCooldown = cooldowns[msg.sender];
         uint256 shares = userCooldown.sharesAmount; // locked NaraUSD+ shares
 
@@ -317,6 +358,7 @@ contract NaraUSDPlus is
 
     /**
      * @notice Redeem assets and starts a cooldown to claim the converted underlying asset
+     * @dev Locks shares, not assets. Exchange rate may change during cooldown.
      * @param assets assets to redeem
      */
     function cooldownAssets(uint256 assets) external whenNotPaused ensureCooldownOn returns (uint256 shares) {
@@ -352,7 +394,7 @@ contract NaraUSDPlus is
     /**
      * @notice Cancel an active cooldown and return locked NaraUSD+ to the user
      */
-    function cancelCooldown() external nonReentrant {
+    function cancelCooldown() external nonReentrant whenNotPaused {
         UserCooldown storage userCooldown = cooldowns[msg.sender];
         uint256 shares = userCooldown.sharesAmount; // locked NaraUSD+ shares
 
@@ -379,6 +421,7 @@ contract NaraUSDPlus is
         if (duration > MAX_COOLDOWN_DURATION) {
             revert InvalidCooldown();
         }
+        if (duration == cooldownDuration) revert InvalidAmount();
 
         uint24 previousDuration = cooldownDuration;
         cooldownDuration = duration;
@@ -395,6 +438,7 @@ contract NaraUSDPlus is
         if (period > MAX_VESTING_PERIOD) {
             revert InvalidAmount();
         }
+        if (period == vestingPeriod) revert InvalidAmount();
         if (getUnvestedAmount() > 0) revert StillVesting();
 
         uint256 previousPeriod = vestingPeriod;
@@ -405,14 +449,14 @@ contract NaraUSDPlus is
     /**
      * @notice Pause all deposits, withdrawals, and cooldown operations
      */
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() external onlyRole(GATEKEEPER_ROLE) {
         _pause();
     }
 
     /**
      * @notice Unpause all deposits, withdrawals, and cooldown operations
      */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyRole(GATEKEEPER_ROLE) {
         _unpause();
     }
 
@@ -464,6 +508,37 @@ contract NaraUSDPlus is
         address owner
     ) public view virtual override(ERC20PermitUpgradeable, IERC20Permit) returns (uint256) {
         return super.nonces(owner);
+    }
+
+    /**
+     * @notice Override maxRedeem to respect MIN_SHARES invariant
+     * @dev Returns the maximum shares that can be redeemed without violating MIN_SHARES
+     * @param owner The address to check
+     * @return The maximum redeemable shares
+     */
+    function maxRedeem(address owner) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
+        uint256 ownerShares = balanceOf(owner);
+        uint256 _totalSupply = totalSupply();
+
+        // If owner has no shares, return 0
+        if (ownerShares == 0) return 0;
+
+        // If redeeming all owner shares would leave totalSupply at 0, that's allowed
+        if (_totalSupply == ownerShares) return ownerShares;
+
+        // Otherwise, cap redemption to ensure totalSupply >= MIN_SHARES after
+        uint256 maxRedeemable = _totalSupply > MIN_SHARES ? _totalSupply - MIN_SHARES : 0;
+        return ownerShares < maxRedeemable ? ownerShares : maxRedeemable;
+    }
+
+    /**
+     * @notice Override maxWithdraw to respect MIN_SHARES invariant
+     * @dev Returns the maximum assets that can be withdrawn without violating MIN_SHARES
+     * @param owner The address to check
+     * @return The maximum withdrawable assets
+     */
+    function maxWithdraw(address owner) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
+        return convertToAssets(maxRedeem(owner));
     }
 
     /* --------------- INTERNAL --------------- */
@@ -559,13 +634,10 @@ contract NaraUSDPlus is
      * @dev Only admin can move their tokens via redistributeLockedAmount
      */
     function _update(address from, address to, uint256 value) internal virtual override(ERC20Upgradeable) {
-        // Blacklisted addresses are completely frozen
-        if (_isBlacklisted(from)) {
-            revert OperationNotAllowed();
-        }
-        if (_isBlacklisted(to)) {
-            revert OperationNotAllowed();
-        }
+        if (_isBlacklisted(from)) revert OperationNotAllowed();
+        if (_isBlacklisted(to)) revert OperationNotAllowed();
+        // Prevent blacklisted operators from moving tokens via transferFrom
+        if (from != msg.sender && _isBlacklisted(msg.sender)) revert OperationNotAllowed();
         super._update(from, to, value);
     }
 

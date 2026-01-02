@@ -34,6 +34,8 @@ interface IMultiCollateralToken is IERC20 {
     error UnsupportedAsset();
     error InvalidAssetAddress();
     error InsufficientCollateral();
+    error AssetAlreadySupported();
+    error AssetHasCollateral();
 
     /* --------------- FUNCTIONS --------------- */
 
