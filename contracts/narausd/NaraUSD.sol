@@ -797,10 +797,7 @@ contract NaraUSD is
      * @param collateralAmount The amount of collateral
      * @return The amount of NaraUSD minted (after fees)
      */
-    function _mintWithCollateral(
-        address collateralAsset,
-        uint256 collateralAmount
-    ) internal returns (uint256) {
+    function _mintWithCollateral(address collateralAsset, uint256 collateralAmount) internal returns (uint256) {
         if (collateralAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
 
@@ -828,15 +825,13 @@ contract NaraUSD is
         // Transfer collateral from caller to this contract
         IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), collateralAmount);
 
-        // Calculate collateral amounts after fee
-        uint256 collateralAfterFee = collateralAmount;
+        // Calculate collateral for minting (after deducting fee)
         uint256 collateralForMinting = collateralAmount;
 
         if (feeAmount18 > 0) {
             // Convert fee from 18 decimals back to collateral decimals
             uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
-            collateralAfterFee = collateralAmount - feeAmountCollateral;
-            collateralForMinting = collateralAfterFee;
+            collateralForMinting = collateralAmount - feeAmountCollateral;
 
             // Transfer fee in collateral to treasury
             IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmountCollateral);
