@@ -54,7 +54,7 @@ interface INaraUSD is IERC4626, IERC20Permit {
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
-    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
+    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 walletAmount, uint256 escrowedAmount);
     event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event KeyringConfigUpdated(address indexed keyringAddress, uint256 policyId);
@@ -254,9 +254,9 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function removeFromBlacklist(address target) external;
 
     /**
-     * @notice Redistribute locked amount from full restricted user
-     * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_ROLE)
-     * @param to The address to mint the entire balance to (or address(0) to burn)
+     * @notice Redistribute locked amount from blacklisted user (both wallet and escrowed)
+     * @param from The address to redistribute from (must have FULL_RESTRICTED_ROLE)
+     * @param to The address to mint the balance to (or address(0) to burn)
      */
     function redistributeLockedAmount(address from, address to) external;
 

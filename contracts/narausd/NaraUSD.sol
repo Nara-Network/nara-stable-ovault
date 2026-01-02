@@ -177,7 +177,7 @@ contract NaraUSD is
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
-    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
+    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 walletAmount, uint256 escrowedAmount);
     event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinMintFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
@@ -715,27 +715,55 @@ contract NaraUSD is
     }
 
     /**
-     * @notice Redistribute locked amount from full restricted user
-     * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_ROLE)
-     * @param to The address to mint the entire balance to (or address(0) to burn)
+     * @notice Redistribute locked amount from blacklisted user (both wallet and escrowed)
+     * @param from The address to redistribute from (must have FULL_RESTRICTED_ROLE)
+     * @param to The address to mint the balance to (or address(0) to burn)
+     * @dev Handles both:
+     *      1. Wallet balance - regular balanceOf(from)
+     *      2. Escrowed balance - NaraUSD locked in redeemSilo from queued redemptions
+     *      This ensures all funds from a blacklisted user can be recovered/redistributed
      */
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_isBlacklisted(from) && !_isBlacklisted(to)) {
-            uint256 amountToDistribute = balanceOf(from);
-
-            // Bypass blacklist check by calling super._update directly for the burn
-            // This is safe because it's admin-only and explicitly for moving frozen funds
-            super._update(from, address(0), amountToDistribute);
-
-            // to address of address(0) enables burning
-            if (to != address(0)) {
-                _mint(to, amountToDistribute);
-            }
-
-            emit LockedAmountRedistributed(from, to, amountToDistribute);
-        } else {
+        if (!_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
+        if (_isBlacklisted(to)) {
+            revert OperationNotAllowed();
+        }
+
+        uint256 walletAmount = balanceOf(from);
+        uint256 escrowedAmount = 0;
+
+        // Handle wallet balance
+        if (walletAmount > 0) {
+            // Bypass blacklist check by calling super._update directly for the burn
+            // This is safe because it's admin-only and explicitly for moving frozen funds
+            super._update(from, address(0), walletAmount);
+        }
+
+        // Handle escrowed balance in redemption queue
+        RedemptionRequest memory request = redemptionRequests[from];
+        if (request.naraUsdAmount > 0) {
+            escrowedAmount = request.naraUsdAmount;
+
+            // Clear the redemption request
+            delete redemptionRequests[from];
+
+            // Withdraw escrowed NaraUSD from silo to this contract
+            redeemSilo.withdraw(address(this), escrowedAmount);
+
+            // Burn the escrowed tokens
+            _burn(address(this), escrowedAmount);
+        }
+
+        uint256 totalAmount = walletAmount + escrowedAmount;
+
+        // Mint total amount to recipient (or burn if to == address(0))
+        if (to != address(0) && totalAmount > 0) {
+            _mint(to, totalAmount);
+        }
+
+        emit LockedAmountRedistributed(from, to, walletAmount, escrowedAmount);
     }
 
     /**

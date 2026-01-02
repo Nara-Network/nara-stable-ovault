@@ -1081,12 +1081,13 @@ contract NaraUSDTest is TestHelper {
     }
 
     /**
-     * @notice Test redistributing locked amount
+     * @notice Test redistributing locked amount (legacy test - wallet only)
      */
     function test_RedistributeLockedAmount() public {
         // Mint some naraUsd to alice
         vm.startPrank(alice);
         usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
         vm.stopPrank();
 
         // Add alice to blacklist
@@ -1096,6 +1097,8 @@ contract NaraUSDTest is TestHelper {
         uint256 bobBalanceBefore = naraUsd.balanceOf(bob);
 
         // Redistribute alice's balance to bob
+        vm.expectEmit(true, true, true, true);
+        emit NaraUSD.LockedAmountRedistributed(alice, bob, aliceBalance, 0);
         naraUsd.redistributeLockedAmount(alice, bob);
 
         assertEq(naraUsd.balanceOf(alice), 0, "Alice balance should be 0");
@@ -1119,6 +1122,8 @@ contract NaraUSDTest is TestHelper {
         uint256 aliceBalance = naraUsd.balanceOf(alice);
 
         // Burn alice's balance by redistributing to address(0)
+        vm.expectEmit(true, true, true, true);
+        emit NaraUSD.LockedAmountRedistributed(alice, address(0), aliceBalance, 0);
         naraUsd.redistributeLockedAmount(alice, address(0));
 
         assertEq(naraUsd.balanceOf(alice), 0, "Alice balance should be 0");
@@ -1161,6 +1166,197 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
 
         // Try to redistribute without full restriction
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
+        naraUsd.redistributeLockedAmount(alice, bob);
+    }
+
+    /* --------------- ESCROWED AMOUNT REDISTRIBUTION TESTS --------------- */
+
+    /**
+     * @notice Test redistributing only escrowed amount (no wallet balance)
+     */
+    function test_RedistributeLockedAmount_OnlyEscrowed() public {
+        // 0. Burn alice's initial balance from setUp (clean slate)
+        uint256 aliceInitialBalance = naraUsd.balanceOf(alice);
+        if (aliceInitialBalance > 0) {
+            vm.prank(alice);
+            naraUsd.burn(aliceInitialBalance);
+        }
+        
+        // 1. Mint naraUsd to alice
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6); // Alice has 1000e18, MCT has 1000e6 USDC
+        vm.stopPrank();
+        
+        // 2. Drain MCT collateral: mint unbacked NaraUSD to bob, then bob redeems to drain USDC
+        naraUsd.mint(bob, 2000e18); // Bob gets 2000e18 unbacked NaraUSD
+        vm.startPrank(bob);
+        naraUsd.redeem(address(usdc), 1000e18, false); // Bob redeems 1000e18, drains the 1000e6 USDC
+        vm.stopPrank();
+        
+        // 3. Now alice tries to queue redemption (all her balance, no liquidity available)
+        vm.startPrank(alice);
+        uint256 redeemAmount = 1000e18;
+        (uint256 collateralReceived, bool wasQueued) = naraUsd.redeem(address(usdc), redeemAmount, true);
+        assertEq(collateralReceived, 0, "Should not receive collateral");
+        assertTrue(wasQueued, "Should be queued");
+        vm.stopPrank();
+
+        // 3. Verify escrowed amount and wallet balance
+        (uint152 escrowedAmount, address collateralAsset) = naraUsd.redemptionRequests(alice);
+        assertEq(escrowedAmount, redeemAmount, "Should have escrowed amount");
+        assertEq(collateralAsset, address(usdc), "Should be USDC");
+        assertEq(naraUsd.balanceOf(alice), 0, "Wallet balance should be 0");
+
+        // 4. Blacklist alice
+        naraUsd.addToBlacklist(alice);
+
+        // 5. Verify alice cannot cancel redemption
+        vm.startPrank(alice);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
+        naraUsd.cancelRedeem();
+        vm.stopPrank();
+
+        // 6. Admin redistributes to bob (should handle only escrowed amount)
+        uint256 bobBalanceBefore = naraUsd.balanceOf(bob);
+        
+        vm.expectEmit(true, true, true, true);
+        emit NaraUSD.LockedAmountRedistributed(alice, bob, 0, redeemAmount);
+        naraUsd.redistributeLockedAmount(alice, bob);
+
+        // 7. Verify results
+        (uint152 escrowedAmountAfter,) = naraUsd.redemptionRequests(alice);
+        assertEq(escrowedAmountAfter, 0, "Redemption request should be cleared");
+        assertEq(naraUsd.balanceOf(bob), bobBalanceBefore + redeemAmount, "Bob should receive escrowed amount");
+    }
+
+    /**
+     * @notice Test redistributing only wallet balance (no escrowed amount)
+     */
+    function test_RedistributeLockedAmount_OnlyWallet() public {
+        // 1. Mint naraUsd to alice (no redemption queue)
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        uint256 aliceBalance = naraUsd.balanceOf(alice);
+
+        // 2. Blacklist alice
+        naraUsd.addToBlacklist(alice);
+
+        // 3. Redistribute wallet balance to bob
+        uint256 bobBalanceBefore = naraUsd.balanceOf(bob);
+        
+        vm.expectEmit(true, true, true, true);
+        emit NaraUSD.LockedAmountRedistributed(alice, bob, aliceBalance, 0);
+        naraUsd.redistributeLockedAmount(alice, bob);
+
+        // 4. Verify results
+        assertEq(naraUsd.balanceOf(alice), 0, "Alice wallet balance should be 0");
+        assertEq(naraUsd.balanceOf(bob), bobBalanceBefore + aliceBalance, "Bob should receive wallet balance");
+    }
+
+    /**
+     * @notice Test redistributing both wallet and escrowed amounts in single call
+     */
+    function test_RedistributeLockedAmount_WalletAndEscrowed() public {
+        // 1. Mint naraUsd to alice
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 2000e6);
+        naraUsd.mintWithCollateral(address(usdc), 2000e6); // Alice has 2000e18, MCT has 2000e6 USDC
+        vm.stopPrank();
+        
+        // 2. Drain MCT collateral: mint unbacked NaraUSD to bob, then bob redeems
+        naraUsd.mint(bob, 3000e18); // Bob gets unbacked NaraUSD
+        vm.startPrank(bob);
+        naraUsd.redeem(address(usdc), 2000e18, false); // Drains all 2000e6 USDC
+        vm.stopPrank();
+        
+        // 3. Alice queue redemption (half her balance, no liquidity available)
+        vm.startPrank(alice);
+        uint256 redeemAmount = 1000e18;
+        naraUsd.redeem(address(usdc), redeemAmount, true);
+        vm.stopPrank();
+
+        uint256 walletBalance = naraUsd.balanceOf(alice);
+        uint256 totalAmount = walletBalance + redeemAmount;
+        
+        // 3. Blacklist alice
+        naraUsd.addToBlacklist(alice);
+
+        // 4. Redistribute everything to bob in single call
+        uint256 bobBalanceBefore = naraUsd.balanceOf(bob);
+        
+        vm.expectEmit(true, true, true, true);
+        emit NaraUSD.LockedAmountRedistributed(alice, bob, walletBalance, redeemAmount);
+        naraUsd.redistributeLockedAmount(alice, bob);
+
+        // 5. Verify results
+        assertEq(naraUsd.balanceOf(alice), 0, "Alice wallet balance should be 0");
+        (uint152 escrowedAmount,) = naraUsd.redemptionRequests(alice);
+        assertEq(escrowedAmount, 0, "Redemption request should be cleared");
+        assertEq(naraUsd.balanceOf(bob), bobBalanceBefore + totalAmount, "Bob should receive total amount");
+    }
+
+    /**
+     * @notice Test burning both wallet and escrowed amounts (redistribute to address(0))
+     */
+    function test_RedistributeLockedAmount_BurnBoth() public {
+        // 1. Mint naraUsd to alice
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 2000e6);
+        naraUsd.mintWithCollateral(address(usdc), 2000e6); // Alice has 2000e18, MCT has 2000e6 USDC
+        vm.stopPrank();
+        
+        // 2. Drain MCT collateral: mint unbacked NaraUSD to bob, then bob redeems
+        naraUsd.mint(bob, 3000e18); // Bob gets unbacked NaraUSD
+        vm.startPrank(bob);
+        naraUsd.redeem(address(usdc), 2000e18, false); // Drains all 2000e6 USDC
+        vm.stopPrank();
+        
+        // 3. Alice queue redemption (half her balance, no liquidity available)
+        vm.startPrank(alice);
+        uint256 redeemAmount = 1000e18;
+        naraUsd.redeem(address(usdc), redeemAmount, true);
+        vm.stopPrank();
+
+        uint256 walletBalance = naraUsd.balanceOf(alice);
+        uint256 totalAmount = walletBalance + redeemAmount;
+        
+        // 3. Blacklist alice
+        naraUsd.addToBlacklist(alice);
+
+        // 4. Burn everything by redistributing to address(0)
+        uint256 totalSupplyBefore = naraUsd.totalSupply();
+        
+        vm.expectEmit(true, true, true, true);
+        emit NaraUSD.LockedAmountRedistributed(alice, address(0), walletBalance, redeemAmount);
+        naraUsd.redistributeLockedAmount(alice, address(0));
+
+        // 5. Verify results
+        assertEq(naraUsd.balanceOf(alice), 0, "Alice wallet balance should be 0");
+        (uint152 escrowedAmount,) = naraUsd.redemptionRequests(alice);
+        assertEq(escrowedAmount, 0, "Redemption request should be cleared");
+        assertEq(naraUsd.totalSupply(), totalSupplyBefore - totalAmount, "Total supply should decrease");
+    }
+
+    /**
+     * @notice Test redistributeLockedAmount reverts if target is blacklisted
+     */
+    function test_RevertIf_RedistributeLockedAmount_TargetBlacklisted() public {
+        // 1. Mint naraUsd to alice
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // 2. Blacklist both alice and bob
+        naraUsd.addToBlacklist(alice);
+        naraUsd.addToBlacklist(bob);
+
+        // 3. Try to redistribute to blacklisted bob (should fail)
         vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
         naraUsd.redistributeLockedAmount(alice, bob);
     }
