@@ -854,11 +854,6 @@ contract NaraUSD is
         // Convert collateral to NaraUSD amount (normalize decimals)
         naraUsdAmount = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
 
-        // Check minimum mint amount
-        if (minMintAmount > 0 && naraUsdAmount < minMintAmount) {
-            revert BelowMinimumAmount();
-        }
-
         // Check per-block mint limit (using 18-decimal NaraUSD amount)
         _checkBelowMaxMintPerBlock(naraUsdAmount);
 
@@ -890,6 +885,11 @@ contract NaraUSD is
 
         // Mint MCT by depositing remaining collateral
         uint256 mctAmount = mct.mint(collateralAsset, collateralForMinting, address(this));
+
+        // Check minimum mint amount (after fees)
+        if (minMintAmount > 0 && mctAmount < minMintAmount) {
+            revert BelowMinimumAmount();
+        }
 
         // Mint NaraUSD shares to msg.sender (1:1 with MCT)
         _mint(msg.sender, mctAmount);

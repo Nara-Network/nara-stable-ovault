@@ -1739,6 +1739,60 @@ contract NaraUSDTest is TestHelper {
     }
 
     /**
+     * @notice Test minimum mint amount is checked after fees
+     */
+    function test_MinMintAmount_CheckedAfterFees() public {
+        // Set up fees
+        address treasury = makeAddr("treasury");
+        naraUsd.setFeeTreasury(treasury);
+        naraUsd.setMintFee(1000); // 10% fee (1000 bps)
+
+        // Set minimum to 100 NaraUSD
+        uint256 minAmount = 100e18;
+        naraUsd.setMinMintAmount(minAmount);
+
+        vm.startPrank(alice);
+
+        // Try to mint 110 USDC
+        // Pre-fee: 110 NaraUSD (above minimum)
+        // After 10% fee: 99 NaraUSD (below minimum)
+        // This should fail
+        usdc.approve(address(naraUsd), 110e6);
+        vm.expectRevert(NaraUSD.BelowMinimumAmount.selector);
+        naraUsd.mintWithCollateral(address(usdc), 110e6);
+
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test minting with fees where post-fee amount meets minimum
+     */
+    function test_MinMintAmount_WithFees_Success() public {
+        // Set up fees
+        address treasury = makeAddr("treasury");
+        naraUsd.setFeeTreasury(treasury);
+        naraUsd.setMintFee(1000); // 10% fee (1000 bps)
+
+        // Set minimum to 90 NaraUSD
+        uint256 minAmount = 90e18;
+        naraUsd.setMinMintAmount(minAmount);
+
+        vm.startPrank(alice);
+
+        // Mint 100 USDC
+        // Pre-fee: 100 NaraUSD
+        // After 10% fee: 90 NaraUSD (exactly at minimum)
+        // This should succeed
+        usdc.approve(address(naraUsd), 100e6);
+        uint256 minted = naraUsd.mintWithCollateral(address(usdc), 100e6);
+        
+        assertEq(minted, 90e18, "Should mint 90 NaraUSD after 10% fee");
+        assertEq(usdc.balanceOf(treasury), 10e6, "Treasury should receive 10 USDC fee");
+
+        vm.stopPrank();
+    }
+
+    /**
      * @notice Test redeem below minimum reverts
      */
     function test_RevertIf_RedeemBelowMinimum() public {
