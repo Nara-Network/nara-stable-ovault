@@ -134,6 +134,12 @@ contract NaraUSD is
     /// @notice Mapping to track whitelist status of addresses (for contracts like AMM pools)
     mapping(address => bool) public keyringWhitelist;
 
+    /**
+     * @dev Storage gap to allow for new storage variables in future upgrades
+     * @dev Reserves 50 storage slots for future versions
+     */
+    uint256[50] private __gap;
+
     /* --------------- MODIFIERS --------------- */
 
     /// @notice Ensure minted amount doesn't exceed max per block

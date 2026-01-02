@@ -376,7 +376,7 @@ contract NaraUSDComposerTest is TestHelper {
         _switchToHub();
 
         MockERC20 newCollateral = new MockERC20("NewCoin", "NEWC", 6);
-        MockERC20 newOFT = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
+        MockERC20 newOft = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
 
         // Initial state
         assertFalse(
@@ -389,23 +389,23 @@ contract NaraUSDComposerTest is TestHelper {
         assertTrue(mct.isSupportedAsset(address(newCollateral)), "NewCoin should be supported by MCT");
 
         // Add new collateral to composer
-        naraUsdComposer.addWhitelistedCollateral(address(newCollateral), address(newOFT));
+        naraUsdComposer.addWhitelistedCollateral(address(newCollateral), address(newOft));
 
         // Verify state
         assertTrue(naraUsdComposer.isCollateralWhitelisted(address(newCollateral)), "NewCoin should be whitelisted");
         assertEq(
             naraUsdComposer.collateralToOft(address(newCollateral)),
-            address(newOFT),
-            "NewCoin should map to NewOFT"
+            address(newOft),
+            "NewCoin should map to newOft"
         );
         assertEq(
-            naraUsdComposer.oftToCollateral(address(newOFT)),
+            naraUsdComposer.oftToCollateral(address(newOft)),
             address(newCollateral),
-            "NewOFT should map to NewCoin"
+            "newOft should map to NewCoin"
         );
 
         // Verify approval was set
-        uint256 allowance = newCollateral.allowance(address(naraUsdComposer), address(newOFT));
+        uint256 allowance = newCollateral.allowance(address(naraUsdComposer), address(newOft));
         assertEq(allowance, type(uint256).max, "Should approve max allowance for new collateral");
     }
 
@@ -416,11 +416,11 @@ contract NaraUSDComposerTest is TestHelper {
         _switchToHub();
 
         MockERC20 newCollateral = new MockERC20("NewCoin", "NEWC", 6);
-        MockERC20 newOFT = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
+        MockERC20 newOft = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
 
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSignature("Unauthorized()"));
-        naraUsdComposer.addWhitelistedCollateral(address(newCollateral), address(newOFT));
+        naraUsdComposer.addWhitelistedCollateral(address(newCollateral), address(newOft));
     }
 
     /**
@@ -431,14 +431,14 @@ contract NaraUSDComposerTest is TestHelper {
 
         // Create a new token that is NOT supported by MCT
         MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 6);
-        MockERC20 unsupportedOFT = new MockERC20("UnsupportedOFT", "UNSUP-OFT", 6);
+        MockERC20 unsupportedOft = new MockERC20("UnsupportedOFT", "UNSUP-OFT", 6);
 
         // Verify it's not supported
         assertFalse(mct.isSupportedAsset(address(unsupportedToken)), "Token should not be supported by MCT");
 
         // Try to whitelist it - should revert
         vm.expectRevert(abi.encodeWithSignature("AssetNotSupportedByMCT(address)", address(unsupportedToken)));
-        naraUsdComposer.addWhitelistedCollateral(address(unsupportedToken), address(unsupportedOFT));
+        naraUsdComposer.addWhitelistedCollateral(address(unsupportedToken), address(unsupportedOft));
     }
 
     /**
@@ -455,15 +455,14 @@ contract NaraUSDComposerTest is TestHelper {
         assertTrue(mct.isSupportedAsset(address(newToken)), "Token should be supported by MCT");
 
         // Now we should be able to whitelist it in the composer
-        MockERC20 newOFT = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
-        naraUsdComposer.addWhitelistedCollateral(address(newToken), address(newOFT));
+        MockERC20 newOft = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
+        naraUsdComposer.addWhitelistedCollateral(address(newToken), address(newOft));
 
         // Verify it's whitelisted
-        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(newToken)), "Token should be whitelisted in composer");
-        assertEq(
-            naraUsdComposer.collateralToOft(address(newToken)),
-            address(newOFT),
-            "Token should map to its OFT"
+        assertTrue(
+            naraUsdComposer.isCollateralWhitelisted(address(newToken)),
+            "Token should be whitelisted in composer"
         );
+        assertEq(naraUsdComposer.collateralToOft(address(newToken)), address(newOft), "Token should map to its OFT");
     }
 }
