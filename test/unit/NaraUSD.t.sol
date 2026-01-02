@@ -284,6 +284,44 @@ contract NaraUSDTest is TestHelper {
     }
 
     /**
+     * @notice Test cancelling redemption while paused fails
+     */
+    function test_RevertIf_CancelRedemptionWhilePaused() public {
+        // Setup: Mint and queue redemption
+        uint256 naraUsdAmount = 1000e18;
+        vm.startPrank(alice);
+
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+
+        // Withdraw liquidity to force queueing
+        vm.stopPrank();
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
+
+        // Queue redemption
+        vm.startPrank(alice);
+        (uint256 collateralAmount, bool wasQueued) = naraUsd.redeem(address(usdc), naraUsdAmount, true);
+        assertEq(wasQueued, true, "Should be queued");
+        vm.stopPrank();
+
+        // Pause the contract
+        naraUsd.pause();
+
+        // Try to cancel redemption - should fail
+        vm.startPrank(alice);
+        vm.expectRevert();
+        naraUsd.cancelRedeem();
+        vm.stopPrank();
+
+        // Unpause and verify cancel works
+        naraUsd.unpause();
+        vm.startPrank(alice);
+        naraUsd.cancelRedeem();
+        assertEq(naraUsd.balanceOf(address(naraUsd.redeemSilo())), 0, "Silo should be empty after cancel");
+        vm.stopPrank();
+    }
+
+    /**
      * @notice Test bulk complete redeem by collateral manager
      */
     function test_BulkCompleteRedeem() public {

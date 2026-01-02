@@ -535,7 +535,7 @@ contract NaraUSD is
     /**
      * @notice Cancel redemption request and return locked NaraUSD to user
      */
-    function cancelRedeem() external nonReentrant {
+    function cancelRedeem() external nonReentrant whenNotPaused {
         if (_isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
