@@ -69,12 +69,18 @@ contract NaraUSDOFT is OFT, AccessControl {
     /**
      * @dev Hook that is called before any transfer of tokens
      * @dev Disables transfers from or to addresses with FULL_RESTRICTED_ROLE
+     * @dev Also prevents blacklisted msg.sender from initiating transfers via transferFrom
      */
     function _update(address from, address to, uint256 value) internal virtual override {
         if (hasRole(FULL_RESTRICTED_ROLE, from)) {
             revert OperationNotAllowed();
         }
         if (hasRole(FULL_RESTRICTED_ROLE, to)) {
+            revert OperationNotAllowed();
+        }
+        // Prevent blacklisted operators from moving tokens via transferFrom
+        // msg.sender == address(0) during initialization, skip check in that case
+        if (msg.sender != address(0) && hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
             revert OperationNotAllowed();
         }
 
