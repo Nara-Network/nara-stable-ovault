@@ -1233,11 +1233,16 @@ contract NaraUSD is
      * @dev Note: Keyring checks are NOT applied to transfers - NaraUSD is freely transferrable
      */
     function _update(address from, address to, uint256 value) internal virtual override(ERC20Upgradeable) {
-        // Blacklisted addresses are completely frozen
+        // Blacklisted addresses are completely frozen - they cannot send, receive, or operate transfers
         if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
         if (_isBlacklisted(to)) {
+            revert OperationNotAllowed();
+        }
+        // Check msg.sender to prevent blacklisted operators from moving tokens via transferFrom
+        // Note: from == msg.sender in direct transfers, but differs in transferFrom calls
+        if (msg.sender != from && _isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
 

@@ -1526,6 +1526,105 @@ contract NaraUSDTest is TestHelper {
     }
 
     /**
+     * @notice Test blacklisted operator cannot use transferFrom (Issue #13)
+     */
+    function test_RevertIf_BlacklistedOperatorUsesTransferFrom() public {
+        address carol = makeAddr("carol");
+
+        // Setup: Alice has tokens, gives approval to Carol
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        naraUsd.approve(carol, 500e18); // Carol can spend Alice's tokens
+        vm.stopPrank();
+
+        // Blacklist Carol
+        naraUsd.addToBlacklist(carol);
+
+        // Carol (blacklisted operator) tries to transfer Alice's tokens to Bob
+        // This should fail even though Alice and Bob are not blacklisted
+        vm.startPrank(carol);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
+        naraUsd.transferFrom(alice, bob, 100e18);
+        vm.stopPrank();
+
+        // Verify balances unchanged
+        assertEq(naraUsd.balanceOf(alice), 1000e18, "Alice balance should be unchanged");
+        assertEq(naraUsd.balanceOf(bob), 0, "Bob should not have received tokens");
+    }
+
+    /**
+     * @notice Test non-blacklisted operator can use transferFrom normally
+     */
+    function test_NonBlacklistedOperatorCanTransferFrom() public {
+        address carol = makeAddr("carol");
+
+        // Setup: Alice has tokens, gives approval to Carol
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        naraUsd.approve(carol, 500e18); // Carol can spend Alice's tokens
+        vm.stopPrank();
+
+        // Carol (NOT blacklisted) transfers Alice's tokens to Bob - should work
+        vm.startPrank(carol);
+        naraUsd.transferFrom(alice, bob, 100e18);
+        vm.stopPrank();
+
+        // Verify balances
+        assertEq(naraUsd.balanceOf(alice), 900e18, "Alice balance should decrease");
+        assertEq(naraUsd.balanceOf(bob), 100e18, "Bob should receive tokens");
+    }
+
+    /**
+     * @notice Test blacklisted user cannot transfer even with approval from others
+     */
+    function test_RevertIf_BlacklistedFromSendsViaTransferFrom() public {
+        address carol = makeAddr("carol");
+
+        // Setup: Alice has tokens, gives approval to Carol
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        naraUsd.approve(carol, 500e18); // Carol can spend Alice's tokens
+        vm.stopPrank();
+
+        // Blacklist Alice (the token owner)
+        naraUsd.addToBlacklist(alice);
+
+        // Carol tries to transfer Alice's tokens to Bob
+        // Should fail because Alice (from) is blacklisted
+        vm.startPrank(carol);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
+        naraUsd.transferFrom(alice, bob, 100e18);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test cannot transferFrom to blacklisted recipient
+     */
+    function test_RevertIf_TransferFromToBlacklisted() public {
+        address carol = makeAddr("carol");
+
+        // Setup: Alice has tokens, gives approval to Carol
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        naraUsd.approve(carol, 500e18); // Carol can spend Alice's tokens
+        vm.stopPrank();
+
+        // Blacklist Bob (the recipient)
+        naraUsd.addToBlacklist(bob);
+
+        // Carol tries to transfer Alice's tokens to Bob (blacklisted)
+        // Should fail because Bob (to) is blacklisted
+        vm.startPrank(carol);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
+        naraUsd.transferFrom(alice, bob, 100e18);
+        vm.stopPrank();
+    }
+
+    /**
      * @notice Test redistribute requires full restriction
      */
     function test_RevertIf_RedistributeNonRestricted() public {
