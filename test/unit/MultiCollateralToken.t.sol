@@ -3,6 +3,7 @@ pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
 import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
+import { IMultiCollateralToken } from "../../contracts/interfaces/mct/IMultiCollateralToken.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -254,7 +255,7 @@ contract MultiCollateralTokenTest is TestHelper {
     function test_RevertIf_ZeroAmount() public {
         usdc.approve(address(mct), 1000e6);
 
-        vm.expectRevert(MultiCollateralToken.InvalidAmount.selector);
+        vm.expectRevert(IMultiCollateralToken.InvalidAmount.selector);
         mct.mint(address(usdc), 0, bob);
     }
 
@@ -270,7 +271,7 @@ contract MultiCollateralTokenTest is TestHelper {
         mct.mintWithoutCollateral(address(naraUsd), 1000e18); // Extra unbacked MCT
         mct.approve(address(mct), 2000e18);
 
-        vm.expectRevert(MultiCollateralToken.InsufficientCollateral.selector);
+        vm.expectRevert(IMultiCollateralToken.InsufficientCollateral.selector);
         mct.redeem(address(usdc), 2000e18, bob);
 
         vm.stopPrank();
@@ -282,7 +283,7 @@ contract MultiCollateralTokenTest is TestHelper {
     function test_RevertIf_WithdrawExceedsBalance() public {
         _mintMct(address(usdc), 1000e6, bob);
 
-        vm.expectRevert(MultiCollateralToken.InsufficientCollateral.selector);
+        vm.expectRevert(IMultiCollateralToken.InsufficientCollateral.selector);
         mct.withdrawCollateral(address(usdc), 2000e6, owner);
     }
 
@@ -290,7 +291,7 @@ contract MultiCollateralTokenTest is TestHelper {
      * @notice Test adding zero address as asset reverts
      */
     function test_RevertIf_AddZeroAddress() public {
-        vm.expectRevert(MultiCollateralToken.InvalidAssetAddress.selector);
+        vm.expectRevert(IMultiCollateralToken.InvalidAssetAddress.selector);
         mct.addSupportedAsset(address(0));
     }
 
@@ -298,7 +299,7 @@ contract MultiCollateralTokenTest is TestHelper {
      * @notice Test adding MCT itself as asset reverts
      */
     function test_RevertIf_AddSelfAsAsset() public {
-        vm.expectRevert(MultiCollateralToken.InvalidAssetAddress.selector);
+        vm.expectRevert(IMultiCollateralToken.InvalidAssetAddress.selector);
         mct.addSupportedAsset(address(mct));
     }
 
@@ -306,7 +307,7 @@ contract MultiCollateralTokenTest is TestHelper {
      * @notice Test adding duplicate asset reverts
      */
     function test_RevertIf_AddDuplicateAsset() public {
-        vm.expectRevert(MultiCollateralToken.InvalidAssetAddress.selector);
+        vm.expectRevert(MultiCollateralToken.AssetAlreadySupported.selector);
         mct.addSupportedAsset(address(usdc)); // Already added
     }
 
@@ -318,7 +319,7 @@ contract MultiCollateralTokenTest is TestHelper {
         unsupportedToken.mint(address(this), 1000e18);
         unsupportedToken.approve(address(mct), 1000e18);
 
-        vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
+        vm.expectRevert(IMultiCollateralToken.UnsupportedAsset.selector);
         mct.mint(address(unsupportedToken), 1000e18, bob);
     }
 
@@ -339,7 +340,7 @@ contract MultiCollateralTokenTest is TestHelper {
         vm.startPrank(address(naraUsd));
         mct.approve(address(mct), 1000e18);
 
-        vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
+        vm.expectRevert(IMultiCollateralToken.UnsupportedAsset.selector);
         mct.redeem(address(unsupportedToken), 1000e18, alice);
 
         vm.stopPrank();
@@ -351,7 +352,7 @@ contract MultiCollateralTokenTest is TestHelper {
     function test_RevertIf_WithdrawUnsupportedAsset() public {
         MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 18);
 
-        vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
+        vm.expectRevert(IMultiCollateralToken.UnsupportedAsset.selector);
         mct.withdrawCollateral(address(unsupportedToken), 100e18, owner);
     }
 
@@ -363,7 +364,7 @@ contract MultiCollateralTokenTest is TestHelper {
         unsupportedToken.mint(address(this), 1000e18);
         unsupportedToken.approve(address(mct), 1000e18);
 
-        vm.expectRevert(MultiCollateralToken.UnsupportedAsset.selector);
+        vm.expectRevert(IMultiCollateralToken.UnsupportedAsset.selector);
         mct.depositCollateral(address(unsupportedToken), 1000e18);
     }
 
