@@ -2584,4 +2584,77 @@ contract NaraUSDTest is TestHelper {
         assertEq(naraUsd.balanceOf(alice), 0, "Alice balance should be 0");
         assertEq(naraUsd.totalSupply(), totalSupplyBefore - aliceBalance, "Total supply should decrease");
     }
+
+    /* ========== ISSUE #24: COLLATERAL CHECK IN _completeRedemption TESTS ========== */
+
+    /**
+     * @notice Test that bulkCompleteRedemptions reverts when insufficient collateral
+     */
+    function test_RevertIf_CompleteRedemption_InsufficientCollateral() public {
+        uint256 redeemAmount = 500e18;
+
+        // 1. Mint NaraUSD to alice
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // 2. Drain MCT collateral to force insufficient collateral
+        // Admin withdraws most of the collateral
+        uint256 usdcBalance = usdc.balanceOf(address(mct));
+        mct.withdrawCollateral(address(usdc), usdcBalance - 100e6, address(this));
+
+        // 3. Alice queues redemption
+        vm.startPrank(alice);
+        naraUsd.redeem(address(usdc), redeemAmount, true);
+        vm.stopPrank();
+
+        // 4. Try to complete redemptions - should revert due to insufficient collateral
+        address[] memory users = new address[](1);
+        users[0] = alice;
+
+        vm.expectRevert(INaraUSD.InsufficientCollateral.selector);
+        naraUsd.bulkCompleteRedeem(users);
+    }
+
+    /**
+     * @notice Test that redemption succeeds when sufficient collateral becomes available
+     */
+    function test_CompleteRedemption_WithSufficientCollateral() public {
+        uint256 redeemAmount = 500e18;
+
+        // 1. Mint NaraUSD to alice
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // 2. Drain some MCT collateral to force queueing
+        uint256 usdcBalance = usdc.balanceOf(address(mct));
+        mct.withdrawCollateral(address(usdc), usdcBalance - 400e6, address(this));
+
+        // 3. Alice queues redemption (insufficient collateral, will queue)
+        vm.startPrank(alice);
+        naraUsd.redeem(address(usdc), redeemAmount, true);
+        vm.stopPrank();
+
+        // 4. Restore collateral (make it sufficient for completion)
+        usdc.approve(address(mct), 200e6);
+        mct.depositCollateral(address(usdc), 200e6);
+
+        // 5. Complete redemption should succeed now
+        address[] memory users = new address[](1);
+        users[0] = alice;
+
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+
+        naraUsd.bulkCompleteRedeem(users);
+
+        // Verify alice received collateral
+        assertGt(usdc.balanceOf(alice), aliceUsdcBefore, "Alice should receive USDC");
+        
+        // Verify redemption request cleared
+        INaraUSD.RedemptionRequest memory req = naraUsd.redemptionRequests(alice);
+        assertEq(req.naraUsdAmount, 0, "Redemption request should be cleared");
+    }
 }

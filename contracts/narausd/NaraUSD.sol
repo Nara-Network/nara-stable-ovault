@@ -1118,6 +1118,12 @@ contract NaraUSD is
         uint256 naraUsdAmount = request.naraUsdAmount;
         address collateralAsset = request.collateralAsset;
 
+        // Check if sufficient collateral is available before attempting completion
+        uint256 requiredCollateral = _convertToCollateralAmount(collateralAsset, naraUsdAmount);
+        if (mct.collateralBalance(collateralAsset) < requiredCollateral) {
+            revert InsufficientCollateral();
+        }
+
         // Check per-block redemption limit
         _checkBelowMaxRedeemPerBlock(naraUsdAmount);
 
