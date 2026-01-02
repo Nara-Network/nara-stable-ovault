@@ -24,6 +24,8 @@ contract NaraUSDOFT is OFT, AccessControl {
     error OperationNotAllowed();
     error CantBlacklistOwner();
     error CantRenounceOwnership();
+    error ZeroAddressException();
+    error ValueUnchanged();
 
     /* --------------- MODIFIERS --------------- */
 
@@ -55,6 +57,8 @@ contract NaraUSDOFT is OFT, AccessControl {
      * @param target The address to blacklist
      */
     function addToBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
+        if (target == address(0)) revert ZeroAddressException();
+        if (hasRole(FULL_RESTRICTED_ROLE, target)) revert ValueUnchanged();
         _grantRole(FULL_RESTRICTED_ROLE, target);
     }
 
@@ -63,6 +67,8 @@ contract NaraUSDOFT is OFT, AccessControl {
      * @param target The address to un-blacklist
      */
     function removeFromBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) {
+        if (target == address(0)) revert ZeroAddressException();
+        if (!hasRole(FULL_RESTRICTED_ROLE, target)) revert ValueUnchanged();
         _revokeRole(FULL_RESTRICTED_ROLE, target);
     }
 

@@ -1162,7 +1162,7 @@ contract NaraUSDTest is TestHelper {
         usdc.mint(treasury, 0); // Initialize treasury balance
 
         // Setup: Zero percentage but minimum fee set
-        naraUsd.setMintFee(0); // 0%
+        // Note: mintFeeBps is already 0 by default, no need to set it
         naraUsd.setMinMintFeeAmount(5e18); // 5 naraUsd minimum
         naraUsd.setFeeTreasury(treasury);
 
@@ -1240,7 +1240,7 @@ contract NaraUSDTest is TestHelper {
         usdc.mint(treasury, 0); // Initialize treasury balance
 
         // Setup (address(this) is admin)
-        naraUsd.setMintFee(0); // No fee
+        // Note: mintFeeBps is already 0 by default, no need to set it
         naraUsd.setFeeTreasury(treasury);
 
         uint256 usdcAmount = 1000e6;

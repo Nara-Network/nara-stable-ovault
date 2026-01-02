@@ -557,6 +557,7 @@ contract NaraUSD is
      */
     function setMintFee(uint16 _mintFeeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_mintFeeBps > MAX_FEE_BPS) revert InvalidFee();
+        if (_mintFeeBps == mintFeeBps) revert ValueUnchanged();
         uint16 oldFee = mintFeeBps;
         mintFeeBps = _mintFeeBps;
         emit MintFeeUpdated(oldFee, _mintFeeBps);
@@ -568,6 +569,7 @@ contract NaraUSD is
      */
     function setRedeemFee(uint16 _redeemFeeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_redeemFeeBps > MAX_FEE_BPS) revert InvalidFee();
+        if (_redeemFeeBps == redeemFeeBps) revert ValueUnchanged();
         uint16 oldFee = redeemFeeBps;
         redeemFeeBps = _redeemFeeBps;
         emit RedeemFeeUpdated(oldFee, _redeemFeeBps);
@@ -579,6 +581,7 @@ contract NaraUSD is
      */
     function setFeeTreasury(address _feeTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_feeTreasury == address(0)) revert ZeroAddressException();
+        if (_feeTreasury == feeTreasury) revert ValueUnchanged();
         address oldTreasury = feeTreasury;
         feeTreasury = _feeTreasury;
         emit FeeTreasuryUpdated(oldTreasury, _feeTreasury);
@@ -589,6 +592,7 @@ contract NaraUSD is
      * @param _minMintAmount New minimum mint amount (18 decimals)
      */
     function setMinMintAmount(uint256 _minMintAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minMintAmount == minMintAmount) revert ValueUnchanged();
         // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
         if (_minMintAmount > 0 && minMintFeeAmount > 0 && minMintFeeAmount >= _minMintAmount) {
             revert InvalidFee();
@@ -605,6 +609,7 @@ contract NaraUSD is
      *      Queued requests below the new minimum will remain valid and can still be completed.
      */
     function setMinRedeemAmount(uint256 _minRedeemAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minRedeemAmount == minRedeemAmount) revert ValueUnchanged();
         // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
         if (_minRedeemAmount > 0 && minRedeemFeeAmount > 0 && minRedeemFeeAmount >= _minRedeemAmount) {
             revert InvalidFee();
@@ -619,6 +624,7 @@ contract NaraUSD is
      * @param _minMintFeeAmount New minimum mint fee amount (18 decimals)
      */
     function setMinMintFeeAmount(uint256 _minMintFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minMintFeeAmount == minMintFeeAmount) revert ValueUnchanged();
         // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
         if (minMintAmount > 0 && _minMintFeeAmount > 0 && _minMintFeeAmount >= minMintAmount) {
             revert InvalidFee();
@@ -633,6 +639,7 @@ contract NaraUSD is
      * @param _minRedeemFeeAmount New minimum redeem fee amount (18 decimals)
      */
     function setMinRedeemFeeAmount(uint256 _minRedeemFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minRedeemFeeAmount == minRedeemFeeAmount) revert ValueUnchanged();
         // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
         if (minRedeemAmount > 0 && _minRedeemFeeAmount > 0 && _minRedeemFeeAmount >= minRedeemAmount) {
             revert InvalidFee();
@@ -648,6 +655,7 @@ contract NaraUSD is
      * @param _policyId The policy ID to check credentials against
      */
     function setKeyringConfig(address _keyringAddress, uint256 _policyId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_keyringAddress == keyringAddress && _policyId == keyringPolicyId) revert ValueUnchanged();
         keyringAddress = _keyringAddress;
         keyringPolicyId = _policyId;
         emit KeyringConfigUpdated(_keyringAddress, _policyId);
@@ -661,6 +669,7 @@ contract NaraUSD is
      */
     function setKeyringWhitelist(address account, bool status) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (account == address(0)) revert ZeroAddressException();
+        if (keyringWhitelist[account] == status) revert ValueUnchanged();
         keyringWhitelist[account] = status;
         emit KeyringWhitelistUpdated(account, status);
     }
@@ -671,6 +680,7 @@ contract NaraUSD is
      */
     function addToBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
         if (target == address(0)) revert ZeroAddressException();
+        if (hasRole(FULL_RESTRICTED_ROLE, target)) revert ValueUnchanged();
         _grantRole(FULL_RESTRICTED_ROLE, target);
     }
 
@@ -680,6 +690,7 @@ contract NaraUSD is
      */
     function removeFromBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) {
         if (target == address(0)) revert ZeroAddressException();
+        if (!hasRole(FULL_RESTRICTED_ROLE, target)) revert ValueUnchanged();
         _revokeRole(FULL_RESTRICTED_ROLE, target);
     }
 
