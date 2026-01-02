@@ -1,22 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import "../mct/IMultiCollateralToken.sol";
+
+interface INaraUSDRedeemSilo {
+    function withdraw(address to, uint256 amount) external;
+}
 
 /**
  * @title INaraUSD
  * @notice Interface for the NaraUSD contract
  */
-interface INaraUSD is IERC4626, IERC20Permit {
-    /* --------------- ENUMS --------------- */
-
-    enum DelegatedSignerStatus {
-        REJECTED,
-        PENDING,
-        ACCEPTED
-    }
-
+interface INaraUSD {
     /* --------------- EVENTS --------------- */
 
     event Mint(
@@ -33,16 +28,7 @@ interface INaraUSD is IERC4626, IERC20Permit {
     );
     event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
     event MaxRedeemPerBlockChanged(uint256 oldMax, uint256 newMax);
-    event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
-    event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
-    event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
-    event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
-    event RedemptionRequested(
-        address indexed user,
-        uint256 naraUsdAmount,
-        address indexed collateralAsset,
-        uint256 cooldownEnd
-    );
+    event RedemptionRequested(address indexed user, uint256 naraUsdAmount, address indexed collateralAsset);
     event RedemptionCompleted(
         address indexed user,
         uint256 naraUsdAmount,
@@ -54,16 +40,22 @@ interface INaraUSD is IERC4626, IERC20Permit {
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
-    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
+    event LockedAmountRedistributed(
+        address indexed from,
+        address indexed to,
+        uint256 walletAmount,
+        uint256 escrowedAmount
+    );
     event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event MinMintFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
+    event MinRedeemFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event KeyringConfigUpdated(address indexed keyringAddress, uint256 policyId);
     event KeyringWhitelistUpdated(address indexed account, bool status);
 
     /* --------------- STRUCTS --------------- */
 
     struct RedemptionRequest {
-        uint104 cooldownEnd;
         uint152 naraUsdAmount;
         address collateralAsset;
     }
@@ -75,18 +67,16 @@ interface INaraUSD is IERC4626, IERC20Permit {
     error UnsupportedAsset();
     error MaxMintPerBlockExceeded();
     error MaxRedeemPerBlockExceeded();
-    error InvalidSignature();
-    error DelegationNotInitiated();
     error CantRenounceOwnership();
-    error InvalidCooldown();
     error NoRedemptionRequest();
-    error CooldownNotFinished();
     error ExistingRedemptionRequest();
     error InvalidFee();
     error OperationNotAllowed();
     error CantBlacklistOwner();
     error BelowMinimumAmount();
     error KeyringCredentialInvalid(address account);
+    error InsufficientCollateral();
+    error ValueUnchanged();
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -99,19 +89,6 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external returns (uint256 naraUsdAmount);
-
-    /**
-     * @notice Mint NaraUSD on behalf of a beneficiary
-     * @param collateralAsset The collateral asset to deposit
-     * @param collateralAmount The amount of collateral to deposit
-     * @param beneficiary The address to receive minted NaraUSD
-     * @return naraUsdAmount The amount of NaraUSD minted
-     */
-    function mintWithCollateralFor(
-        address collateralAsset,
-        uint256 collateralAmount,
-        address beneficiary
     ) external returns (uint256 naraUsdAmount);
 
     /**
@@ -168,12 +145,6 @@ interface INaraUSD is IERC4626, IERC20Permit {
      * @notice Disable mint and redeem in emergency
      */
     function disableMintRedeem() external;
-
-    /**
-     * @notice Set cooldown duration for redemptions
-     * @param duration New cooldown duration (max 90 days)
-     */
-    function setCooldownDuration(uint24 duration) external;
 
     /**
      * @notice Pause all mint and redeem operations
@@ -254,9 +225,9 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function removeFromBlacklist(address target) external;
 
     /**
-     * @notice Redistribute locked amount from full restricted user
-     * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_ROLE)
-     * @param to The address to mint the entire balance to (or address(0) to burn)
+     * @notice Redistribute locked amount from blacklisted user (both wallet and escrowed)
+     * @param from The address to redistribute from (must have FULL_RESTRICTED_ROLE)
+     * @param to The address to mint the balance to (or address(0) to burn)
      */
     function redistributeLockedAmount(address from, address to) external;
 
@@ -265,7 +236,14 @@ interface INaraUSD is IERC4626, IERC20Permit {
      * @param to The recipient of newly minted NaraUSD
      * @param amount The amount to mint
      */
-    function mint(address to, uint256 amount) external;
+    function mintWithoutCollateral(address to, uint256 amount) external;
+
+    /**
+     * @notice Mint NaraUSD without collateral backing for a specific beneficiary (admin-controlled)
+     * @param beneficiary The address to receive freshly minted NaraUSD
+     * @param amount The amount of NaraUSD to mint
+     */
+    function mintWithoutCollateralFor(address beneficiary, uint256 amount) external;
 
     /**
      * @notice Burn NaraUSD and underlying MCT without withdrawing collateral
@@ -273,31 +251,13 @@ interface INaraUSD is IERC4626, IERC20Permit {
      */
     function burn(uint256 amount) external;
 
-    /**
-     * @notice Enable smart contracts to delegate signing
-     * @param _delegateTo The address to delegate to
-     */
-    function setDelegatedSigner(address _delegateTo) external;
-
-    /**
-     * @notice Confirm delegation
-     * @param _delegatedBy The address that initiated delegation
-     */
-    function confirmDelegatedSigner(address _delegatedBy) external;
-
-    /**
-     * @notice Remove delegated signer
-     * @param _removedSigner The address to remove
-     */
-    function removeDelegatedSigner(address _removedSigner) external;
-
     /* --------------- VIEW FUNCTIONS --------------- */
 
     /**
-     * @notice Get the MCT token address
-     * @return address The MCT token address
+     * @notice Get the MCT token
+     * @return The MCT token contract
      */
-    function mct() external view returns (address);
+    function mct() external view returns (IMultiCollateralToken);
 
     /**
      * @notice Get minted amount per block
@@ -326,20 +286,6 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function maxRedeemPerBlock() external view returns (uint256);
 
     /**
-     * @notice Get delegated signer status
-     * @param signer The signer address
-     * @param delegatedBy The address that delegated
-     * @return DelegatedSignerStatus The status
-     */
-    function delegatedSigner(address signer, address delegatedBy) external view returns (DelegatedSignerStatus);
-
-    /**
-     * @notice Get cooldown duration
-     * @return uint24 The cooldown duration in seconds
-     */
-    function cooldownDuration() external view returns (uint24);
-
-    /**
      * @notice Get redemption request for a user
      * @param user The user address
      * @return RedemptionRequest The redemption request
@@ -347,10 +293,10 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function redemptionRequests(address user) external view returns (RedemptionRequest memory);
 
     /**
-     * @notice Get the redeem silo address
-     * @return address The silo contract address
+     * @notice Get the redeem silo contract
+     * @return The silo contract
      */
-    function redeemSilo() external view returns (address);
+    function redeemSilo() external view returns (INaraUSDRedeemSilo);
 
     /**
      * @notice Get mint fee in basis points
