@@ -955,8 +955,7 @@ contract NaraUSD is
      * @dev Fee is calculated on MCT amount, then shares are minted 1:1 with remaining MCT
      */
     function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
-        // First get base conversion using ERC4626 formula
-        uint256 baseShares = convertToShares(assets);
+        uint256 baseShares = super.previewDeposit(assets);
 
         // Apply mint fee if configured
         uint256 feeAmount = _calculateMintFee(baseShares);
@@ -994,8 +993,7 @@ contract NaraUSD is
             }
         }
 
-        // Convert sharesBeforeFee to assets using base conversion
-        assets = convertToAssets(sharesBeforeFee);
+        assets = super.previewMint(sharesBeforeFee);
 
         return assets;
     }
@@ -1008,8 +1006,7 @@ contract NaraUSD is
      * @dev Note: Actual redeem fee is on collateral, but for ERC4626 we apply it to MCT (1:1 equivalent)
      */
     function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
-        // First get base conversion using ERC4626 formula
-        uint256 baseAssets = convertToAssets(shares);
+        uint256 baseAssets = super.previewRedeem(shares);
 
         // Apply redeem fee if configured
         uint256 feeAmount = _calculateRedeemFee(baseAssets);
@@ -1047,8 +1044,7 @@ contract NaraUSD is
             }
         }
 
-        // Convert assetsBeforeFee to shares using base conversion
-        shares = convertToShares(assetsBeforeFee);
+        shares = super.previewWithdraw(assetsBeforeFee);
 
         return shares;
     }
