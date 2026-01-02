@@ -40,6 +40,25 @@ interface IKeyring {
  * - Redemptions: instant if liquidity available, otherwise queued for solver execution
  * - Users can cancel queued redemption requests anytime
  * @dev This contract is upgradeable using UUPS proxy pattern
+ *
+ * @dev Privileged roles:
+ * - DEFAULT_ADMIN_ROLE: Full administrative control. Can:
+ *   - Upgrade contract implementation (UUPS)
+ *   - Set all configuration parameters (fees, limits, minimums, treasury, Keyring config)
+ *   - Redistribute locked amounts from blacklisted users
+ *   - Grant/revoke all other roles
+ * - GATEKEEPER_ROLE: Emergency controls. Can:
+ *   - Pause/unpause all operations
+ *   - Disable mint and redeem (set max per block to 0)
+ * - COLLATERAL_MANAGER_ROLE: Manages redemption queue execution. Can:
+ *   - Complete queued redemptions (completeRedeem, bulkCompleteRedeem)
+ *   - Acts as "solver" to process escrowed redemption requests when liquidity becomes available
+ * - MINTER_ROLE: Can mint NaraUSD without collateral backing (for incentives, etc.)
+ * - BLACKLIST_MANAGER_ROLE: Can add/remove addresses from blacklist (FULL_RESTRICTED_ROLE)
+ * - FULL_RESTRICTED_ROLE: Restriction status (not a role to grant). Addresses with this role:
+ *   - Cannot transfer tokens (including via transferFrom)
+ *   - Cannot mint or redeem
+ *   - Can have their locked balances redistributed by admin
  */
 contract NaraUSD is
     Initializable,

@@ -9,6 +9,15 @@ import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
  * @title NaraUSDOFT
  * @notice OFT for NaraUSD vault shares on spoke chains
  * @dev This is deployed on spoke chains to represent NaraUSD shares cross-chain
+ *
+ * @dev Privileged roles:
+ * - DEFAULT_ADMIN_ROLE: Full administrative control. Can:
+ *   - Grant/revoke all other roles
+ *   - Manage contract ownership (via Ownable)
+ * - BLACKLIST_MANAGER_ROLE: Can add/remove addresses from blacklist (FULL_RESTRICTED_ROLE)
+ * - FULL_RESTRICTED_ROLE: Restriction status (not a role to grant). Addresses with this role:
+ *   - Cannot transfer tokens (including via transferFrom)
+ *   - Cannot receive tokens
  */
 contract NaraUSDOFT is OFT, AccessControl {
     /* --------------- CONSTANTS --------------- */

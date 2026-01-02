@@ -119,6 +119,13 @@ error AssetOFTNotAllowedInCompose();
  *
  * @custom:security MCT stays on hub chain only, ASSET_OFT is not used for cross-chain
  * @custom:note See MCTOFTAdapter.sol and WHY_MCTOFT_ADAPTER_EXISTS.md for details
+ *
+ * @dev Privileged roles:
+ * - MCT DEFAULT_ADMIN_ROLE: Controls collateral whitelisting. Can:
+ *   - Add/remove collateral assets and their OFTs to/from whitelist
+ *   - Must be the same admin role that manages MCT's supported assets
+ *   - Note: This contract does not define its own roles; it uses MCT's admin role
+ *     to ensure composer whitelist stays synchronized with MCT supported assets
  */
 contract NaraUSDComposer is VaultComposerSync {
     using SafeERC20 for IERC20;
