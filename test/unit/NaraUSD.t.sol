@@ -1531,10 +1531,12 @@ contract NaraUSDTest is TestHelper {
     function test_RevertIf_BlacklistedOperatorUsesTransferFrom() public {
         address carol = makeAddr("carol");
 
-        // Setup: Alice has tokens, gives approval to Carol
+        // Get initial balances (alice and bob have tokens from setup)
+        uint256 aliceBalanceBefore = naraUsd.balanceOf(alice);
+        uint256 bobBalanceBefore = naraUsd.balanceOf(bob);
+
+        // Setup: Alice gives approval to Carol
         vm.startPrank(alice);
-        usdc.approve(address(naraUsd), 1000e6);
-        naraUsd.mintWithCollateral(address(usdc), 1000e6);
         naraUsd.approve(carol, 500e18); // Carol can spend Alice's tokens
         vm.stopPrank();
 
@@ -1549,8 +1551,8 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
 
         // Verify balances unchanged
-        assertEq(naraUsd.balanceOf(alice), 1000e18, "Alice balance should be unchanged");
-        assertEq(naraUsd.balanceOf(bob), 0, "Bob should not have received tokens");
+        assertEq(naraUsd.balanceOf(alice), aliceBalanceBefore, "Alice balance should be unchanged");
+        assertEq(naraUsd.balanceOf(bob), bobBalanceBefore, "Bob balance should be unchanged");
     }
 
     /**
@@ -1559,10 +1561,12 @@ contract NaraUSDTest is TestHelper {
     function test_NonBlacklistedOperatorCanTransferFrom() public {
         address carol = makeAddr("carol");
 
-        // Setup: Alice has tokens, gives approval to Carol
+        // Get initial balances (alice and bob have tokens from setup)
+        uint256 aliceBalanceBefore = naraUsd.balanceOf(alice);
+        uint256 bobBalanceBefore = naraUsd.balanceOf(bob);
+
+        // Setup: Alice gives approval to Carol
         vm.startPrank(alice);
-        usdc.approve(address(naraUsd), 1000e6);
-        naraUsd.mintWithCollateral(address(usdc), 1000e6);
         naraUsd.approve(carol, 500e18); // Carol can spend Alice's tokens
         vm.stopPrank();
 
@@ -1572,8 +1576,8 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
 
         // Verify balances
-        assertEq(naraUsd.balanceOf(alice), 900e18, "Alice balance should decrease");
-        assertEq(naraUsd.balanceOf(bob), 100e18, "Bob should receive tokens");
+        assertEq(naraUsd.balanceOf(alice), aliceBalanceBefore - 100e18, "Alice balance should decrease by 100");
+        assertEq(naraUsd.balanceOf(bob), bobBalanceBefore + 100e18, "Bob balance should increase by 100");
     }
 
     /**
