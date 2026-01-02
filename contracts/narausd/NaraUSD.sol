@@ -642,6 +642,7 @@ contract NaraUSD is
      * @dev Whitelisted addresses bypass Keyring checks (useful for AMM pools, smart contracts)
      */
     function setKeyringWhitelist(address account, bool status) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (account == address(0)) revert ZeroAddressException();
         keyringWhitelist[account] = status;
         emit KeyringWhitelistUpdated(account, status);
     }
@@ -651,6 +652,7 @@ contract NaraUSD is
      * @param target The address to blacklist
      */
     function addToBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
+        if (target == address(0)) revert ZeroAddressException();
         _grantRole(FULL_RESTRICTED_ROLE, target);
     }
 
@@ -659,6 +661,7 @@ contract NaraUSD is
      * @param target The address to un-blacklist
      */
     function removeFromBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) {
+        if (target == address(0)) revert ZeroAddressException();
         _revokeRole(FULL_RESTRICTED_ROLE, target);
     }
 
@@ -672,10 +675,12 @@ contract NaraUSD is
      *      This ensures all funds from a blacklisted user can be recovered/redistributed
      */
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (from == address(0)) revert ZeroAddressException();
         if (!_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
-        if (_isBlacklisted(to)) {
+        // Allow to = address(0) for burning, but otherwise check blacklist
+        if (to != address(0) && _isBlacklisted(to)) {
             revert OperationNotAllowed();
         }
 

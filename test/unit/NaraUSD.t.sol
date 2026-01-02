@@ -2529,4 +2529,60 @@ contract NaraUSDTest is TestHelper {
         naraUsd.setMinRedeemAmount(200e18);
         assertEq(naraUsd.minRedeemAmount(), 200e18);
     }
+
+    /* ========== ISSUE #18: ADDRESS(0) VALIDATION TESTS ========== */
+
+    /**
+     * @notice Test that setKeyringWhitelist reverts for address(0)
+     */
+    function test_RevertIf_SetKeyringWhitelist_ZeroAddress() public {
+        vm.expectRevert(INaraUSD.ZeroAddressException.selector);
+        naraUsd.setKeyringWhitelist(address(0), true);
+    }
+
+    /**
+     * @notice Test that addToBlacklist reverts for address(0)
+     */
+    function test_RevertIf_AddToBlacklist_ZeroAddress() public {
+        vm.expectRevert(INaraUSD.ZeroAddressException.selector);
+        naraUsd.addToBlacklist(address(0));
+    }
+
+    /**
+     * @notice Test that removeFromBlacklist reverts for address(0)
+     */
+    function test_RevertIf_RemoveFromBlacklist_ZeroAddress() public {
+        vm.expectRevert(INaraUSD.ZeroAddressException.selector);
+        naraUsd.removeFromBlacklist(address(0));
+    }
+
+    /**
+     * @notice Test that redistributeLockedAmount reverts when from is address(0)
+     */
+    function test_RevertIf_RedistributeLockedAmount_FromZeroAddress() public {
+        vm.expectRevert(INaraUSD.ZeroAddressException.selector);
+        naraUsd.redistributeLockedAmount(address(0), alice);
+    }
+
+    /**
+     * @notice Test that redistributeLockedAmount allows to = address(0) for burning
+     */
+    function test_RedistributeLockedAmount_BurnToZeroAddress() public {
+        // Setup: Give alice balance first
+        naraUsd.mintWithoutCollateralFor(alice, 100e18);
+
+        uint256 totalSupplyBefore = naraUsd.totalSupply();
+        uint256 aliceBalance = naraUsd.balanceOf(alice);
+        assertGt(aliceBalance, 0);
+
+        // Blacklist alice
+        naraUsd.addToBlacklist(alice);
+
+        // Redistribute to address(0) (burn)
+        naraUsd.redistributeLockedAmount(alice, address(0));
+
+        // Verify burned
+        assertEq(naraUsd.balanceOf(alice), 0, "Alice balance should be 0");
+        assertEq(naraUsd.totalSupply(), totalSupplyBefore - aliceBalance, "Total supply should decrease");
+    }
 }
