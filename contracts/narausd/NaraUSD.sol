@@ -13,6 +13,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../mct/MultiCollateralToken.sol";
 import "./NaraUSDRedeemSilo.sol";
+import "../interfaces/narausd/INaraUSD.sol";
 
 /**
  * @title IKeyring
@@ -47,7 +48,8 @@ contract NaraUSD is
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable,
     PausableUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    INaraUSD
 {
     using SafeERC20 for IERC20;
 
@@ -74,18 +76,10 @@ contract NaraUSD is
     /// @notice Basis points denominator (100% = 10000 bps)
     uint16 public constant BPS_DENOMINATOR = 10000;
 
-    /* --------------- STRUCTS --------------- */
-
-    /// @notice Redemption request structure
-    struct RedemptionRequest {
-        uint152 naraUsdAmount; // Amount of NaraUSD locked for redemption
-        address collateralAsset; // Collateral asset to receive
-    }
-
     /* --------------- STATE VARIABLES --------------- */
 
     /// @notice The MCT token (underlying asset)
-    MultiCollateralToken public mct;
+    IMultiCollateralToken public mct;
 
     /// @notice NaraUSD minted per block
     mapping(uint256 => uint256) public mintedPerBlock;
@@ -109,7 +103,7 @@ contract NaraUSD is
     mapping(address => RedemptionRequest) public redemptionRequests;
 
     /// @notice Silo contract for holding locked NaraUSD during redemption queue
-    NaraUSDRedeemSilo public redeemSilo;
+    INaraUSDRedeemSilo public redeemSilo;
 
     /// @notice Mint fee in basis points (e.g., 10 = 0.1%)
     uint16 public mintFeeBps;
@@ -134,65 +128,6 @@ contract NaraUSD is
 
     /// @notice Mapping to track whitelist status of addresses (for contracts like AMM pools)
     mapping(address => bool) public keyringWhitelist;
-
-    /* --------------- EVENTS --------------- */
-
-    event Mint(
-        address indexed beneficiary,
-        address indexed collateralAsset,
-        uint256 collateralAmount,
-        uint256 naraUsdAmount
-    );
-    event Redeem(
-        address indexed beneficiary,
-        address indexed collateralAsset,
-        uint256 naraUsdAmount,
-        uint256 collateralAmount
-    );
-    event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
-    event MaxRedeemPerBlockChanged(uint256 oldMax, uint256 newMax);
-    event RedemptionRequested(address indexed user, uint256 naraUsdAmount, address indexed collateralAsset);
-    event RedemptionCompleted(
-        address indexed user,
-        uint256 naraUsdAmount,
-        address indexed collateralAsset,
-        uint256 collateralAmount
-    );
-    event RedemptionCancelled(address indexed user, uint256 naraUsdAmount);
-    event MintFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
-    event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
-    event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
-    event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
-    event LockedAmountRedistributed(
-        address indexed from,
-        address indexed to,
-        uint256 walletAmount,
-        uint256 escrowedAmount
-    );
-    event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
-    event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
-    event MinMintFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
-    event MinRedeemFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
-    event KeyringConfigUpdated(address indexed keyringAddress, uint256 policyId);
-    event KeyringWhitelistUpdated(address indexed account, bool status);
-
-    /* --------------- ERRORS --------------- */
-
-    error ZeroAddressException();
-    error InvalidAmount();
-    error UnsupportedAsset();
-    error MaxMintPerBlockExceeded();
-    error MaxRedeemPerBlockExceeded();
-    error CantRenounceOwnership();
-    error NoRedemptionRequest();
-    error ExistingRedemptionRequest();
-    error InvalidFee();
-    error OperationNotAllowed();
-    error CantBlacklistOwner();
-    error BelowMinimumAmount();
-    error KeyringCredentialInvalid(address account);
-    error InsufficientCollateral();
-    error InvalidToken();
 
     /* --------------- MODIFIERS --------------- */
 
@@ -309,8 +244,8 @@ contract NaraUSD is
         __Pausable_init();
         __UUPSUpgradeable_init();
 
-        mct = _mct;
-        redeemSilo = _redeemSilo;
+        mct = IMultiCollateralToken(address(_mct));
+        redeemSilo = INaraUSDRedeemSilo(address(_redeemSilo));
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GATEKEEPER_ROLE, admin);
@@ -974,7 +909,7 @@ contract NaraUSD is
      * @notice Override ERC4626 withdraw - disabled in favor of custom redeem flow
      * @dev Use redeem() with instant/queue logic instead
      */
-    function withdraw(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
+    function withdraw(uint256, address, address) public pure override returns (uint256) {
         revert("Use redeem()");
     }
 
@@ -983,12 +918,12 @@ contract NaraUSD is
      * @dev The ERC4626 redeem(shares, receiver, owner) is replaced by our custom
      *      redeem(collateralAsset, naraUsdAmount, allowQueue) function
      */
-    function redeem(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
+    function redeem(uint256, address, address) public pure override returns (uint256) {
         revert("Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
     }
 
     /// @dev Override decimals to ensure 18 decimals
-    function decimals() public pure override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
+    function decimals() public pure override(ERC20Upgradeable, ERC4626Upgradeable) returns (uint8) {
         return 18;
     }
 
@@ -999,7 +934,7 @@ contract NaraUSD is
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev Fee is calculated on MCT amount, then shares are minted 1:1 with remaining MCT
      */
-    function previewDeposit(uint256 assets) public view override(ERC4626Upgradeable) returns (uint256 shares) {
+    function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
         // First get base conversion using ERC4626 formula
         uint256 baseShares = convertToShares(assets);
 
@@ -1017,7 +952,7 @@ contract NaraUSD is
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev To get 'shares' after fee, we need more MCT assets
      */
-    function previewMint(uint256 shares) public view override(ERC4626Upgradeable) returns (uint256 assets) {
+    function previewMint(uint256 shares) public view override returns (uint256 assets) {
         // Calculate how many shares we need before fee to get 'shares' after fee
         uint256 sharesBeforeFee = shares;
         if (feeTreasury != address(0)) {
@@ -1052,7 +987,7 @@ contract NaraUSD is
      * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
      * @dev Note: Actual redeem fee is on collateral, but for ERC4626 we apply it to MCT (1:1 equivalent)
      */
-    function previewRedeem(uint256 shares) public view override(ERC4626Upgradeable) returns (uint256 assets) {
+    function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
         // First get base conversion using ERC4626 formula
         uint256 baseAssets = convertToAssets(shares);
 
@@ -1070,7 +1005,7 @@ contract NaraUSD is
      * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
      * @dev To get 'assets' after fee, we need to redeem more shares
      */
-    function previewWithdraw(uint256 assets) public view override(ERC4626Upgradeable) returns (uint256 shares) {
+    function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
         // Calculate how many assets we need before fee to get 'assets' after fee
         uint256 assetsBeforeFee = assets;
         if (feeTreasury != address(0)) {
