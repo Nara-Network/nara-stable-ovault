@@ -100,7 +100,12 @@ contract NaraUSD is
     uint256 public minRedeemAmount;
 
     /// @notice Mapping of user addresses to their redemption requests
-    mapping(address => RedemptionRequest) public redemptionRequests;
+    mapping(address => RedemptionRequest) private _redemptionRequests;
+
+    /// @notice Get redemption request for a user
+    function redemptionRequests(address user) public view returns (RedemptionRequest memory) {
+        return _redemptionRequests[user];
+    }
 
     /// @notice Silo contract for holding locked NaraUSD during redemption queue
     INaraUSDRedeemSilo public redeemSilo;
@@ -395,7 +400,7 @@ contract NaraUSD is
      * @dev If liquidity is now available, automatically executes instant redemption instead of keeping queued
      */
     function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
-        RedemptionRequest memory request = redemptionRequests[msg.sender];
+        RedemptionRequest memory request = _redemptionRequests[msg.sender];
 
         if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
         if (newAmount == 0) revert InvalidAmount();
@@ -425,7 +430,7 @@ contract NaraUSD is
             redeemedPerBlock[block.number] += newAmount;
 
             // Clear the queued request first
-            delete redemptionRequests[msg.sender];
+            delete _redemptionRequests[msg.sender];
 
             // Withdraw currently escrowed NaraUSD from silo to this contract
             redeemSilo.withdraw(address(this), currentAmount);
@@ -461,7 +466,7 @@ contract NaraUSD is
             }
 
             // Update stored amount
-            redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
+            _redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
 
             emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
         }
@@ -475,14 +480,14 @@ contract NaraUSD is
             revert OperationNotAllowed();
         }
 
-        RedemptionRequest memory request = redemptionRequests[msg.sender];
+        RedemptionRequest memory request = _redemptionRequests[msg.sender];
 
         if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
 
         uint256 naraUsdAmount = request.naraUsdAmount;
 
         // Clear redemption request
-        delete redemptionRequests[msg.sender];
+        delete _redemptionRequests[msg.sender];
 
         // Return NaraUSD from silo to user
         redeemSilo.withdraw(msg.sender, naraUsdAmount);
@@ -669,12 +674,12 @@ contract NaraUSD is
         }
 
         // Handle escrowed balance in redemption queue
-        RedemptionRequest memory request = redemptionRequests[from];
+        RedemptionRequest memory request = _redemptionRequests[from];
         if (request.naraUsdAmount > 0) {
             escrowedAmount = request.naraUsdAmount;
 
             // Clear the redemption request
-            delete redemptionRequests[from];
+            delete _redemptionRequests[from];
 
             // Withdraw escrowed NaraUSD from silo to this contract
             redeemSilo.withdraw(address(this), escrowedAmount);
@@ -1066,13 +1071,13 @@ contract NaraUSD is
      * @param naraUsdAmount The amount of NaraUSD to lock
      */
     function _queueRedeem(address user, address collateralAsset, uint256 naraUsdAmount) internal {
-        if (redemptionRequests[user].naraUsdAmount > 0) revert ExistingRedemptionRequest();
+        if (_redemptionRequests[user].naraUsdAmount > 0) revert ExistingRedemptionRequest();
 
         // Transfer NaraUSD from user to silo (escrow)
         _transfer(user, address(redeemSilo), naraUsdAmount);
 
         // Record redemption request (valid until completed or cancelled)
-        redemptionRequests[user] = RedemptionRequest({
+        _redemptionRequests[user] = RedemptionRequest({
             naraUsdAmount: uint152(naraUsdAmount),
             collateralAsset: collateralAsset
         });
@@ -1087,7 +1092,7 @@ contract NaraUSD is
      * @return collateralAmount The amount of collateral sent to the user (after fees)
      */
     function _completeRedemption(address user) internal returns (uint256 collateralAmount) {
-        RedemptionRequest memory request = redemptionRequests[user];
+        RedemptionRequest memory request = _redemptionRequests[user];
 
         if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
 
@@ -1109,7 +1114,7 @@ contract NaraUSD is
         redeemedPerBlock[block.number] += naraUsdAmount;
 
         // Clear redemption request
-        delete redemptionRequests[user];
+        delete _redemptionRequests[user];
 
         // Withdraw NaraUSD from silo back to this contract
         redeemSilo.withdraw(address(this), naraUsdAmount);
