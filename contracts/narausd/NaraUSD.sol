@@ -485,6 +485,12 @@ contract NaraUSD is
             revert BelowMinimumAmount();
         }
 
+        // Check blacklist and Keyring compliance (required for all redemption operations)
+        if (_isBlacklisted(msg.sender)) {
+            revert OperationNotAllowed();
+        }
+        _checkKeyringCredential(msg.sender);
+
         address collateralAsset = request.collateralAsset;
         uint256 currentAmount = request.naraUsdAmount;
 
@@ -494,10 +500,6 @@ contract NaraUSD is
 
         if (availableCollateral >= collateralNeeded) {
             // Liquidity available - execute instant redemption
-            if (_isBlacklisted(msg.sender)) {
-                revert OperationNotAllowed();
-            }
-            _checkKeyringCredential(msg.sender);
             _checkBelowMaxRedeemPerBlock(newAmount);
 
             redeemedPerBlock[block.number] += newAmount;

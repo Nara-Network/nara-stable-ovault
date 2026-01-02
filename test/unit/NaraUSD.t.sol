@@ -340,6 +340,215 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
     }
 
+    /* --------------- UPDATE REDEMPTION REQUEST TESTS --------------- */
+
+    /**
+     * @notice Test updating redemption request when still no liquidity (decrease amount)
+     */
+    function test_UpdateRedemptionRequest_DecreaseAmount() public {
+        // Setup: Mint and queue redemption
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Drain liquidity to force queueing
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
+
+        // Queue redemption for 1000e18
+        vm.startPrank(alice);
+        naraUsd.redeem(address(usdc), 1000e18, true);
+        
+        // Update to 500e18 (decrease) - should return 500e18 to alice
+        uint256 aliceBalanceBefore = naraUsd.balanceOf(alice);
+        naraUsd.updateRedemptionRequest(500e18);
+        uint256 aliceBalanceAfter = naraUsd.balanceOf(alice);
+        
+        // Verify alice received the excess back
+        assertEq(aliceBalanceAfter - aliceBalanceBefore, 500e18, "Should receive excess NaraUSD back");
+        
+        // Verify updated request
+        (uint152 amount, ) = naraUsd.redemptionRequests(alice);
+        assertEq(amount, 500e18, "Request should be updated to 500e18");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test updating redemption request when still no liquidity (increase amount)
+     */
+    function test_UpdateRedemptionRequest_IncreaseAmount() public {
+        // Setup: Mint and queue redemption
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 2000e6);
+        naraUsd.mintWithCollateral(address(usdc), 2000e6);
+        vm.stopPrank();
+
+        // Drain liquidity
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
+
+        // Queue redemption for 1000e18
+        vm.startPrank(alice);
+        naraUsd.redeem(address(usdc), 1000e18, true);
+        
+        // Update to 1500e18 (increase) - should transfer 500e18 more to silo
+        uint256 aliceBalanceBefore = naraUsd.balanceOf(alice);
+        naraUsd.updateRedemptionRequest(1500e18);
+        uint256 aliceBalanceAfter = naraUsd.balanceOf(alice);
+        
+        // Verify alice sent more to silo
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, 500e18, "Should send additional NaraUSD to silo");
+        
+        // Verify updated request
+        (uint152 amount, ) = naraUsd.redemptionRequests(alice);
+        assertEq(amount, 1500e18, "Request should be updated to 1500e18");
+        
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test blacklisted user cannot update redemption request
+     * @dev This tests the fix for Issue #07
+     */
+    function test_RevertIf_UpdateRedemptionRequest_Blacklisted() public {
+        // Setup: Mint and queue redemption
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Drain liquidity
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
+
+        // Queue redemption
+        vm.startPrank(alice);
+        naraUsd.redeem(address(usdc), 1000e18, true);
+        vm.stopPrank();
+
+        // Blacklist alice after queuing
+        naraUsd.addToBlacklist(alice);
+
+        // Try to update redemption request (decrease) - should fail
+        vm.startPrank(alice);
+        vm.expectRevert(NaraUSD.OperationNotAllowed.selector);
+        naraUsd.updateRedemptionRequest(500e18);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test user without Keyring credentials cannot update redemption request
+     * @dev This tests the fix for Issue #07
+     */
+    function test_RevertIf_UpdateRedemptionRequest_NoKeyringCredential() public {
+        // Setup keyring
+        MockKeyring keyring = new MockKeyring();
+        naraUsd.setKeyringConfig(address(keyring), 1);
+
+        // Alice has valid credentials initially
+        keyring.setCredential(1, alice, true);
+
+        // Mint and queue redemption
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        vm.stopPrank();
+
+        // Drain liquidity
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
+
+        // Queue redemption
+        vm.startPrank(alice);
+        naraUsd.redeem(address(usdc), 1000e18, true);
+        vm.stopPrank();
+
+        // Revoke alice's credentials
+        keyring.setCredential(1, alice, false);
+
+        // Try to update redemption request - should fail
+        vm.startPrank(alice);
+        vm.expectRevert(abi.encodeWithSelector(NaraUSD.KeyringCredentialInvalid.selector, alice));
+        naraUsd.updateRedemptionRequest(500e18);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test updating to instant redemption when liquidity becomes available
+     */
+    function test_UpdateRedemptionRequest_BecomesInstant() public {
+        // Setup: Mint and queue redemption
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 1000e6);
+        naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        
+        uint256 aliceBalanceAfterMint = naraUsd.balanceOf(alice);
+        vm.stopPrank();
+
+        // Drain liquidity
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
+
+        // Queue redemption
+        vm.startPrank(alice);
+        naraUsd.redeem(address(usdc), 1000e18, true);
+        vm.stopPrank();
+
+        // Restore liquidity
+        usdc.approve(address(mct), 1000e6);
+        mct.depositCollateral(address(usdc), 1000e6);
+
+        // Update request - should execute instantly now
+        vm.startPrank(alice);
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        naraUsd.updateRedemptionRequest(1000e18);
+        uint256 aliceUsdcAfter = usdc.balanceOf(alice);
+
+        // Verify instant redemption happened
+        assertEq(aliceUsdcAfter - aliceUsdcBefore, 1000e6, "Should receive USDC");
+        assertEq(naraUsd.balanceOf(alice), aliceBalanceAfterMint - 1000e18, "1000e18 NaraUSD should be burned");
+
+        // Verify request cleared
+        (uint152 amount, ) = naraUsd.redemptionRequests(alice);
+        assertEq(amount, 0, "Request should be cleared");
+
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test updating to instant redemption with different amount
+     */
+    function test_UpdateRedemptionRequest_BecomesInstantWithChange() public {
+        // Setup: Mint and queue redemption
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 2000e6);
+        naraUsd.mintWithCollateral(address(usdc), 2000e6);
+        
+        uint256 aliceBalanceAfterMint = naraUsd.balanceOf(alice);
+        vm.stopPrank();
+
+        // Drain liquidity
+        mct.withdrawCollateral(address(usdc), mct.collateralBalance(address(usdc)), address(this));
+
+        // Queue redemption for 1000e18
+        vm.startPrank(alice);
+        naraUsd.redeem(address(usdc), 1000e18, true);
+        vm.stopPrank();
+
+        // Restore liquidity
+        usdc.approve(address(mct), 2000e6);
+        mct.depositCollateral(address(usdc), 2000e6);
+
+        // Update to 500e18 (decrease) and execute instantly
+        vm.startPrank(alice);
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        naraUsd.updateRedemptionRequest(500e18);
+        uint256 aliceUsdcAfter = usdc.balanceOf(alice);
+
+        // Verify: 500e18 redeemed for USDC, 500e18 excess returned to wallet
+        assertEq(aliceUsdcAfter - aliceUsdcBefore, 500e6, "Should receive 500 USDC");
+        assertEq(naraUsd.balanceOf(alice), aliceBalanceAfterMint - 500e18, "Should have 500e18 less (500 excess returned, 500 redeemed, 1000 initially queued)");
+
+        vm.stopPrank();
+    }
+
     /**
      * @notice Test rate limiting on minting
      */
