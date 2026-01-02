@@ -105,9 +105,6 @@ contract NaraUSD is
     /// @notice Minimum NaraUSD amount required for redemption (18 decimals)
     uint256 public minRedeemAmount;
 
-    /// @notice Delegated signer status for smart contracts
-    mapping(address => mapping(address => DelegatedSignerStatus)) public delegatedSigner;
-
     /// @notice Mapping of user addresses to their redemption requests
     mapping(address => RedemptionRequest) public redemptionRequests;
 
@@ -138,14 +135,6 @@ contract NaraUSD is
     /// @notice Mapping to track whitelist status of addresses (for contracts like AMM pools)
     mapping(address => bool) public keyringWhitelist;
 
-    /* --------------- ENUMS --------------- */
-
-    enum DelegatedSignerStatus {
-        REJECTED,
-        PENDING,
-        ACCEPTED
-    }
-
     /* --------------- EVENTS --------------- */
 
     event Mint(
@@ -162,9 +151,6 @@ contract NaraUSD is
     );
     event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
     event MaxRedeemPerBlockChanged(uint256 oldMax, uint256 newMax);
-    event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
-    event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
-    event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
     event RedemptionRequested(address indexed user, uint256 naraUsdAmount, address indexed collateralAsset);
     event RedemptionCompleted(
         address indexed user,
@@ -197,8 +183,6 @@ contract NaraUSD is
     error UnsupportedAsset();
     error MaxMintPerBlockExceeded();
     error MaxRedeemPerBlockExceeded();
-    error InvalidSignature();
-    error DelegationNotInitiated();
     error CantRenounceOwnership();
     error NoRedemptionRequest();
     error ExistingRedemptionRequest();
@@ -356,25 +340,7 @@ contract NaraUSD is
         address collateralAsset,
         uint256 collateralAmount
     ) external nonReentrant whenNotPaused returns (uint256 naraUsdAmount) {
-        return _mintWithCollateral(collateralAsset, collateralAmount, msg.sender);
-    }
-
-    /**
-     * @notice Mint NaraUSD on behalf of a beneficiary
-     * @param collateralAsset The collateral asset to deposit
-     * @param collateralAmount The amount of collateral to deposit
-     * @param beneficiary The address to receive minted NaraUSD
-     * @return naraUsdAmount The amount of NaraUSD minted
-     */
-    function mintWithCollateralFor(
-        address collateralAsset,
-        uint256 collateralAmount,
-        address beneficiary
-    ) external nonReentrant whenNotPaused returns (uint256 naraUsdAmount) {
-        if (delegatedSigner[msg.sender][beneficiary] != DelegatedSignerStatus.ACCEPTED) {
-            revert InvalidSignature();
-        }
-        return _mintWithCollateral(collateralAsset, collateralAmount, beneficiary);
+        return _mintWithCollateral(collateralAsset, collateralAmount);
     }
 
     /**
@@ -383,10 +349,29 @@ contract NaraUSD is
      * @param amount The amount of NaraUSD to mint
      * @dev Intended for protocol-controlled operations such as incentive programs
      */
-    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused {
+    function mintWithoutCollateral(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused {
         if (to == address(0)) revert ZeroAddressException();
         if (amount == 0) revert InvalidAmount();
         _mint(to, amount);
+
+        // Mint corresponding MCT to maintain 1:1 backing
+        mct.mintWithoutCollateral(address(this), amount);
+    }
+
+    /**
+     * @notice Mint NaraUSD without collateral backing for a specific beneficiary (admin-controlled)
+     * @param beneficiary The address to receive freshly minted NaraUSD
+     * @param amount The amount of NaraUSD to mint
+     * @dev Alias for mint() with more explicit naming to clarify this is unbacked minting
+     * @dev Intended for protocol-controlled operations such as incentive programs
+     */
+    function mintWithoutCollateralFor(
+        address beneficiary,
+        uint256 amount
+    ) external onlyRole(MINTER_ROLE) whenNotPaused {
+        if (beneficiary == address(0)) revert ZeroAddressException();
+        if (amount == 0) revert InvalidAmount();
+        _mint(beneficiary, amount);
 
         // Mint corresponding MCT to maintain 1:1 backing
         mct.mintWithoutCollateral(address(this), amount);
@@ -809,38 +794,6 @@ contract NaraUSD is
         mct.burn(amount);
     }
 
-    /* --------------- DELEGATED SIGNER FUNCTIONS --------------- */
-
-    /**
-     * @notice Enable smart contracts to delegate signing
-     * @param _delegateTo The address to delegate to
-     */
-    function setDelegatedSigner(address _delegateTo) external {
-        delegatedSigner[_delegateTo][msg.sender] = DelegatedSignerStatus.PENDING;
-        emit DelegatedSignerInitiated(_delegateTo, msg.sender);
-    }
-
-    /**
-     * @notice Confirm delegation
-     * @param _delegatedBy The address that initiated delegation
-     */
-    function confirmDelegatedSigner(address _delegatedBy) external {
-        if (delegatedSigner[msg.sender][_delegatedBy] != DelegatedSignerStatus.PENDING) {
-            revert DelegationNotInitiated();
-        }
-        delegatedSigner[msg.sender][_delegatedBy] = DelegatedSignerStatus.ACCEPTED;
-        emit DelegatedSignerAdded(msg.sender, _delegatedBy);
-    }
-
-    /**
-     * @notice Remove delegated signer
-     * @param _removedSigner The address to remove
-     */
-    function removeDelegatedSigner(address _removedSigner) external {
-        delegatedSigner[_removedSigner][msg.sender] = DelegatedSignerStatus.REJECTED;
-        emit DelegatedSignerRemoved(_removedSigner, msg.sender);
-    }
-
     /* --------------- INTERNAL --------------- */
 
     /**
@@ -881,24 +834,21 @@ contract NaraUSD is
      * @notice Internal mint logic with collateral
      * @param collateralAsset The collateral asset
      * @param collateralAmount The amount of collateral
-     * @param beneficiary The address to receive NaraUSD
      * @return naraUsdAmount The amount of NaraUSD minted
      */
     function _mintWithCollateral(
         address collateralAsset,
-        uint256 collateralAmount,
-        address beneficiary
+        uint256 collateralAmount
     ) internal returns (uint256 naraUsdAmount) {
         if (collateralAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
-        if (beneficiary == address(0)) revert ZeroAddressException();
 
         // Check blacklist restrictions (full restriction prevents minting)
-        if (_isBlacklisted(msg.sender) || _isBlacklisted(beneficiary)) {
+        if (_isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
 
-        // Check Keyring credentials for sender only
+        // Check Keyring credentials
         _checkKeyringCredential(msg.sender);
 
         // Convert collateral to NaraUSD amount (normalize decimals)
@@ -915,8 +865,8 @@ contract NaraUSD is
         // Track minted amount (using 18-decimal NaraUSD amount)
         mintedPerBlock[block.number] += naraUsdAmount;
 
-        // Transfer collateral from user to this contract
-        IERC20(collateralAsset).safeTransferFrom(beneficiary, address(this), collateralAmount);
+        // Transfer collateral from caller to this contract
+        IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), collateralAmount);
 
         // Calculate mint fee on collateral amount (convert to 18 decimals for fee calculation)
         uint256 collateralAmount18 = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
@@ -941,12 +891,12 @@ contract NaraUSD is
         // Mint MCT by depositing remaining collateral
         uint256 mctAmount = mct.mint(collateralAsset, collateralForMinting, address(this));
 
-        // Mint NaraUSD shares to beneficiary (1:1 with MCT)
-        _mint(beneficiary, mctAmount);
+        // Mint NaraUSD shares to msg.sender (1:1 with MCT)
+        _mint(msg.sender, mctAmount);
 
-        emit Mint(beneficiary, collateralAsset, collateralAmount, mctAmount);
+        emit Mint(msg.sender, collateralAsset, collateralAmount, mctAmount);
 
-        // Return the actual amount minted to beneficiary (after fees)
+        // Return the actual amount minted (after fees)
         return mctAmount;
     }
 

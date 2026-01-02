@@ -9,14 +9,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
  * @notice Interface for the NaraUSD contract
  */
 interface INaraUSD is IERC4626, IERC20Permit {
-    /* --------------- ENUMS --------------- */
-
-    enum DelegatedSignerStatus {
-        REJECTED,
-        PENDING,
-        ACCEPTED
-    }
-
     /* --------------- EVENTS --------------- */
 
     event Mint(
@@ -33,9 +25,6 @@ interface INaraUSD is IERC4626, IERC20Permit {
     );
     event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
     event MaxRedeemPerBlockChanged(uint256 oldMax, uint256 newMax);
-    event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
-    event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
-    event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
     event RedemptionRequested(
         address indexed user,
@@ -99,19 +88,6 @@ interface INaraUSD is IERC4626, IERC20Permit {
     function mintWithCollateral(
         address collateralAsset,
         uint256 collateralAmount
-    ) external returns (uint256 naraUsdAmount);
-
-    /**
-     * @notice Mint NaraUSD on behalf of a beneficiary
-     * @param collateralAsset The collateral asset to deposit
-     * @param collateralAmount The amount of collateral to deposit
-     * @param beneficiary The address to receive minted NaraUSD
-     * @return naraUsdAmount The amount of NaraUSD minted
-     */
-    function mintWithCollateralFor(
-        address collateralAsset,
-        uint256 collateralAmount,
-        address beneficiary
     ) external returns (uint256 naraUsdAmount);
 
     /**
@@ -265,31 +241,20 @@ interface INaraUSD is IERC4626, IERC20Permit {
      * @param to The recipient of newly minted NaraUSD
      * @param amount The amount to mint
      */
-    function mint(address to, uint256 amount) external;
+    function mintWithoutCollateral(address to, uint256 amount) external;
+
+    /**
+     * @notice Mint NaraUSD without collateral backing for a specific beneficiary (admin-controlled)
+     * @param beneficiary The address to receive freshly minted NaraUSD
+     * @param amount The amount of NaraUSD to mint
+     */
+    function mintWithoutCollateralFor(address beneficiary, uint256 amount) external;
 
     /**
      * @notice Burn NaraUSD and underlying MCT without withdrawing collateral
      * @param amount The amount to burn (from msg.sender)
      */
     function burn(uint256 amount) external;
-
-    /**
-     * @notice Enable smart contracts to delegate signing
-     * @param _delegateTo The address to delegate to
-     */
-    function setDelegatedSigner(address _delegateTo) external;
-
-    /**
-     * @notice Confirm delegation
-     * @param _delegatedBy The address that initiated delegation
-     */
-    function confirmDelegatedSigner(address _delegatedBy) external;
-
-    /**
-     * @notice Remove delegated signer
-     * @param _removedSigner The address to remove
-     */
-    function removeDelegatedSigner(address _removedSigner) external;
 
     /* --------------- VIEW FUNCTIONS --------------- */
 
@@ -324,14 +289,6 @@ interface INaraUSD is IERC4626, IERC20Permit {
      * @return uint256 The max redeem per block
      */
     function maxRedeemPerBlock() external view returns (uint256);
-
-    /**
-     * @notice Get delegated signer status
-     * @param signer The signer address
-     * @param delegatedBy The address that delegated
-     * @return DelegatedSignerStatus The status
-     */
-    function delegatedSigner(address signer, address delegatedBy) external view returns (DelegatedSignerStatus);
 
     /**
      * @notice Get cooldown duration
