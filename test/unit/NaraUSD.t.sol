@@ -731,6 +731,75 @@ contract NaraUSDTest is TestHelper {
     }
 
     /**
+     * @notice Test that mintedPerBlock tracks post-fee amount (Issue #11)
+     * @dev Verifies that per-block tracking uses actual minted amount, not pre-fee amount
+     */
+    function test_MaxMintPerBlock_TracksPostFeeAmount() public {
+        // Set up 10% mint fee
+        address treasury = makeAddr("treasury");
+        naraUsd.setFeeTreasury(treasury);
+        naraUsd.setMintFee(1000); // 10% fee (1000 bps)
+
+        // Set limit to 1000e18 NaraUSD per block
+        naraUsd.setMaxMintPerBlock(1000e18);
+
+        vm.startPrank(alice);
+
+        // Mint with 1000 USDC
+        // Pre-fee: 1000e18 NaraUSD
+        // After 10% fee: 900e18 NaraUSD actually minted
+        usdc.approve(address(naraUsd), 1000e6);
+        uint256 minted = naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        assertEq(minted, 900e18, "Should mint 900e18 after 10% fee");
+
+        // Verify tracking uses post-fee amount (900e18, not 1000e18)
+        assertEq(naraUsd.mintedPerBlock(block.number), 900e18, "Should track actual minted amount (post-fee)");
+
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that with fees, more gross collateral can be deposited per block
+     * @dev Verifies the fix allows proper limit calculation based on actual minting
+     */
+    function test_MaxMintPerBlock_WithFees_AllowsMoreDeposits() public {
+        // Set up 10% mint fee
+        address treasury = makeAddr("treasury");
+        naraUsd.setFeeTreasury(treasury);
+        naraUsd.setMintFee(1000); // 10% fee
+
+        // Set limit to 900e18 actual minted NaraUSD per block
+        naraUsd.setMaxMintPerBlock(900e18);
+
+        vm.startPrank(alice);
+
+        // Deposit 500 USDC -> 450e18 minted (after 10% fee)
+        usdc.approve(address(naraUsd), 500e6);
+        uint256 minted1 = naraUsd.mintWithCollateral(address(usdc), 500e6);
+        assertEq(minted1, 450e18, "Should mint 450e18");
+
+        // Deposit another 500 USDC -> 450e18 minted (after 10% fee)
+        // Total minted: 900e18 (exactly at limit)
+        // Total deposited: 1000 USDC (but only 900 actually minted)
+        usdc.approve(address(naraUsd), 500e6);
+        uint256 minted2 = naraUsd.mintWithCollateral(address(usdc), 500e6);
+        assertEq(minted2, 450e18, "Should mint another 450e18");
+
+        // Verify we hit exactly the limit with actual minted amounts
+        assertEq(naraUsd.mintedPerBlock(block.number), 900e18, "Should track 900e18 total");
+
+        // Try to mint more - should fail
+        usdc.approve(address(naraUsd), 100e6);
+        vm.expectRevert(NaraUSD.MaxMintPerBlockExceeded.selector);
+        naraUsd.mintWithCollateral(address(usdc), 100e6);
+
+        vm.stopPrank();
+
+        // Verify total fees collected
+        assertEq(usdc.balanceOf(treasury), 100e6, "Treasury should have 100 USDC in fees (10% of 1000)");
+    }
+
+    /**
      * @notice Test minting without collateral (admin function)
      */
     function test_MintWithoutCollateral() public {
@@ -1785,7 +1854,7 @@ contract NaraUSDTest is TestHelper {
         // This should succeed
         usdc.approve(address(naraUsd), 100e6);
         uint256 minted = naraUsd.mintWithCollateral(address(usdc), 100e6);
-        
+
         assertEq(minted, 90e18, "Should mint 90 NaraUSD after 10% fee");
         assertEq(usdc.balanceOf(treasury), 10e6, "Treasury should receive 10 USDC fee");
 

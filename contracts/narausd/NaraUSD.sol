@@ -854,18 +854,20 @@ contract NaraUSD is
         // Convert collateral to NaraUSD amount (normalize decimals)
         naraUsdAmount = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
 
-        // Check per-block mint limit (using 18-decimal NaraUSD amount)
-        _checkBelowMaxMintPerBlock(naraUsdAmount);
+        // Calculate mint fee to determine actual mint amount
+        uint256 feeAmount18 = _calculateMintFee(naraUsdAmount);
+        uint256 expectedMintAmount = naraUsdAmount - feeAmount18;
 
-        // Track minted amount (using 18-decimal NaraUSD amount)
-        mintedPerBlock[block.number] += naraUsdAmount;
+        // Check per-block mint limit using post-fee amount (actual amount that will be minted)
+        _checkBelowMaxMintPerBlock(expectedMintAmount);
+
+        // Track minted amount using post-fee amount (actual circulating supply increase)
+        mintedPerBlock[block.number] += expectedMintAmount;
 
         // Transfer collateral from caller to this contract
         IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), collateralAmount);
 
-        // Calculate mint fee on collateral amount (convert to 18 decimals for fee calculation)
-        uint256 collateralAmount18 = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
-        uint256 feeAmount18 = _calculateMintFee(collateralAmount18);
+        // Calculate collateral amounts after fee
         uint256 collateralAfterFee = collateralAmount;
         uint256 collateralForMinting = collateralAmount;
 
