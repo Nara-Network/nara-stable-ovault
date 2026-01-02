@@ -177,7 +177,12 @@ contract NaraUSD is
     event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
-    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 walletAmount, uint256 escrowedAmount);
+    event LockedAmountRedistributed(
+        address indexed from,
+        address indexed to,
+        uint256 walletAmount,
+        uint256 escrowedAmount
+    );
     event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event MinMintFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
@@ -881,7 +886,7 @@ contract NaraUSD is
         address collateralAsset,
         uint256 collateralAmount,
         address beneficiary
-    ) internal belowMaxMintPerBlock(collateralAmount) returns (uint256 naraUsdAmount) {
+    ) internal returns (uint256 naraUsdAmount) {
         if (collateralAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
         if (beneficiary == address(0)) revert ZeroAddressException();
@@ -902,7 +907,10 @@ contract NaraUSD is
             revert BelowMinimumAmount();
         }
 
-        // Track minted amount
+        // Check per-block mint limit (using 18-decimal NaraUSD amount)
+        _checkBelowMaxMintPerBlock(naraUsdAmount);
+
+        // Track minted amount (using 18-decimal NaraUSD amount)
         mintedPerBlock[block.number] += naraUsdAmount;
 
         // Transfer collateral from user to this contract

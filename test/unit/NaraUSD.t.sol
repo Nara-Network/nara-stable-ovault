@@ -371,6 +371,115 @@ contract NaraUSDTest is TestHelper {
     }
 
     /**
+     * @notice Test that maxMintPerBlock is enforced correctly across different decimal collaterals
+     * @dev This tests the fix for Issue #06 - ensures the limit is enforced in 18-decimal NaraUSD units
+     */
+    function test_MaxMintPerBlock_ConsistentAcrossDecimals() public {
+        // Set limit to 1000e18 NaraUSD per block
+        naraUsd.setMaxMintPerBlock(1000e18);
+
+        vm.startPrank(alice);
+
+        // Mint 500 NaraUSD with USDC (6 decimals)
+        usdc.approve(address(naraUsd), 500e6);
+        uint256 naraUsdFromUsdc = naraUsd.mintWithCollateral(address(usdc), 500e6);
+        assertEq(naraUsdFromUsdc, 500e18, "Should mint 500e18 NaraUSD from 500e6 USDC");
+
+        // Mint 500 NaraUSD with USDT (6 decimals) - should succeed (total = 1000e18)
+        usdt.approve(address(naraUsd), 500e6);
+        uint256 naraUsdFromUsdt = naraUsd.mintWithCollateral(address(usdt), 500e6);
+        assertEq(naraUsdFromUsdt, 500e18, "Should mint 500e18 NaraUSD from 500e6 USDT");
+
+        // Try to mint more - should fail because we've hit the 1000e18 limit
+        usdc.approve(address(naraUsd), 100e6);
+        vm.expectRevert(NaraUSD.MaxMintPerBlockExceeded.selector);
+        naraUsd.mintWithCollateral(address(usdc), 100e6);
+
+        vm.stopPrank();
+
+        // Verify the tracked amount is in 18 decimals
+        assertEq(naraUsd.mintedPerBlock(block.number), 1000e18, "Should track 1000e18 total minted");
+    }
+
+    /**
+     * @notice Test that decimal conversion is correct for per-block limit
+     * @dev Verifies small amounts with 6-decimal collateral are properly converted
+     */
+    function test_MaxMintPerBlock_SmallAmounts() public {
+        // Set limit to 10e18 NaraUSD per block (very small for testing)
+        naraUsd.setMaxMintPerBlock(10e18);
+
+        vm.startPrank(alice);
+
+        // Mint 5 NaraUSD with USDC (5e6 in 6 decimals)
+        usdc.approve(address(naraUsd), 5e6);
+        naraUsd.mintWithCollateral(address(usdc), 5e6);
+
+        // Mint another 5 NaraUSD - should succeed (total = 10e18)
+        usdc.approve(address(naraUsd), 5e6);
+        naraUsd.mintWithCollateral(address(usdc), 5e6);
+
+        // Try to mint 1 more - should fail
+        usdc.approve(address(naraUsd), 1e6);
+        vm.expectRevert(NaraUSD.MaxMintPerBlockExceeded.selector);
+        naraUsd.mintWithCollateral(address(usdc), 1e6);
+
+        vm.stopPrank();
+
+        // Verify exact tracking
+        assertEq(naraUsd.mintedPerBlock(block.number), 10e18, "Should track exactly 10e18");
+    }
+
+    /**
+     * @notice Test that minting with different users in same block counts toward same limit
+     */
+    function test_MaxMintPerBlock_MultipleUsers() public {
+        naraUsd.setMaxMintPerBlock(1000e18);
+
+        // Alice mints 600e18
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 600e6);
+        naraUsd.mintWithCollateral(address(usdc), 600e6);
+        vm.stopPrank();
+
+        // Bob mints 400e18 - should succeed (total = 1000e18)
+        vm.startPrank(bob);
+        usdc.approve(address(naraUsd), 400e6);
+        naraUsd.mintWithCollateral(address(usdc), 400e6);
+        vm.stopPrank();
+
+        // Alice tries to mint more - should fail
+        vm.startPrank(alice);
+        usdc.approve(address(naraUsd), 100e6);
+        vm.expectRevert(NaraUSD.MaxMintPerBlockExceeded.selector);
+        naraUsd.mintWithCollateral(address(usdc), 100e6);
+        vm.stopPrank();
+
+        assertEq(naraUsd.mintedPerBlock(block.number), 1000e18, "Should track 1000e18 total");
+    }
+
+    /**
+     * @notice Test edge case: minting exactly at the limit
+     */
+    function test_MaxMintPerBlock_ExactLimit() public {
+        naraUsd.setMaxMintPerBlock(1000e18);
+
+        vm.startPrank(alice);
+
+        // Mint exactly 1000e18 in one transaction - should succeed
+        usdc.approve(address(naraUsd), 1000e6);
+        uint256 minted = naraUsd.mintWithCollateral(address(usdc), 1000e6);
+        assertEq(minted, 1000e18, "Should mint exactly at limit");
+
+        // Try to mint any more - should fail
+        usdc.approve(address(naraUsd), 1);
+        vm.expectRevert(NaraUSD.MaxMintPerBlockExceeded.selector);
+        naraUsd.mintWithCollateral(address(usdc), 1);
+
+        vm.stopPrank();
+    }
+
+    /**
      * @notice Test minting without collateral (admin function)
      */
     function test_MintWithoutCollateral() public {
