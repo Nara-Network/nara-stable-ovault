@@ -298,4 +298,95 @@ contract NaraUSDComposerTest is TestHelper {
         assertEq(decoded.minAmountLD, 95e18, "minAmountLD should match");
         assertEq(decodedMsgValue, minMsgValue, "minMsgValue should match");
     }
+
+    /**
+     * @notice Test addWhitelistedCollateral reverts with zero address for asset
+     */
+    function test_RevertIf_AddWhitelistedCollateral_ZeroAddressAsset() public {
+        _switchToHub();
+
+        MockERC20 newToken = new MockERC20("New", "NEW", 6);
+
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddressException()"));
+        naraUsdComposer.addWhitelistedCollateral(address(0), address(newToken));
+    }
+
+    /**
+     * @notice Test addWhitelistedCollateral reverts with zero address for assetOft
+     */
+    function test_RevertIf_AddWhitelistedCollateral_ZeroAddressOFT() public {
+        _switchToHub();
+
+        MockERC20 newToken = new MockERC20("New", "NEW", 6);
+
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddressException()"));
+        naraUsdComposer.addWhitelistedCollateral(address(newToken), address(0));
+    }
+
+    /**
+     * @notice Test addWhitelistedCollateral reverts when OFT is already mapped to different asset
+     */
+    function test_RevertIf_AddWhitelistedCollateral_OFTAlreadyMapped() public {
+        _switchToHub();
+
+        // USDC is already mapped to itself
+        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(usdc)), "USDC should be whitelisted");
+        assertEq(naraUsdComposer.oftToCollateral(address(usdc)), address(usdc), "USDC OFT should map to USDC");
+
+        // Try to add a different asset with the same OFT
+        MockERC20 newToken = new MockERC20("New", "NEW", 6);
+
+        vm.expectRevert(abi.encodeWithSignature("OFTAlreadyMapped(address,address)", address(usdc), address(usdc)));
+        naraUsdComposer.addWhitelistedCollateral(address(newToken), address(usdc));
+    }
+
+    /**
+     * @notice Test addWhitelistedCollateral succeeds with valid new collateral
+     */
+    function test_AddWhitelistedCollateral_Success() public {
+        _switchToHub();
+
+        MockERC20 newCollateral = new MockERC20("NewCoin", "NEWC", 6);
+        MockERC20 newOFT = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
+
+        // Initial state
+        assertFalse(
+            naraUsdComposer.isCollateralWhitelisted(address(newCollateral)),
+            "NewCoin should not be whitelisted yet"
+        );
+
+        // Add new collateral
+        naraUsdComposer.addWhitelistedCollateral(address(newCollateral), address(newOFT));
+
+        // Verify state
+        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(newCollateral)), "NewCoin should be whitelisted");
+        assertEq(
+            naraUsdComposer.collateralToOft(address(newCollateral)),
+            address(newOFT),
+            "NewCoin should map to NewOFT"
+        );
+        assertEq(
+            naraUsdComposer.oftToCollateral(address(newOFT)),
+            address(newCollateral),
+            "NewOFT should map to NewCoin"
+        );
+
+        // Verify approval was set
+        uint256 allowance = newCollateral.allowance(address(naraUsdComposer), address(newOFT));
+        assertEq(allowance, type(uint256).max, "Should approve max allowance for new collateral");
+    }
+
+    /**
+     * @notice Test addWhitelistedCollateral reverts if caller is not admin
+     */
+    function test_RevertIf_AddWhitelistedCollateral_NotAdmin() public {
+        _switchToHub();
+
+        MockERC20 newCollateral = new MockERC20("NewCoin", "NEWC", 6);
+        MockERC20 newOFT = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
+
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSignature("Unauthorized()"));
+        naraUsdComposer.addWhitelistedCollateral(address(newCollateral), address(newOFT));
+    }
 }

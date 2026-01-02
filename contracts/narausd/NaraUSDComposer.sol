@@ -53,6 +53,12 @@ error CollateralOFTNotWhitelisted(address oft);
 /// @notice Error thrown when msg.value is sent for a local transfer that doesn't require fees
 error NoMsgValueExpected();
 
+/// @notice Error thrown when address(0) is provided as parameter
+error ZeroAddressException();
+
+/// @notice Error thrown when OFT is already mapped to a different collateral asset
+error OFTAlreadyMapped(address oft, address existingAsset);
+
 /**
  * @title NaraUSDComposer
  * @notice Composer that enables cross-chain NaraUSD minting and redemption via collateral deposits
@@ -154,6 +160,16 @@ contract NaraUSDComposer is VaultComposerSync {
         bytes32 adminRole = IMCT(mct).defaultAdminRole();
         if (!IMCT(mct).hasRole(adminRole, msg.sender)) {
             revert Unauthorized();
+        }
+
+        if (asset == address(0) || assetOft == address(0)) {
+            revert ZeroAddressException();
+        }
+
+        // Check if OFT is already mapped to a different asset
+        address existingAsset = oftToCollateral[assetOft];
+        if (existingAsset != address(0) && existingAsset != asset) {
+            revert OFTAlreadyMapped(assetOft, existingAsset);
         }
 
         if (!_whitelistedCollaterals.add(asset)) {
