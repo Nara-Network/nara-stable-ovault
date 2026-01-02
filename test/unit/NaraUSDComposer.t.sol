@@ -336,6 +336,11 @@ contract NaraUSDComposerTest is TestHelper {
         // Try to add a different asset with the same OFT
         MockERC20 newToken = new MockERC20("New", "NEW", 6);
 
+        // First add newToken to MCT's supported assets (required before composer can check OFT mapping)
+        mct.addSupportedAsset(address(newToken));
+        assertTrue(mct.isSupportedAsset(address(newToken)), "NewToken should be supported by MCT");
+
+        // Now try to add with already-mapped OFT - should revert
         vm.expectRevert(abi.encodeWithSignature("OFTAlreadyMapped(address,address)", address(usdc), address(usdc)));
         naraUsdComposer.addWhitelistedCollateral(address(newToken), address(usdc));
     }
