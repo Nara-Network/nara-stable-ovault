@@ -2652,7 +2652,7 @@ contract NaraUSDTest is TestHelper {
 
         // Verify alice received collateral
         assertGt(usdc.balanceOf(alice), aliceUsdcBefore, "Alice should receive USDC");
-        
+
         // Verify redemption request cleared
         INaraUSD.RedemptionRequest memory req = naraUsd.redemptionRequests(alice);
         assertEq(req.naraUsdAmount, 0, "Redemption request should be cleared");

@@ -326,6 +326,8 @@ contract NaraUSD is
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
+     * @dev The minRedeemAmount check is enforced only at request creation time.
+     *      Queued requests are "grandfathered" and will complete even if minRedeemAmount is increased later.
      */
     function redeem(
         address collateralAsset,
@@ -585,6 +587,8 @@ contract NaraUSD is
     /**
      * @notice Set minimum redeem amount
      * @param _minRedeemAmount New minimum redeem amount (18 decimals)
+     * @dev Note: Increasing this value will NOT invalidate existing queued redemption requests.
+     *      Queued requests below the new minimum will remain valid and can still be completed.
      */
     function setMinRedeemAmount(uint256 _minRedeemAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
@@ -1099,6 +1103,10 @@ contract NaraUSD is
     /**
      * @notice Internal helper to complete a single redemption
      * @dev Reverts if the request does not exist
+     * @dev Note: Queued redemption requests are NOT re-validated against the current minRedeemAmount.
+     *      The minimum amount check is enforced only at request creation time in redeem().
+     *      This means if governance increases minRedeemAmount after requests are queued,
+     *      those legacy requests below the new minimum can still be completed ("grandfathered").
      * @param user The address whose redemption request should be completed
      * @return collateralAmount The amount of collateral sent to the user (after fees)
      */
