@@ -50,6 +50,9 @@ error CollateralNotWhitelisted(address collateral);
 /// @notice Error thrown when collateral OFT is not whitelisted for compose
 error CollateralOFTNotWhitelisted(address oft);
 
+/// @notice Error thrown when msg.value is sent for a local transfer that doesn't require fees
+error NoMsgValueExpected();
+
 /**
  * @title NaraUSDComposer
  * @notice Composer that enables cross-chain NaraUSD minting and redemption via collateral deposits
@@ -321,12 +324,22 @@ contract NaraUSDComposer is VaultComposerSync {
 
         _assertSlippage(collateralAmount, _sendParam.minAmountLD);
 
-        // Prepare send param for collateral
-        _sendParam.amountLD = collateralAmount;
-        _sendParam.minAmountLD = 0;
-
-        // Send collateral cross-chain via collateral OFT
-        _send(collateralOft, _sendParam, _refundAddress);
+        // Handle local sends differently to avoid base VaultComposerSync._send limitation
+        // Base _send only handles ASSET_OFT and SHARE_OFT for local sends, not collateral OFTs
+        if (_sendParam.dstEid == VAULT_EID) {
+            // Local send (same chain as vault) - transfer collateral ERC20 directly to recipient
+            if (msg.value > 0) revert NoMsgValueExpected();
+            SafeERC20.safeTransfer(
+                IERC20(_collateralAsset),
+                OFTComposeMsgCodec.bytes32ToAddress(_sendParam.to),
+                collateralAmount
+            );
+        } else {
+            // Cross-chain send - use OFT
+            _sendParam.amountLD = collateralAmount;
+            _sendParam.minAmountLD = 0;
+            _send(collateralOft, _sendParam, _refundAddress);
+        }
     }
 
     /**
