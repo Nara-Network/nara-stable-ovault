@@ -2018,7 +2018,6 @@ contract NaraUSDTest is TestHelper {
         vm.stopPrank();
     }
 
-
     /**
      * @notice Test only admin can set Keyring config
      */
