@@ -2383,4 +2383,150 @@ contract NaraUSDTest is TestHelper {
         assertFalse(naraUsd.hasValidCredentials(bob), "Bob can check his own credentials");
         vm.stopPrank();
     }
+
+    /* ========== ISSUE #17: FEE/AMOUNT VALIDATION TESTS ========== */
+
+    /**
+     * @notice Test that setMinMintFeeAmount reverts when fee >= minMintAmount
+     */
+    function test_RevertIf_MinMintFeeAmount_ExceedsMinMintAmount() public {
+        // First set minMintAmount to 100e18
+        naraUsd.setMinMintAmount(100e18);
+
+        // Try to set minMintFeeAmount to 100e18 (equal) - should revert
+        vm.expectRevert(INaraUSD.InvalidFee.selector);
+        naraUsd.setMinMintFeeAmount(100e18);
+
+        // Try to set minMintFeeAmount to 150e18 (greater) - should revert
+        vm.expectRevert(INaraUSD.InvalidFee.selector);
+        naraUsd.setMinMintFeeAmount(150e18);
+    }
+
+    /**
+     * @notice Test that setMinMintAmount reverts when amount <= minMintFeeAmount
+     */
+    function test_RevertIf_MinMintAmount_BelowMinMintFeeAmount() public {
+        // First set minMintFeeAmount to 50e18
+        naraUsd.setMinMintFeeAmount(50e18);
+
+        // Try to set minMintAmount to 50e18 (equal) - should revert
+        vm.expectRevert(INaraUSD.InvalidFee.selector);
+        naraUsd.setMinMintAmount(50e18);
+
+        // Try to set minMintAmount to 30e18 (less) - should revert
+        vm.expectRevert(INaraUSD.InvalidFee.selector);
+        naraUsd.setMinMintAmount(30e18);
+    }
+
+    /**
+     * @notice Test that minMintFeeAmount can be set when minMintAmount is 0
+     */
+    function test_MinMintFeeAmount_AllowedWhenMinMintAmountIsZero() public {
+        // minMintAmount is 0 by default
+        assertEq(naraUsd.minMintAmount(), 0);
+
+        // Should be able to set any minMintFeeAmount
+        naraUsd.setMinMintFeeAmount(100e18);
+        assertEq(naraUsd.minMintFeeAmount(), 100e18);
+    }
+
+    /**
+     * @notice Test that minMintAmount can be set when minMintFeeAmount is 0
+     */
+    function test_MinMintAmount_AllowedWhenMinMintFeeAmountIsZero() public {
+        // minMintFeeAmount is 0 by default
+        assertEq(naraUsd.minMintFeeAmount(), 0);
+
+        // Should be able to set any minMintAmount
+        naraUsd.setMinMintAmount(100e18);
+        assertEq(naraUsd.minMintAmount(), 100e18);
+    }
+
+    /**
+     * @notice Test valid configuration where minMintFeeAmount < minMintAmount
+     */
+    function test_MinMintFeeAmount_ValidWhenLessThanMinMintAmount() public {
+        // Set minMintAmount first
+        naraUsd.setMinMintAmount(100e18);
+
+        // Set minMintFeeAmount to less than minMintAmount - should succeed
+        naraUsd.setMinMintFeeAmount(50e18);
+        assertEq(naraUsd.minMintFeeAmount(), 50e18);
+
+        // Update minMintAmount to higher value - should still work
+        naraUsd.setMinMintAmount(200e18);
+        assertEq(naraUsd.minMintAmount(), 200e18);
+    }
+
+    /**
+     * @notice Test that setMinRedeemFeeAmount reverts when fee >= minRedeemAmount
+     */
+    function test_RevertIf_MinRedeemFeeAmount_ExceedsMinRedeemAmount() public {
+        // First set minRedeemAmount to 100e18
+        naraUsd.setMinRedeemAmount(100e18);
+
+        // Try to set minRedeemFeeAmount to 100e18 (equal) - should revert
+        vm.expectRevert(INaraUSD.InvalidFee.selector);
+        naraUsd.setMinRedeemFeeAmount(100e18);
+
+        // Try to set minRedeemFeeAmount to 150e18 (greater) - should revert
+        vm.expectRevert(INaraUSD.InvalidFee.selector);
+        naraUsd.setMinRedeemFeeAmount(150e18);
+    }
+
+    /**
+     * @notice Test that setMinRedeemAmount reverts when amount <= minRedeemFeeAmount
+     */
+    function test_RevertIf_MinRedeemAmount_BelowMinRedeemFeeAmount() public {
+        // First set minRedeemFeeAmount to 50e18
+        naraUsd.setMinRedeemFeeAmount(50e18);
+
+        // Try to set minRedeemAmount to 50e18 (equal) - should revert
+        vm.expectRevert(INaraUSD.InvalidFee.selector);
+        naraUsd.setMinRedeemAmount(50e18);
+
+        // Try to set minRedeemAmount to 30e18 (less) - should revert
+        vm.expectRevert(INaraUSD.InvalidFee.selector);
+        naraUsd.setMinRedeemAmount(30e18);
+    }
+
+    /**
+     * @notice Test that minRedeemFeeAmount can be set when minRedeemAmount is 0
+     */
+    function test_MinRedeemFeeAmount_AllowedWhenMinRedeemAmountIsZero() public {
+        // minRedeemAmount is 0 by default
+        assertEq(naraUsd.minRedeemAmount(), 0);
+
+        // Should be able to set any minRedeemFeeAmount
+        naraUsd.setMinRedeemFeeAmount(100e18);
+        assertEq(naraUsd.minRedeemFeeAmount(), 100e18);
+    }
+
+    /**
+     * @notice Test that minRedeemAmount can be set when minRedeemFeeAmount is 0
+     */
+    function test_MinRedeemAmount_AllowedWhenMinRedeemFeeAmountIsZero() public {
+        // minRedeemFeeAmount is 0 by default
+        assertEq(naraUsd.minRedeemFeeAmount(), 0);
+
+        // Should be able to set any minRedeemAmount
+        naraUsd.setMinRedeemAmount(100e18);
+        assertEq(naraUsd.minRedeemAmount(), 100e18);
+    }
+
+    /**
+     * @notice Test valid configuration where minRedeemFeeAmount < minRedeemAmount
+     */
+    function test_MinRedeemFeeAmount_ValidWhenLessThanMinRedeemAmount() public {
+        // Set minRedeemAmount first
+        naraUsd.setMinRedeemAmount(100e18);
+
+        // Set minRedeemFeeAmount to less than minRedeemAmount - should succeed
+        naraUsd.setMinRedeemFeeAmount(50e18);
+        assertEq(naraUsd.minRedeemFeeAmount(), 50e18);
+
+        // Update minRedeemAmount to higher value - should still work
+        naraUsd.setMinRedeemAmount(200e18);
+        assertEq(naraUsd.minRedeemAmount(), 200e18);
+    }
 }

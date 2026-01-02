@@ -76,7 +76,6 @@ interface INaraUSD {
     error BelowMinimumAmount();
     error KeyringCredentialInvalid(address account);
     error InsufficientCollateral();
-    error InvalidToken();
 
     /* --------------- FUNCTIONS --------------- */
 

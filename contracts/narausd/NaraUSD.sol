@@ -573,6 +573,10 @@ contract NaraUSD is
      * @param _minMintAmount New minimum mint amount (18 decimals)
      */
     function setMinMintAmount(uint256 _minMintAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
+        if (_minMintAmount > 0 && minMintFeeAmount > 0 && minMintFeeAmount >= _minMintAmount) {
+            revert InvalidFee();
+        }
         uint256 oldAmount = minMintAmount;
         minMintAmount = _minMintAmount;
         emit MinMintAmountUpdated(oldAmount, _minMintAmount);
@@ -583,6 +587,10 @@ contract NaraUSD is
      * @param _minRedeemAmount New minimum redeem amount (18 decimals)
      */
     function setMinRedeemAmount(uint256 _minRedeemAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
+        if (_minRedeemAmount > 0 && minRedeemFeeAmount > 0 && minRedeemFeeAmount >= _minRedeemAmount) {
+            revert InvalidFee();
+        }
         uint256 oldAmount = minRedeemAmount;
         minRedeemAmount = _minRedeemAmount;
         emit MinRedeemAmountUpdated(oldAmount, _minRedeemAmount);
@@ -593,6 +601,10 @@ contract NaraUSD is
      * @param _minMintFeeAmount New minimum mint fee amount (18 decimals)
      */
     function setMinMintFeeAmount(uint256 _minMintFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
+        if (minMintAmount > 0 && _minMintFeeAmount > 0 && _minMintFeeAmount >= minMintAmount) {
+            revert InvalidFee();
+        }
         uint256 oldAmount = minMintFeeAmount;
         minMintFeeAmount = _minMintFeeAmount;
         emit MinMintFeeAmountUpdated(oldAmount, _minMintFeeAmount);
@@ -603,6 +615,10 @@ contract NaraUSD is
      * @param _minRedeemFeeAmount New minimum redeem fee amount (18 decimals)
      */
     function setMinRedeemFeeAmount(uint256 _minRedeemFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
+        if (minRedeemAmount > 0 && _minRedeemFeeAmount > 0 && _minRedeemFeeAmount >= minRedeemAmount) {
+            revert InvalidFee();
+        }
         uint256 oldAmount = minRedeemFeeAmount;
         minRedeemFeeAmount = _minRedeemFeeAmount;
         emit MinRedeemFeeAmountUpdated(oldAmount, _minRedeemFeeAmount);
