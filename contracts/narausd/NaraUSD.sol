@@ -328,6 +328,12 @@ contract NaraUSD is
      * @return wasQueued True if request was queued, false if executed instantly
      * @dev The minRedeemAmount check is enforced only at request creation time.
      *      Queued requests are "grandfathered" and will complete even if minRedeemAmount is increased later.
+     * @dev IMPORTANT - Asset Removal Risk: If governance removes a collateral asset from MCT's supported
+     *      assets list while redemption requests are queued for that asset, those queued requests will
+     *      become non-completable (completion requires asset to be supported in MCT). However, users can
+     *      ALWAYS call cancelRedeem() to recover their escrowed NaraUSD regardless of asset support status.
+     *      Users should monitor asset support changes for queued requests. Governance should ensure queued
+     *      requests are completed or users are notified before removing asset support.
      */
     function redeem(
         address collateralAsset,
@@ -476,6 +482,8 @@ contract NaraUSD is
 
     /**
      * @notice Cancel redemption request and return locked NaraUSD to user
+     * @dev This function always works regardless of asset support status, providing an escape hatch
+     *      for users if their requested collateral asset is removed from MCT's supported assets.
      */
     function cancelRedeem() external nonReentrant whenNotPaused {
         if (_isBlacklisted(msg.sender)) {
@@ -1107,6 +1115,10 @@ contract NaraUSD is
      *      The minimum amount check is enforced only at request creation time in redeem().
      *      This means if governance increases minRedeemAmount after requests are queued,
      *      those legacy requests below the new minimum can still be completed ("grandfathered").
+     * @dev IMPORTANT: This function depends on the collateral asset being supported in MCT at completion
+     *      time, as MCT's redeem() function requires asset support. If governance removes the asset from
+     *      MCT's supported assets after a request is queued, this function will revert. Users must use
+     *      cancelRedeem() to recover their escrowed NaraUSD in such cases.
      * @param user The address whose redemption request should be completed
      * @return collateralAmount The amount of collateral sent to the user (after fees)
      */
