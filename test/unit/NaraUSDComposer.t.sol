@@ -355,7 +355,11 @@ contract NaraUSDComposerTest is TestHelper {
             "NewCoin should not be whitelisted yet"
         );
 
-        // Add new collateral
+        // First add to MCT (required before composer can whitelist it)
+        mct.addSupportedAsset(address(newCollateral));
+        assertTrue(mct.isSupportedAsset(address(newCollateral)), "NewCoin should be supported by MCT");
+
+        // Add new collateral to composer
         naraUsdComposer.addWhitelistedCollateral(address(newCollateral), address(newOFT));
 
         // Verify state
@@ -388,5 +392,49 @@ contract NaraUSDComposerTest is TestHelper {
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSignature("Unauthorized()"));
         naraUsdComposer.addWhitelistedCollateral(address(newCollateral), address(newOFT));
+    }
+
+    /**
+     * @notice Test addWhitelistedCollateral reverts when asset is not supported by MCT
+     */
+    function test_RevertIf_AddWhitelistedCollateral_AssetNotSupportedByMCT() public {
+        _switchToHub();
+
+        // Create a new token that is NOT supported by MCT
+        MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNSUP", 6);
+        MockERC20 unsupportedOFT = new MockERC20("UnsupportedOFT", "UNSUP-OFT", 6);
+
+        // Verify it's not supported
+        assertFalse(mct.isSupportedAsset(address(unsupportedToken)), "Token should not be supported by MCT");
+
+        // Try to whitelist it - should revert
+        vm.expectRevert(abi.encodeWithSignature("AssetNotSupportedByMCT(address)", address(unsupportedToken)));
+        naraUsdComposer.addWhitelistedCollateral(address(unsupportedToken), address(unsupportedOFT));
+    }
+
+    /**
+     * @notice Test addWhitelistedCollateral succeeds when asset IS supported by MCT
+     */
+    function test_AddWhitelistedCollateral_MCTSupportedAsset() public {
+        _switchToHub();
+
+        // First add a new asset to MCT
+        MockERC20 newToken = new MockERC20("NewCoin", "NEWC", 6);
+        mct.addSupportedAsset(address(newToken));
+
+        // Verify it's supported by MCT
+        assertTrue(mct.isSupportedAsset(address(newToken)), "Token should be supported by MCT");
+
+        // Now we should be able to whitelist it in the composer
+        MockERC20 newOFT = new MockERC20("NewCoinOFT", "NEWC-OFT", 6);
+        naraUsdComposer.addWhitelistedCollateral(address(newToken), address(newOFT));
+
+        // Verify it's whitelisted
+        assertTrue(naraUsdComposer.isCollateralWhitelisted(address(newToken)), "Token should be whitelisted in composer");
+        assertEq(
+            naraUsdComposer.collateralToOft(address(newToken)),
+            address(newOFT),
+            "Token should map to its OFT"
+        );
     }
 }

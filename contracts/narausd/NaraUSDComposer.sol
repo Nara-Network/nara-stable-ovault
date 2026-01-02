@@ -33,6 +33,8 @@ interface IMCT {
     function defaultAdminRole() external view returns (bytes32);
 
     function collateralBalance(address asset) external view returns (uint256);
+
+    function isSupportedAsset(address asset) external view returns (bool);
 }
 
 /// @notice Error thrown when sender does not have valid Keyring credentials
@@ -58,6 +60,9 @@ error ZeroAddressException();
 
 /// @notice Error thrown when OFT is already mapped to a different collateral asset
 error OFTAlreadyMapped(address oft, address existingAsset);
+
+/// @notice Error thrown when asset is not supported by MCT
+error AssetNotSupportedByMCT(address asset);
 
 /**
  * @title NaraUSDComposer
@@ -164,6 +169,11 @@ contract NaraUSDComposer is VaultComposerSync {
 
         if (asset == address(0) || assetOft == address(0)) {
             revert ZeroAddressException();
+        }
+
+        // Verify asset is supported by MCT (composer whitelist must be subset of MCT supported assets)
+        if (!IMCT(mct).isSupportedAsset(asset)) {
+            revert AssetNotSupportedByMCT(asset);
         }
 
         // Check if OFT is already mapped to a different asset
