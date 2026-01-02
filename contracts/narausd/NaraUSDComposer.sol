@@ -471,21 +471,4 @@ contract NaraUSDComposer is VaultComposerSync {
             revert OnlyValidComposeCaller(_oftIn);
         }
     }
-
-    /**
-     * @notice Override _refund to handle any whitelisted collateral asset via its OFT
-     */
-    function _refund(address _oft, bytes calldata _message, uint256 _amount, address _refundAddress) internal override {
-        if (oftToCollateral[_oft] != address(0)) {
-            // It's a whitelisted collateral OFT - handle refund
-            SendParam memory refundSendParam;
-            refundSendParam.dstEid = OFTComposeMsgCodec.srcEid(_message);
-            refundSendParam.to = OFTComposeMsgCodec.composeFrom(_message);
-            refundSendParam.amountLD = _amount;
-
-            IOFT(_oft).send{ value: msg.value }(refundSendParam, MessagingFee(msg.value, 0), _refundAddress);
-        } else {
-            super._refund(_oft, _message, _amount, _refundAddress);
-        }
-    }
 }
