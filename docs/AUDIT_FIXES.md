@@ -17,12 +17,13 @@ Paladin audit remediation for StakingRewardsDistributor, MCT, NaraUSDPlus.
 
 ## MCT
 
-| #           | Issue                       | Fix                                         |
-| ----------- | --------------------------- | ------------------------------------------- |
-| 50          | Missing interface           | Implemented `IMultiCollateralToken`         |
-| 51          | Unused error                | Removed `InvalidToken`                      |
-| 54          | Generic error for duplicate | Added `AssetAlreadySupported` error         |
-| 49,52,53,55 | Governance considerations   | Added NatSpec noting privileged role powers |
+| #     | Issue                       | Fix                                          |
+| ----- | --------------------------- | -------------------------------------------- |
+| 50    | Missing interface           | Implemented `IMultiCollateralToken`          |
+| 51    | Unused error                | Removed `InvalidToken`                       |
+| 53/55 | Admin role can be renounced | Added `renounceRole` override blocking admin |
+| 54    | Generic error for duplicate | Added `AssetAlreadySupported` error          |
+| 49,52 | Governance considerations   | Added NatSpec noting privileged role powers  |
 
 ## NaraUSDPlus
 

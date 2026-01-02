@@ -53,11 +53,6 @@ contract MultiCollateralToken is
     /// @dev Storage gap for future upgrades
     uint256[48] private __gap;
 
-    /* --------------- ERRORS (additional to interface) --------------- */
-
-    error AssetAlreadySupported();
-    error AssetHasCollateral();
-
     /* --------------- INITIALIZER --------------- */
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -314,5 +309,13 @@ contract MultiCollateralToken is
             revert AssetAlreadySupported();
         }
         emit AssetAdded(asset);
+    }
+
+    /**
+     * @dev Prevent renouncing DEFAULT_ADMIN_ROLE to avoid ungovernability
+     */
+    function renounceRole(bytes32 role, address account) public virtual override(AccessControlUpgradeable) {
+        if (role == DEFAULT_ADMIN_ROLE) revert ZeroAddressException();
+        super.renounceRole(role, account);
     }
 }

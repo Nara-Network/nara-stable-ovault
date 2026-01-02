@@ -307,7 +307,7 @@ contract MultiCollateralTokenTest is TestHelper {
      * @notice Test adding duplicate asset reverts
      */
     function test_RevertIf_AddDuplicateAsset() public {
-        vm.expectRevert(MultiCollateralToken.AssetAlreadySupported.selector);
+        vm.expectRevert(IMultiCollateralToken.AssetAlreadySupported.selector);
         mct.addSupportedAsset(address(usdc)); // Already added
     }
 

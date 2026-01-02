@@ -256,7 +256,7 @@ contract NaraUSDPlus is
      * @notice Redistribute locked amount from full restricted user
      * @dev Handles both direct balance and silo-held shares from cooldown
      * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_STAKER_ROLE)
-     * @param to The address to mint the entire balance to (or address(0) to burn)
+     * @param to The address to mint the entire balance to, or address(0) to burn NaraUSD+ and vest underlying NaraUSD
      */
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         if (!_isBlacklisted(from) || _isBlacklisted(to)) {
@@ -269,9 +269,7 @@ contract NaraUSDPlus is
         UserCooldown storage userCooldown = cooldowns[from];
         uint256 siloShares = userCooldown.sharesAmount;
         if (siloShares > 0) {
-            // Clear cooldown state
-            userCooldown.cooldownEnd = 0;
-            userCooldown.sharesAmount = 0;
+            delete cooldowns[from];
             // Withdraw silo shares to this contract first
             silo.withdraw(address(this), siloShares);
             amountToDistribute += siloShares;
@@ -634,16 +632,12 @@ contract NaraUSDPlus is
      * @dev Hook that is called before any transfer of tokens
      * @dev Completely freezes blacklisted addresses - they cannot transfer, burn, or receive
      * @dev Only admin can move their tokens via redistributeLockedAmount
-     * @dev Blacklist checks from/to only, not operators.
      */
     function _update(address from, address to, uint256 value) internal virtual override(ERC20Upgradeable) {
-        // Blacklisted addresses are completely frozen
-        if (_isBlacklisted(from)) {
-            revert OperationNotAllowed();
-        }
-        if (_isBlacklisted(to)) {
-            revert OperationNotAllowed();
-        }
+        if (_isBlacklisted(from)) revert OperationNotAllowed();
+        if (_isBlacklisted(to)) revert OperationNotAllowed();
+        // Prevent blacklisted operators from moving tokens via transferFrom
+        if (from != msg.sender && _isBlacklisted(msg.sender)) revert OperationNotAllowed();
         super._update(from, to, value);
     }
 

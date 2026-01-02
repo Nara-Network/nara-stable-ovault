@@ -54,7 +54,7 @@ contract AuditFixesTest is TestHelper {
 
     function test_RevertIf_DuplicateAsset() public {
         // USDC is already added in setup
-        vm.expectRevert(MultiCollateralToken.AssetAlreadySupported.selector);
+        vm.expectRevert(IMultiCollateralToken.AssetAlreadySupported.selector);
         mct.addSupportedAsset(address(usdc));
     }
 
