@@ -116,11 +116,20 @@ contract NaraUSDComposerTest is TestHelper {
     }
 
     /**
-     * @notice Test that ASSET_OFT (MCTOFTAdapter) is accepted as compose sender
+     * @notice Test that ASSET_OFT is rejected in compose operations (validation-only)
      */
-    function test_LzCompose_AcceptsAssetOFT() public view {
-        // ASSET_OFT should be in the valid senders list
-        assertEq(address(naraUsdComposer.ASSET_OFT()), address(mctAdapter), "ASSET_OFT should be MCTOFTAdapter");
+    function test_RevertIf_LzCompose_AssetOFTNotAllowed() public {
+        _switchToHub();
+
+        bytes memory message = abi.encodePacked(
+            bytes32(uint256(uint160(alice))), // composeFrom
+            uint64(100e6) // amount
+        );
+
+        // Try to compose with ASSET_OFT - should revert
+        vm.prank(address(endpoints[HUB_EID]));
+        vm.expectRevert(abi.encodeWithSignature("AssetOFTNotAllowedInCompose()"));
+        naraUsdComposer.lzCompose(address(mctAdapter), bytes32(0), message, address(0), "");
     }
 
     /**
@@ -156,6 +165,21 @@ contract NaraUSDComposerTest is TestHelper {
         vm.prank(alice);
         vm.expectRevert(); // Will revert with OnlySelf
         naraUsdComposer._handleComposeInternal(address(usdc), bytes32(0), composeMsg, 100e6);
+    }
+
+    /**
+     * @notice Test handleComposeInternal reverts when ASSET_OFT is used (validation-only)
+     */
+    function test_RevertIf_HandleComposeInternal_AssetOFTNotAllowed() public {
+        _switchToHub();
+
+        SendParam memory sendParam;
+        bytes memory composeMsg = abi.encode(sendParam, uint256(0));
+
+        // Try to handle compose with ASSET_OFT - should revert
+        vm.prank(address(naraUsdComposer));
+        vm.expectRevert(abi.encodeWithSignature("AssetOFTNotAllowedInCompose()"));
+        naraUsdComposer._handleComposeInternal(address(mctAdapter), bytes32(0), composeMsg, 100e6);
     }
 
     /**

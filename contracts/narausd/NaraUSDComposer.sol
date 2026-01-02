@@ -64,6 +64,9 @@ error OFTAlreadyMapped(address oft, address existingAsset);
 /// @notice Error thrown when asset is not supported by MCT
 error AssetNotSupportedByMCT(address asset);
 
+/// @notice Error thrown when ASSET_OFT is used in compose (it's validation-only, not for operations)
+error AssetOFTNotAllowedInCompose();
+
 /**
  * @title NaraUSDComposer
  * @notice Composer that enables cross-chain NaraUSD minting and redemption via collateral deposits
@@ -103,12 +106,13 @@ error AssetNotSupportedByMCT(address asset);
  *
  * The ASSET_OFT (MCTOFTAdapter) exists ONLY to pass constructor validation.
  * It is NEVER used in the actual compose flow!
+ * ASSET_OFT compose operations are explicitly blocked at runtime with AssetOFTNotAllowedInCompose().
  *
  * Actual Flow Uses:
  * ✅ collateralAsset - What users actually deposit (USDC/USDT)
  * ✅ collateralAssetOFT - For cross-chain collateral (Stargate USDC OFT)
  * ✅ SHARE_OFT - For sending NaraUSD cross-chain (NaraUSDOFTAdapter)
- * ❌ ASSET_OFT - Only for validation, never used in operations
+ * ❌ ASSET_OFT - Only for validation, explicitly blocked in compose operations
  *
  * See _depositCollateralAndSend() for the actual deposit logic that uses
  * collateralAsset, not ASSET_OFT.
@@ -386,8 +390,13 @@ contract NaraUSDComposer is VaultComposerSync {
     ) external payable override {
         if (msg.sender != ENDPOINT) revert OnlyEndpoint(msg.sender);
 
-        // Validate compose sender is either ASSET_OFT, SHARE_OFT, or a whitelisted collateral OFT
-        bool isValidOft = _composeSender == ASSET_OFT || _composeSender == SHARE_OFT;
+        // ASSET_OFT is validation-only and not allowed in compose operations
+        if (_composeSender == ASSET_OFT) {
+            revert AssetOFTNotAllowedInCompose();
+        }
+
+        // Validate compose sender is either SHARE_OFT or a whitelisted collateral OFT
+        bool isValidOft = _composeSender == SHARE_OFT;
         bool isWhitelistedCollateral = oftToCollateral[_composeSender] != address(0);
 
         if (!isValidOft && !isWhitelistedCollateral) {
@@ -432,15 +441,12 @@ contract NaraUSDComposer is VaultComposerSync {
         /// @dev Can only be called by self
         if (msg.sender != address(this)) revert OnlySelf(msg.sender);
 
+        // ASSET_OFT is validation-only and not allowed in compose operations
         if (_oftIn == ASSET_OFT) {
-            /// @dev SendParam defines how the composer will handle the user's funds
-            /// @dev The minMsgValue is the minimum amount of msg.value that must be sent
-            (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
+            revert AssetOFTNotAllowedInCompose();
+        }
 
-            if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
-
-            super._depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
-        } else if (_oftIn == SHARE_OFT) {
+        if (_oftIn == SHARE_OFT) {
             /// @dev For SHARE_OFT, compose message includes collateral asset address
             /// @dev Format: abi.encode(SendParam, uint256 minMsgValue, address collateralAsset)
             (SendParam memory sendParam, uint256 minMsgValue, address collateralAsset) = abi.decode(
