@@ -457,6 +457,46 @@ contract NaraUSD is
     }
 
     /**
+     * @notice Preview redemption amount for a specific collateral asset
+     * @param collateralAsset The collateral asset to receive
+     * @param naraUsdAmount The amount of NaraUSD to redeem
+     * @return collateralAmount The amount of collateral that would be received after fees (0 if instant redemption not possible)
+     * @dev This preview reflects the actual redemption flow and accounts for fees and liquidity availability
+     * @dev Returns 0 if insufficient liquidity or asset not supported
+     */
+    function previewRedeem(
+        address collateralAsset,
+        uint256 naraUsdAmount
+    ) public view returns (uint256 collateralAmount) {
+        if (naraUsdAmount == 0 || !mct.isSupportedAsset(collateralAsset)) {
+            return 0;
+        }
+
+        // Calculate collateral needed
+        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, naraUsdAmount);
+        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
+
+        // Check if instant redemption is possible
+        if (availableCollateral < collateralNeeded) {
+            return 0;
+        }
+
+        // Calculate collateral amount after fees
+        // Fee is calculated on NaraUSD amount (18 decimals), then converted to collateral decimals
+        uint256 feeAmount18 = _calculateRedeemFee(naraUsdAmount);
+
+        if (feeAmount18 > 0) {
+            // Convert fee from 18 decimals to collateral decimals
+            uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
+            collateralAmount = collateralNeeded > feeAmountCollateral ? collateralNeeded - feeAmountCollateral : 0;
+        } else {
+            collateralAmount = collateralNeeded;
+        }
+
+        return collateralAmount;
+    }
+
+    /**
      * @notice Update queued redemption request amount
      * @param newAmount The new amount of NaraUSD to redeem
      * @dev Only updates the queued amount. Use tryCompleteRedeem() to attempt completion.
@@ -1120,54 +1160,21 @@ contract NaraUSD is
     }
 
     /**
-     * @notice Override previewRedeem to account for redeem fees
-     * @param shares The amount of shares (NaraUSD) to redeem
-     * @return assets The amount of assets (MCT) that would be received after fees
-     * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
-     * @dev Note: Actual redeem fee is on collateral, but for ERC4626 we apply it to MCT (1:1 equivalent)
+     * @notice Override previewRedeem to reflect that ERC4626 redeem is disabled
+     * @return assets The amount of assets (MCT) that would be received
+     * @dev Returns 0 because ERC4626 redeem() is disabled. Use previewRedeem(collateralAsset, naraUsdAmount) instead.
      */
-    function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
-        uint256 baseAssets = super.previewRedeem(shares);
-
-        // Apply redeem fee if configured
-        uint256 feeAmount = _calculateRedeemFee(baseAssets);
-        assets = baseAssets > feeAmount ? baseAssets - feeAmount : 0;
-
-        return assets;
+    function previewRedeem(uint256) public pure override returns (uint256 assets) {
+        return 0;
     }
 
     /**
-     * @notice Override previewWithdraw to account for redeem fees
-     * @param assets The amount of assets (MCT) to withdraw
-     * @return shares The amount of shares (NaraUSD) needed to withdraw assets (inclusive of fees)
-     * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
-     * @dev To get 'assets' after fee, we need to redeem more shares
+     * @notice Override previewWithdraw to reflect that ERC4626 withdraw is disabled
+     * @return shares The amount of shares (NaraUSD) needed to withdraw assets
+     * @dev Returns 0 because ERC4626 withdraw() is disabled. Use previewRedeem(collateralAsset, naraUsdAmount) instead.
      */
-    function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
-        // Calculate how many assets we need before fee to get 'assets' after fee
-        uint256 assetsBeforeFee = assets;
-        if (feeTreasury != address(0)) {
-            if (redeemFeeBps > 0) {
-                // Calculate assuming percentage fee only
-                uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
-                assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
-
-                // Check if minimum fee would apply
-                uint256 estimatedFee = _calculateRedeemFee(assetsBeforeFee);
-                uint256 estimatedPercentageFee = (assetsBeforeFee * redeemFeeBps) / BPS_DENOMINATOR;
-                if (estimatedFee > estimatedPercentageFee) {
-                    // Minimum fee applies, so: assets = assetsBeforeFee - minRedeemFeeAmount
-                    assetsBeforeFee = assets + minRedeemFeeAmount;
-                }
-            } else if (minRedeemFeeAmount > 0) {
-                // Only minimum fee applies (no percentage)
-                assetsBeforeFee = assets + minRedeemFeeAmount;
-            }
-        }
-
-        shares = super.previewWithdraw(assetsBeforeFee);
-
-        return shares;
+    function previewWithdraw(uint256) public pure override returns (uint256 shares) {
+        return 0;
     }
 
     /**
