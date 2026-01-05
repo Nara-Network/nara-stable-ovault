@@ -94,8 +94,7 @@ contract NaraUSDOFT is OFT, AccessControl {
             revert OperationNotAllowed();
         }
         // Prevent blacklisted operators from moving tokens via transferFrom
-        // msg.sender == address(0) during initialization, skip check in that case
-        if (msg.sender != address(0) && hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
+        if (hasRole(FULL_RESTRICTED_ROLE, msg.sender)) {
             revert OperationNotAllowed();
         }
 
