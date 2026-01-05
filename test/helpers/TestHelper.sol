@@ -184,10 +184,10 @@ abstract contract TestHelper is TestHelperOz5 {
         // It's only needed to satisfy composer validation checks
         mctAdapter = new MCTOFTAdapter(address(mct), address(endpoints[HUB_EID]), delegate);
 
-        // Deploy NaraUSDOFTAdapter (not upgradeable)
+        // Deploy NaraUSDOFTAdapter (non-upgradeable, direct deployment)
         naraUsdAdapter = new NaraUSDOFTAdapter(address(naraUsd), address(endpoints[HUB_EID]), delegate);
 
-        // Deploy NaraUSDPlusOFTAdapter (not upgradeable)
+        // Deploy NaraUSDPlusOFTAdapter (non-upgradeable, direct deployment)
         naraUsdPlusAdapter = new NaraUSDPlusOFTAdapter(address(naraUsdPlus), address(endpoints[HUB_EID]), delegate);
 
         // Deploy Composers
@@ -214,10 +214,10 @@ abstract contract TestHelper is TestHelperOz5 {
     function _deploySpokeContracts() internal {
         // Simulates spoke chain using mock endpoints (no Foundry fork switching)
 
-        // Deploy NaraUSDOFT
+        // Deploy NaraUSDOFT (non-upgradeable, direct deployment)
         naraUsdOft = new NaraUSDOFT(address(endpoints[SPOKE_EID]), delegate);
 
-        // Deploy NaraUSDPlusOFT
+        // Deploy NaraUSDPlusOFT (non-upgradeable, direct deployment)
         naraUsdPlusOft = new NaraUSDPlusOFT(address(endpoints[SPOKE_EID]), delegate);
     }
 
