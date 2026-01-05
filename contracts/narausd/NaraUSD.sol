@@ -39,6 +39,11 @@ interface IKeyring {
  * - Collateral is converted to MCT, then NaraUSD shares are minted
  * - Redemptions: instant if liquidity available, otherwise queued for solver execution
  * - Users can cancel queued redemption requests anytime
+ * @dev IMPORTANT - Redemption Mechanism: The "redemption queue" is NOT an ordered FIFO queue.
+ *      It is implemented as a per-user mapping (one active request per user). There is no global
+ *      ordering, no "next in line" concept, and no automatic FIFO processing. Completion order is
+ *      discretionary by the COLLATERAL_MANAGER_ROLE (solver), who can complete requests opportunistically
+ *      via completeRedeem() or bulkCompleteRedeem() when liquidity becomes available.
  * @dev This contract is upgradeable using UUPS proxy pattern
  *
  * @dev Privileged roles:
@@ -53,6 +58,7 @@ interface IKeyring {
  * - COLLATERAL_MANAGER_ROLE: Manages redemption queue execution. Can:
  *   - Complete queued redemptions (completeRedeem, bulkCompleteRedeem)
  *   - Acts as "solver" to process escrowed redemption requests when liquidity becomes available
+ *   - Completion order is discretionary (not FIFO) - can complete any user's request opportunistically
  * - MINTER_ROLE: Can mint NaraUSD without collateral backing (for incentives, etc.)
  * - BLACKLIST_MANAGER_ROLE: Can add/remove addresses from blacklist (FULL_RESTRICTED_ROLE)
  * - FULL_RESTRICTED_ROLE: Restriction status (not a role to grant). Addresses with this role:
@@ -119,6 +125,8 @@ contract NaraUSD is
     uint256 public minRedeemAmount;
 
     /// @notice Mapping of user addresses to their redemption requests
+    /// @dev This is NOT an ordered queue - each user can have one active request. There is no FIFO ordering.
+    ///      Completion order is discretionary by COLLATERAL_MANAGER_ROLE (solver).
     mapping(address => RedemptionRequest) private _redemptionRequests;
 
     /// @notice Get redemption request for a user
@@ -351,6 +359,10 @@ contract NaraUSD is
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
+     * @dev IMPORTANT - Redemption Queue Mechanism: This is NOT an ordered FIFO queue. Each user can have
+     *      one active redemption request stored in a mapping. There is no global ordering, no "next in line",
+     *      and completion order is discretionary by COLLATERAL_MANAGER_ROLE (solver). The solver can complete
+     *      any user's request opportunistically when liquidity becomes available.
      * @dev The minRedeemAmount check is enforced only at request creation time.
      *      Queued requests are "grandfathered" and will complete even if minRedeemAmount is increased later.
      * @dev IMPORTANT - Asset Removal Risk: If governance removes a collateral asset from MCT's supported
@@ -403,6 +415,8 @@ contract NaraUSD is
      * @notice Complete redemption for a specific user - redeems NaraUSD for collateral from queued request
      * @param user The address whose redemption request should be completed
      * @dev Only callable by collateral manager
+     * @dev Completion order is discretionary - there is no FIFO ordering. The solver can complete any
+     *      user's request opportunistically when liquidity is available.
      */
     function completeRedeem(
         address user
@@ -414,6 +428,8 @@ contract NaraUSD is
      * @notice Bulk-complete redemptions for multiple users
      * @dev Callable by collateral manager to act as a "bulk solver" for escrowed redemption requests
      * @param users Array of user addresses whose redemptions should be completed
+     * @dev Completion order is discretionary - there is no FIFO ordering. The solver can choose which
+     *      users to complete in any order when liquidity is available.
      */
     function bulkCompleteRedeem(
         address[] calldata users
@@ -1102,6 +1118,8 @@ contract NaraUSD is
      * @param user The user requesting redemption
      * @param collateralAsset The collateral asset to receive
      * @param naraUsdAmount The amount of NaraUSD to lock
+     * @dev This stores one active request per user in a mapping. There is no global ordering or FIFO queue.
+     *      Completion order is discretionary by the collateral manager/solver.
      */
     function _queueRedeem(address user, address collateralAsset, uint256 naraUsdAmount) internal {
         if (_redemptionRequests[user].naraUsdAmount > 0) revert ExistingRedemptionRequest();
@@ -1121,6 +1139,8 @@ contract NaraUSD is
     /**
      * @notice Internal helper to complete a single redemption
      * @dev Reverts if the request does not exist
+     * @dev Note: The redemption mechanism is a per-user mapping (one request per user), not an ordered queue.
+     *      Completion order is discretionary by the collateral manager/solver - there is no FIFO ordering.
      * @dev Note: Queued redemption requests are NOT re-validated against the current minRedeemAmount.
      *      The minimum amount check is enforced only at request creation time in redeem().
      *      This means if governance increases minRedeemAmount after requests are queued,

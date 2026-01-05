@@ -98,6 +98,8 @@ interface INaraUSD {
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
+     * @dev Note: The "redemption queue" is NOT an ordered FIFO queue. It is a per-user mapping (one request per user).
+     *      Completion order is discretionary by the collateral manager/solver.
      */
     function redeem(
         address collateralAsset,
@@ -109,12 +111,16 @@ interface INaraUSD {
      * @notice Complete queued redemption for a specific user - redeems NaraUSD for collateral
      * @param user The address whose redemption request should be completed
      * @return collateralAmount The amount of collateral received
+     * @dev Completion order is discretionary - there is no FIFO ordering. The solver can complete any
+     *      user's request opportunistically when liquidity is available.
      */
     function completeRedeem(address user) external returns (uint256 collateralAmount);
 
     /**
      * @notice Bulk-complete redemptions for multiple users
      * @param users Array of user addresses whose redemptions should be completed
+     * @dev Completion order is discretionary - there is no FIFO ordering. The solver can choose which
+     *      users to complete in any order when liquidity is available.
      */
     function bulkCompleteRedeem(address[] calldata users) external;
 
