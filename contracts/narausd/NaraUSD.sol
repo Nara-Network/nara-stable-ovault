@@ -496,6 +496,8 @@ contract NaraUSD is
      * @notice Cancel redemption request and return locked NaraUSD to user
      * @dev This function always works regardless of asset support status, providing an escape hatch
      *      for users if their requested collateral asset is removed from MCT's supported assets.
+     * @dev Note: Users can cancel at any time. This is by design.
+     *      If a solver attempts to complete a cancelled request, the call will revert with NoRedemptionRequest.
      * @dev Note: Users can repeatedly create and cancel requests (spam is possible but costs gas).
      */
     function cancelRedeem() external nonReentrant whenNotPaused {

@@ -34,7 +34,7 @@ Paladin audit remediation for StakingRewardsDistributor, MCT, NaraUSDPlus.
 | 23    | user can spam create and cancel redemption request                                      | Documented that spam is possible but costs gas                                                                                                             |
 | 24    | `_completeRedemption()` doesn't re-check collateral                                     | Added pre-check for sufficient collateral before state changes                                                                                             |
 | 25    | Queued redemptions not validated against updated `minRedeemAmount`                      | Documented as intentional (grandfathered)                                                                                                                  |
-| 26    | user can cancel request at any time                                                     | PENDING ACTION                                                                                                                                             |
+| 26    | user can cancel request at any time                                                     | Documented as by design - users can cancel at any time, including right before completion                                                                  |
 | 27    | Queued redemptions can become non-completable if asset removed                          | Added comprehensive documentation and warnings                                                                                                             |
 
 ## NaraUSDPlus
