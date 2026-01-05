@@ -542,10 +542,13 @@ contract NaraUSDTest is TestHelper {
         usdc.approve(address(mct), 1000e6);
         mct.depositCollateral(address(usdc), 1000e6);
 
-        // Update request - should execute instantly now
+        // Update request amount (no longer auto-completes)
         vm.startPrank(alice);
-        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         naraUsd.updateRedemptionRequest(1000e18);
+
+        // Now try to complete - should execute instantly since liquidity is available
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        naraUsd.tryCompleteRedeem();
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
         // Verify instant redemption happened
@@ -584,13 +587,16 @@ contract NaraUSDTest is TestHelper {
         usdc.approve(address(mct), 2000e6);
         mct.depositCollateral(address(usdc), 2000e6);
 
-        // Update to 500e18 (decrease) and execute instantly
+        // Update to 500e18 (decrease) - excess is returned to wallet
         vm.startPrank(alice);
-        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         naraUsd.updateRedemptionRequest(500e18);
+
+        // Now try to complete - should execute instantly since liquidity is available
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        naraUsd.tryCompleteRedeem();
         uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
-        // Verify: 500e18 redeemed for USDC, 500e18 excess returned to wallet
+        // Verify: 500e18 redeemed for USDC
         assertEq(aliceUsdcAfter - aliceUsdcBefore, 500e6, "Should receive 500 USDC");
         assertEq(
             naraUsd.balanceOf(alice),
@@ -968,11 +974,11 @@ contract NaraUSDTest is TestHelper {
         naraUsd.mintWithCollateral(address(usdc), 1000e6);
 
         // Standard withdraw should revert
-        vm.expectRevert("Use redeem()");
+        vm.expectRevert("ERC4626 withdraw() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
         naraUsd.withdraw(100e18, alice, alice);
 
         // Standard ERC4626 redeem should revert
-        vm.expectRevert("Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+        vm.expectRevert("ERC4626 redeem() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
         naraUsd.redeem(100e18, alice, alice);
 
         vm.stopPrank();

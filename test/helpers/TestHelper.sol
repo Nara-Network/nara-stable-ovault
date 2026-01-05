@@ -259,11 +259,9 @@ abstract contract TestHelper is TestHelperOz5 {
         mct.mintWithoutCollateral(bob, INITIAL_BALANCE_18);
 
         // Mint NaraUSD to test accounts for staking tests
-        // First mint MCT, then deposit to get NaraUSD
-        mct.mintWithoutCollateral(address(this), INITIAL_BALANCE_18 * 2);
-        mct.approve(address(naraUsd), INITIAL_BALANCE_18 * 2);
-        naraUsd.deposit(INITIAL_BALANCE_18, alice);
-        naraUsd.deposit(INITIAL_BALANCE_18, bob);
+        // Use mintWithoutCollateral since ERC4626 deposit is disabled
+        naraUsd.mintWithoutCollateral(alice, INITIAL_BALANCE_18);
+        naraUsd.mintWithoutCollateral(bob, INITIAL_BALANCE_18);
     }
 
     /**

@@ -48,10 +48,11 @@ contract NaraUSDComposerTest is TestHelper {
 
         _switchToHub();
 
-        // Step 1: Alice deposits MCT locally to get naraUsd
+        // Step 1: Alice mints NaraUSD using collateral
+        usdc.mint(alice, mctAmount / 1e12);
         vm.startPrank(alice);
-        mct.approve(address(naraUsd), mctAmount);
-        uint256 naraUsdReceived = naraUsd.deposit(mctAmount, alice);
+        usdc.approve(address(naraUsd), mctAmount / 1e12);
+        uint256 naraUsdReceived = naraUsd.mintWithCollateral(address(usdc), mctAmount / 1e12);
         assertEq(naraUsdReceived, expectedNaraUsd, "Should receive expected naraUsd");
 
         // Step 2: Alice sends naraUsd cross-chain to Bob on spoke
@@ -120,10 +121,11 @@ contract NaraUSDComposerTest is TestHelper {
 
         _switchToHub();
 
-        // Deposit MCT into naraUsd vault first
+        // Mint NaraUSD using collateral
+        usdc.mint(alice, mctAmount / 1e12);
         vm.startPrank(alice);
-        mct.approve(address(naraUsd), mctAmount);
-        uint256 naraUsdReceived = naraUsd.deposit(mctAmount, alice);
+        usdc.approve(address(naraUsd), mctAmount / 1e12);
+        uint256 naraUsdReceived = naraUsd.mintWithCollateral(address(usdc), mctAmount / 1e12);
         assertEq(naraUsdReceived, expectedNaraUsd, "Should receive expected naraUsd");
 
         // Now send naraUsd cross-chain via adapter
@@ -201,9 +203,10 @@ contract NaraUSDComposerTest is TestHelper {
         for (uint256 i = 1; i <= 5; i++) {
             uint256 amount = i * 10e18;
 
-            // Direct deposit on hub
-            mct.approve(address(naraUsd), amount);
-            uint256 naraUsdAmount = naraUsd.deposit(amount, alice);
+            // Mint NaraUSD using collateral
+            usdc.mint(alice, amount / 1e12);
+            usdc.approve(address(naraUsd), amount / 1e12);
+            uint256 naraUsdAmount = naraUsd.mintWithCollateral(address(usdc), amount / 1e12);
 
             // Send to spoke
             naraUsd.approve(address(naraUsdAdapter), naraUsdAmount);
@@ -229,9 +232,10 @@ contract NaraUSDComposerTest is TestHelper {
 
         _switchToHub();
 
+        usdc.mint(alice, mctAmount / 1e12);
         vm.startPrank(alice);
-        mct.approve(address(naraUsd), mctAmount);
-        uint256 naraUsdAmount = naraUsd.deposit(mctAmount, alice);
+        usdc.approve(address(naraUsd), mctAmount / 1e12);
+        uint256 naraUsdAmount = naraUsd.mintWithCollateral(address(usdc), mctAmount / 1e12);
 
         naraUsd.approve(address(naraUsdAdapter), naraUsdAmount);
 
@@ -260,20 +264,22 @@ contract NaraUSDComposerTest is TestHelper {
      * @notice Test that vault deposit works correctly
      */
     function test_VaultDeposit() public {
-        uint256 mctAmount = 100e18;
+        uint256 usdcAmount = 100e6;
+        uint256 expectedNaraUsd = 100e18;
 
         _switchToHub();
 
+        usdc.mint(alice, usdcAmount);
         vm.startPrank(alice);
-        mct.approve(address(naraUsd), mctAmount);
+        usdc.approve(address(naraUsd), usdcAmount);
 
-        uint256 aliceMctBefore = mct.balanceOf(alice);
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
         uint256 aliceNaraUsdBefore = naraUsd.balanceOf(alice);
-        uint256 naraUsdReceived = naraUsd.deposit(mctAmount, alice);
-        uint256 aliceMctAfter = mct.balanceOf(alice);
+        uint256 naraUsdReceived = naraUsd.mintWithCollateral(address(usdc), usdcAmount);
+        uint256 aliceUsdcAfter = usdc.balanceOf(alice);
 
-        assertEq(aliceMctBefore - aliceMctAfter, mctAmount, "MCT should be transferred");
-        assertEq(naraUsdReceived, mctAmount, "Should receive 1:1 naraUsd for MCT");
+        assertEq(aliceUsdcBefore - aliceUsdcAfter, usdcAmount, "USDC should be transferred");
+        assertEq(naraUsdReceived, expectedNaraUsd, "Should receive 1:1 naraUsd for USDC");
         assertEq(
             naraUsd.balanceOf(alice) - aliceNaraUsdBefore,
             naraUsdReceived,
@@ -413,9 +419,10 @@ contract NaraUSDComposerTest is TestHelper {
 
         _switchToHub();
 
+        usdc.mint(alice, mctAmount / 1e12);
         vm.startPrank(alice);
-        mct.approve(address(naraUsd), mctAmount);
-        uint256 naraUsdAmount = naraUsd.deposit(mctAmount, alice);
+        usdc.approve(address(naraUsd), mctAmount / 1e12);
+        uint256 naraUsdAmount = naraUsd.mintWithCollateral(address(usdc), mctAmount / 1e12);
 
         naraUsd.approve(address(naraUsdAdapter), naraUsdAmount);
         // Use 0 minAmountLD for fuzz tests to avoid slippage issues with edge case amounts
