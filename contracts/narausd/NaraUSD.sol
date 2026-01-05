@@ -462,13 +462,18 @@ contract NaraUSD is
      * @param naraUsdAmount The amount of NaraUSD to redeem
      * @return collateralAmount The amount of collateral that would be received after fees (0 if instant redemption not possible)
      * @dev This preview reflects the actual redemption flow and accounts for fees and liquidity availability
-     * @dev Returns 0 if insufficient liquidity or asset not supported
+     * @dev Returns 0 if insufficient liquidity, asset not supported, or below minRedeemAmount
      */
     function previewRedeem(
         address collateralAsset,
         uint256 naraUsdAmount
     ) public view returns (uint256 collateralAmount) {
         if (naraUsdAmount == 0 || !mct.isSupportedAsset(collateralAsset)) {
+            return 0;
+        }
+
+        // Check minimum redeem amount
+        if (minRedeemAmount > 0 && naraUsdAmount < minRedeemAmount) {
             return 0;
         }
 
