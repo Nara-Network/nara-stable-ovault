@@ -39,6 +39,17 @@ interface IKeyring {
  * - Collateral is converted to MCT, then NaraUSD shares are minted
  * - Redemptions: instant if liquidity available, otherwise queued for solver execution
  * - Users can cancel queued redemption requests anytime
+ * @dev IMPORTANT - ERC4626 Limitations: This contract partially implements ERC4626.
+ *      - ERC4626 deposit() and mint() are DISABLED - use mintWithCollateral() instead
+ *      - ERC4626 withdraw() and redeem() are DISABLED - use redeem(collateralAsset, naraUsdAmount, allowQueue) instead
+ *      - maxDeposit() and maxMint() reflect per-block limits and paused state
+ *      - maxWithdraw() and maxRedeem() return 0 (ERC4626 withdraw/redeem are unsupported)
+ *      - preview* functions account for fees but the corresponding actions may be disabled
+ * @dev IMPORTANT - Redemption Mechanism: The "redemption queue" is NOT an ordered FIFO queue.
+ *      It is implemented as a per-user mapping (one active request per user). There is no global
+ *      ordering, no "next in line" concept, and no automatic FIFO processing. Completion order is
+ *      discretionary by the COLLATERAL_MANAGER_ROLE (solver), who can complete requests opportunistically
+ *      via completeRedeem() or bulkCompleteRedeem() when liquidity becomes available.
  * @dev This contract is upgradeable using UUPS proxy pattern
  *
  * @dev Privileged roles:
@@ -53,6 +64,7 @@ interface IKeyring {
  * - COLLATERAL_MANAGER_ROLE: Manages redemption queue execution. Can:
  *   - Complete queued redemptions (completeRedeem, bulkCompleteRedeem)
  *   - Acts as "solver" to process escrowed redemption requests when liquidity becomes available
+ *   - Completion order is discretionary (not FIFO) - can complete any user's request opportunistically
  * - MINTER_ROLE: Can mint NaraUSD without collateral backing (for incentives, etc.)
  * - BLACKLIST_MANAGER_ROLE: Can add/remove addresses from blacklist (FULL_RESTRICTED_ROLE)
  * - FULL_RESTRICTED_ROLE: Restriction status (not a role to grant). Addresses with this role:
@@ -119,6 +131,8 @@ contract NaraUSD is
     uint256 public minRedeemAmount;
 
     /// @notice Mapping of user addresses to their redemption requests
+    /// @dev This is NOT an ordered queue - each user can have one active request. There is no FIFO ordering.
+    ///      Completion order is discretionary by COLLATERAL_MANAGER_ROLE (solver).
     mapping(address => RedemptionRequest) private _redemptionRequests;
 
     /// @notice Get redemption request for a user
@@ -351,6 +365,11 @@ contract NaraUSD is
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
+     * @dev IMPORTANT - Redemption Queue Mechanism: This is NOT an ordered FIFO queue. Each user can have
+     *      one active redemption request stored in a mapping. There is no global ordering, no "next in line",
+     *      and completion order is discretionary by COLLATERAL_MANAGER_ROLE (solver). The solver can complete
+     *      any user's request opportunistically when liquidity becomes available.
+     * @dev Note: Users can repeatedly create and cancel requests (spam is possible but costs gas).
      * @dev The minRedeemAmount check is enforced only at request creation time.
      *      Queued requests are "grandfathered" and will complete even if minRedeemAmount is increased later.
      * @dev IMPORTANT - Asset Removal Risk: If governance removes a collateral asset from MCT's supported
@@ -428,9 +447,64 @@ contract NaraUSD is
     }
 
     /**
+     * @notice Attempt to complete own queued redemption if liquidity is available
+     * @dev Allows users to complete their own redemption request if sufficient collateral is available
+     * @dev Reverts if insufficient collateral or other validation fails
+     * @return collateralAmount The amount of collateral received
+     */
+    function tryCompleteRedeem() external nonReentrant whenNotPaused returns (uint256 collateralAmount) {
+        return _completeRedemption(msg.sender);
+    }
+
+    /**
+     * @notice Preview redemption amount for a specific collateral asset
+     * @param collateralAsset The collateral asset to receive
+     * @param naraUsdAmount The amount of NaraUSD to redeem
+     * @return collateralAmount The amount of collateral that would be received after fees (0 if instant redemption not possible)
+     * @dev This preview reflects the actual redemption flow and accounts for fees and liquidity availability
+     * @dev Returns 0 if insufficient liquidity, asset not supported, or below minRedeemAmount
+     */
+    function previewRedeem(
+        address collateralAsset,
+        uint256 naraUsdAmount
+    ) public view returns (uint256 collateralAmount) {
+        if (naraUsdAmount == 0 || !mct.isSupportedAsset(collateralAsset)) {
+            return 0;
+        }
+
+        // Check minimum redeem amount
+        if (minRedeemAmount > 0 && naraUsdAmount < minRedeemAmount) {
+            return 0;
+        }
+
+        // Calculate collateral needed
+        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, naraUsdAmount);
+        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
+
+        // Check if instant redemption is possible
+        if (availableCollateral < collateralNeeded) {
+            return 0;
+        }
+
+        // Calculate collateral amount after fees
+        // Fee is calculated on NaraUSD amount (18 decimals), then converted to collateral decimals
+        uint256 feeAmount18 = _calculateRedeemFee(naraUsdAmount);
+
+        if (feeAmount18 > 0) {
+            // Convert fee from 18 decimals to collateral decimals
+            uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
+            collateralAmount = collateralNeeded > feeAmountCollateral ? collateralNeeded - feeAmountCollateral : 0;
+        } else {
+            collateralAmount = collateralNeeded;
+        }
+
+        return collateralAmount;
+    }
+
+    /**
      * @notice Update queued redemption request amount
      * @param newAmount The new amount of NaraUSD to redeem
-     * @dev If liquidity is now available, automatically executes instant redemption instead of keeping queued
+     * @dev Only updates the queued amount. Use tryCompleteRedeem() to attempt completion.
      */
     function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
         RedemptionRequest memory request = _redemptionRequests[msg.sender];
@@ -452,63 +526,30 @@ contract NaraUSD is
         address collateralAsset = request.collateralAsset;
         uint256 currentAmount = request.naraUsdAmount;
 
-        // Check if instant redemption is now possible
-        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, newAmount);
-        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
-
-        if (availableCollateral >= collateralNeeded) {
-            // Liquidity available - execute instant redemption
-            _checkBelowMaxRedeemPerBlock(newAmount);
-
-            redeemedPerBlock[block.number] += newAmount;
-
-            // Clear the queued request first
-            delete _redemptionRequests[msg.sender];
-
-            // Withdraw currently escrowed NaraUSD from silo to this contract
-            redeemSilo.withdraw(address(this), currentAmount);
-
-            // Adjust balance: if newAmount > currentAmount, need more from user
-            if (newAmount > currentAmount) {
-                uint256 additionalAmount = newAmount - currentAmount;
-                _transfer(msg.sender, address(this), additionalAmount);
-            } else if (newAmount < currentAmount) {
-                // Return excess to user
-                uint256 excessAmount = currentAmount - newAmount;
-                _transfer(address(this), msg.sender, excessAmount);
-            }
-
-            // Now execute instant redemption from this contract's balance
-            _burn(address(this), newAmount);
-
-            // Execute redemption and transfer to user
-            uint256 collateralReceived = _executeRedemption(msg.sender, collateralAsset, newAmount);
-
-            // Emit RedemptionCompleted because this was a queued request that is being fulfilled
-            emit RedemptionCompleted(msg.sender, newAmount, collateralAsset, collateralReceived);
-        } else {
-            // Still no liquidity - update queued amount
-            if (newAmount > currentAmount) {
-                // Increasing - transfer additional NaraUSD to silo
-                uint256 additionalAmount = newAmount - currentAmount;
-                _transfer(msg.sender, address(redeemSilo), additionalAmount);
-            } else if (newAmount < currentAmount) {
-                // Decreasing - return excess NaraUSD from silo to user
-                uint256 excessAmount = currentAmount - newAmount;
-                redeemSilo.withdraw(msg.sender, excessAmount);
-            }
-
-            // Update stored amount
-            _redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
-
-            emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
+        // Update queued amount only (no automatic instant redemption)
+        if (newAmount > currentAmount) {
+            // Increasing - transfer additional NaraUSD to silo
+            uint256 additionalAmount = newAmount - currentAmount;
+            _transfer(msg.sender, address(redeemSilo), additionalAmount);
+        } else if (newAmount < currentAmount) {
+            // Decreasing - return excess NaraUSD from silo to user
+            uint256 excessAmount = currentAmount - newAmount;
+            redeemSilo.withdraw(msg.sender, excessAmount);
         }
+
+        // Update stored amount
+        _redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
+
+        emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
     }
 
     /**
      * @notice Cancel redemption request and return locked NaraUSD to user
      * @dev This function always works regardless of asset support status, providing an escape hatch
      *      for users if their requested collateral asset is removed from MCT's supported assets.
+     * @dev Note: Users can cancel at any time. This is by design.
+     *      If a solver attempts to complete a cancelled request, the call will revert with NoRedemptionRequest.
+     * @dev Note: Users can repeatedly create and cancel requests (spam is possible but costs gas).
      */
     function cancelRedeem() external nonReentrant whenNotPaused {
         if (_isBlacklisted(msg.sender)) {
@@ -974,20 +1015,91 @@ contract NaraUSD is
     /* --------------- OVERRIDES --------------- */
 
     /**
-     * @notice Override ERC4626 withdraw - disabled in favor of custom redeem flow
-     * @dev Use redeem() with instant/queue logic instead
+     * @notice Override ERC4626 withdraw - intentionally disabled
+     * @dev ERC4626 withdraw() is unsupported. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
+     *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function withdraw(uint256, address, address) public pure override returns (uint256) {
-        revert("Use redeem()");
+        revert("ERC4626 withdraw() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
     }
 
     /**
-     * @notice Override ERC4626 redeem - disabled in favor of custom redeem flow
-     * @dev The ERC4626 redeem(shares, receiver, owner) is replaced by our custom
-     *      redeem(collateralAsset, naraUsdAmount, allowQueue) function
+     * @notice Override ERC4626 redeem - intentionally disabled
+     * @dev ERC4626 redeem() is unsupported. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
+     *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert("Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+        revert("ERC4626 redeem() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+    }
+
+    /**
+     * @notice Override ERC4626 deposit - disabled in favor of mintWithCollateral flow
+     * @dev ERC4626 deposit() is intentionally disabled. Use mintWithCollateral() instead.
+     *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
+     */
+    function deposit(uint256, address) public pure override returns (uint256) {
+        revert("Use mintWithCollateral()");
+    }
+
+    /**
+     * @notice Override ERC4626 mint - disabled in favor of mintWithCollateral flow
+     * @dev ERC4626 mint() is intentionally disabled. Use mintWithCollateral() instead.
+     *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
+     */
+    function mint(uint256, address) public pure override returns (uint256) {
+        revert("Use mintWithCollateral()");
+    }
+
+    /**
+     * @notice Override maxDeposit to reflect actual constraints
+     * @return The maximum amount of assets that can be deposited
+     * @dev Returns 0 when paused or when maxMintPerBlock is 0 (disabled)
+     * @dev ERC4626 deposit is disabled, but this override ensures integrations see accurate limits
+     */
+    function maxDeposit(address) public view override returns (uint256) {
+        if (paused() || maxMintPerBlock == 0) {
+            return 0;
+        }
+        // Return remaining capacity for this block
+        uint256 remaining = maxMintPerBlock > mintedPerBlock[block.number]
+            ? maxMintPerBlock - mintedPerBlock[block.number]
+            : 0;
+        return remaining;
+    }
+
+    /**
+     * @notice Override maxMint to reflect actual constraints
+     * @return The maximum amount of shares that can be minted
+     * @dev Returns 0 when paused or when maxMintPerBlock is 0 (disabled)
+     * @dev ERC4626 mint is disabled, but this override ensures integrations see accurate limits
+     */
+    function maxMint(address) public view override returns (uint256) {
+        if (paused() || maxMintPerBlock == 0) {
+            return 0;
+        }
+        // Return remaining capacity for this block
+        uint256 remaining = maxMintPerBlock > mintedPerBlock[block.number]
+            ? maxMintPerBlock - mintedPerBlock[block.number]
+            : 0;
+        return remaining;
+    }
+
+    /**
+     * @notice Override maxWithdraw to reflect that ERC4626 withdraw is disabled
+     * @return The maximum amount of assets that can be withdrawn
+     * @dev Returns 0 because ERC4626 withdraw() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
+     */
+    function maxWithdraw(address) public pure override returns (uint256) {
+        return 0;
+    }
+
+    /**
+     * @notice Override maxRedeem to reflect that ERC4626 redeem is disabled
+     * @return The maximum amount of shares that can be redeemed
+     * @dev Returns 0 because ERC4626 redeem() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
+     */
+    function maxRedeem(address) public pure override returns (uint256) {
+        return 0;
     }
 
     /// @dev Override decimals to ensure 18 decimals
@@ -1001,6 +1113,9 @@ contract NaraUSD is
      * @return shares The amount of shares (NaraUSD) that would be minted to the receiver after fees
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev Fee is calculated on MCT amount, then shares are minted 1:1 with remaining MCT
+     * @dev Note: Since MCT is 1:1 with supported stablecoins (normalized to 18 decimals),
+     *      this preview reflects the ratio between supported stablecoins (in 18 decimals) and NaraUSD.
+     *      For example, 1000e18 USDC (normalized) = 1000e18 MCT = 1000e18 NaraUSD (minus fees).
      */
     function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
         uint256 baseShares = super.previewDeposit(assets);
@@ -1018,6 +1133,9 @@ contract NaraUSD is
      * @return assets The amount of assets (MCT) needed to mint shares (inclusive of fees)
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev To get 'shares' after fee, we need more MCT assets
+     * @dev Note: Since MCT is 1:1 with supported stablecoins (normalized to 18 decimals),
+     *      this preview reflects the ratio between NaraUSD and supported stablecoins (in 18 decimals).
+     *      For example, to mint 1000e18 NaraUSD, you need 1000e18+ MCT (normalized stablecoins, plus fees).
      */
     function previewMint(uint256 shares) public view override returns (uint256 assets) {
         // Calculate how many shares we need before fee to get 'shares' after fee
@@ -1047,54 +1165,21 @@ contract NaraUSD is
     }
 
     /**
-     * @notice Override previewRedeem to account for redeem fees
-     * @param shares The amount of shares (NaraUSD) to redeem
-     * @return assets The amount of assets (MCT) that would be received after fees
-     * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
-     * @dev Note: Actual redeem fee is on collateral, but for ERC4626 we apply it to MCT (1:1 equivalent)
+     * @notice Override previewRedeem to reflect that ERC4626 redeem is disabled
+     * @return assets The amount of assets (MCT) that would be received
+     * @dev Returns 0 because ERC4626 redeem() is disabled. Use previewRedeem(collateralAsset, naraUsdAmount) instead.
      */
-    function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
-        uint256 baseAssets = super.previewRedeem(shares);
-
-        // Apply redeem fee if configured
-        uint256 feeAmount = _calculateRedeemFee(baseAssets);
-        assets = baseAssets > feeAmount ? baseAssets - feeAmount : 0;
-
-        return assets;
+    function previewRedeem(uint256) public pure override returns (uint256 assets) {
+        return 0;
     }
 
     /**
-     * @notice Override previewWithdraw to account for redeem fees
-     * @param assets The amount of assets (MCT) to withdraw
-     * @return shares The amount of shares (NaraUSD) needed to withdraw assets (inclusive of fees)
-     * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
-     * @dev To get 'assets' after fee, we need to redeem more shares
+     * @notice Override previewWithdraw to reflect that ERC4626 withdraw is disabled
+     * @return shares The amount of shares (NaraUSD) needed to withdraw assets
+     * @dev Returns 0 because ERC4626 withdraw() is disabled. Use previewRedeem(collateralAsset, naraUsdAmount) instead.
      */
-    function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
-        // Calculate how many assets we need before fee to get 'assets' after fee
-        uint256 assetsBeforeFee = assets;
-        if (feeTreasury != address(0)) {
-            if (redeemFeeBps > 0) {
-                // Calculate assuming percentage fee only
-                uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
-                assetsBeforeFee = Math.ceilDiv(assets * BPS_DENOMINATOR, denominator);
-
-                // Check if minimum fee would apply
-                uint256 estimatedFee = _calculateRedeemFee(assetsBeforeFee);
-                uint256 estimatedPercentageFee = (assetsBeforeFee * redeemFeeBps) / BPS_DENOMINATOR;
-                if (estimatedFee > estimatedPercentageFee) {
-                    // Minimum fee applies, so: assets = assetsBeforeFee - minRedeemFeeAmount
-                    assetsBeforeFee = assets + minRedeemFeeAmount;
-                }
-            } else if (minRedeemFeeAmount > 0) {
-                // Only minimum fee applies (no percentage)
-                assetsBeforeFee = assets + minRedeemFeeAmount;
-            }
-        }
-
-        shares = super.previewWithdraw(assetsBeforeFee);
-
-        return shares;
+    function previewWithdraw(uint256) public pure override returns (uint256 shares) {
+        return 0;
     }
 
     /**
