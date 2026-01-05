@@ -363,6 +363,7 @@ contract NaraUSD is
      *      one active redemption request stored in a mapping. There is no global ordering, no "next in line",
      *      and completion order is discretionary by COLLATERAL_MANAGER_ROLE (solver). The solver can complete
      *      any user's request opportunistically when liquidity becomes available.
+     * @dev Note: Users can repeatedly create and cancel requests (spam is possible but costs gas).
      * @dev The minRedeemAmount check is enforced only at request creation time.
      *      Queued requests are "grandfathered" and will complete even if minRedeemAmount is increased later.
      * @dev IMPORTANT - Asset Removal Risk: If governance removes a collateral asset from MCT's supported
@@ -415,8 +416,6 @@ contract NaraUSD is
      * @notice Complete redemption for a specific user - redeems NaraUSD for collateral from queued request
      * @param user The address whose redemption request should be completed
      * @dev Only callable by collateral manager
-     * @dev Completion order is discretionary - there is no FIFO ordering. The solver can complete any
-     *      user's request opportunistically when liquidity is available.
      */
     function completeRedeem(
         address user
@@ -428,8 +427,6 @@ contract NaraUSD is
      * @notice Bulk-complete redemptions for multiple users
      * @dev Callable by collateral manager to act as a "bulk solver" for escrowed redemption requests
      * @param users Array of user addresses whose redemptions should be completed
-     * @dev Completion order is discretionary - there is no FIFO ordering. The solver can choose which
-     *      users to complete in any order when liquidity is available.
      */
     function bulkCompleteRedeem(
         address[] calldata users
@@ -499,6 +496,7 @@ contract NaraUSD is
      * @notice Cancel redemption request and return locked NaraUSD to user
      * @dev This function always works regardless of asset support status, providing an escape hatch
      *      for users if their requested collateral asset is removed from MCT's supported assets.
+     * @dev Note: Users can repeatedly create and cancel requests (spam is possible but costs gas).
      */
     function cancelRedeem() external nonReentrant whenNotPaused {
         if (_isBlacklisted(msg.sender)) {
@@ -1118,8 +1116,6 @@ contract NaraUSD is
      * @param user The user requesting redemption
      * @param collateralAsset The collateral asset to receive
      * @param naraUsdAmount The amount of NaraUSD to lock
-     * @dev This stores one active request per user in a mapping. There is no global ordering or FIFO queue.
-     *      Completion order is discretionary by the collateral manager/solver.
      */
     function _queueRedeem(address user, address collateralAsset, uint256 naraUsdAmount) internal {
         if (_redemptionRequests[user].naraUsdAmount > 0) revert ExistingRedemptionRequest();
@@ -1139,8 +1135,6 @@ contract NaraUSD is
     /**
      * @notice Internal helper to complete a single redemption
      * @dev Reverts if the request does not exist
-     * @dev Note: The redemption mechanism is a per-user mapping (one request per user), not an ordered queue.
-     *      Completion order is discretionary by the collateral manager/solver - there is no FIFO ordering.
      * @dev Note: Queued redemption requests are NOT re-validated against the current minRedeemAmount.
      *      The minimum amount check is enforced only at request creation time in redeem().
      *      This means if governance increases minRedeemAmount after requests are queued,
