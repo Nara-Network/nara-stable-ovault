@@ -2,9 +2,7 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { NaraUSDPlus } from "../../contracts/narausd-plus/NaraUSDPlus.sol";
 import { INaraUSDPlus } from "../../contracts/interfaces/narausd-plus/INaraUSDPlus.sol";
-import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
 import { IMultiCollateralToken } from "../../contracts/interfaces/mct/IMultiCollateralToken.sol";
 import { StakingRewardsDistributor } from "../../contracts/narausd-plus/StakingRewardsDistributor.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -46,7 +44,7 @@ contract AuditFixesTest is TestHelper {
         }
     }
 
-    function test_InitializeSetsOperator() public {
+    function test_InitializeSetsOperator() public view {
         // stakingRewardsDistributor is deployed in TestHelper
         // Verify operator was set correctly during initialization
         assertEq(stakingRewardsDistributor.operator(), delegate, "Operator should be set to delegate");
@@ -117,45 +115,45 @@ contract AuditFixesTest is TestHelper {
     }
 
     function test_MaxRedeemWithMultipleStakers() public {
-        uint256 MIN_SHARES = naraUsdPlus.minShares();
+        uint256 minShares = naraUsdPlus.minShares();
 
-        // Setup: Alice stakes exactly 2 * MIN_SHARES
-        _mintNaraUsdAndStake(alice, 2 * MIN_SHARES);
+        // Setup: Alice stakes exactly 2 * minShares
+        _mintNaraUsdAndStake(alice, 2 * minShares);
 
-        // Also have Bob stake MIN_SHARES so Alice isn't only staker
-        _mintNaraUsdAndStake(bob, MIN_SHARES);
+        // Also have Bob stake minShares so Alice isn't only staker
+        _mintNaraUsdAndStake(bob, minShares);
 
-        // Now totalSupply = 3 * MIN_SHARES, Alice has 2 * MIN_SHARES
-        // maxRedeem for Alice should be 2 * MIN_SHARES (she can redeem all hers,
-        // leaving Bob's MIN_SHARES which satisfies invariant)
+        // Now totalSupply = 3 * minShares, Alice has 2 * minShares
+        // maxRedeem for Alice should be 2 * minShares (she can redeem all hers,
+        // leaving Bob's minShares which satisfies invariant)
         uint256 maxRedeemable = naraUsdPlus.maxRedeem(alice);
-        assertEq(maxRedeemable, 2 * MIN_SHARES, "Alice should be able to redeem all her shares");
+        assertEq(maxRedeemable, 2 * minShares, "Alice should be able to redeem all her shares");
     }
 
     function test_MaxWithdrawSingleStaker() public {
-        uint256 MIN_SHARES = naraUsdPlus.minShares();
+        uint256 minShares = naraUsdPlus.minShares();
 
-        // Setup: Alice stakes exactly 2 * MIN_SHARES (only staker)
-        _mintNaraUsdAndStake(alice, 2 * MIN_SHARES);
+        // Setup: Alice stakes exactly 2 * minShares (only staker)
+        _mintNaraUsdAndStake(alice, 2 * minShares);
 
         // As only staker, Alice can redeem all (leaving totalSupply = 0 which is valid)
         uint256 maxRedeemable = naraUsdPlus.maxRedeem(alice);
-        assertEq(maxRedeemable, 2 * MIN_SHARES, "Single staker should be able to redeem all");
+        assertEq(maxRedeemable, 2 * minShares, "Single staker should be able to redeem all");
 
         uint256 maxWithdrawable = naraUsdPlus.maxWithdraw(alice);
-        uint256 expectedMax = naraUsdPlus.convertToAssets(2 * MIN_SHARES);
+        uint256 expectedMax = naraUsdPlus.convertToAssets(2 * minShares);
         assertEq(maxWithdrawable, expectedMax, "maxWithdraw should match full amount for single staker");
     }
 
     function test_RedeemAllShares() public {
-        uint256 MIN_SHARES = naraUsdPlus.minShares();
+        uint256 minShares = naraUsdPlus.minShares();
 
-        // Setup: Alice is only staker with MIN_SHARES
-        _mintNaraUsdAndStake(alice, MIN_SHARES);
+        // Setup: Alice is only staker with minShares
+        _mintNaraUsdAndStake(alice, minShares);
 
         // Alice should be able to redeem all (leaving totalSupply = 0)
         uint256 maxRedeemable = naraUsdPlus.maxRedeem(alice);
-        assertEq(maxRedeemable, MIN_SHARES, "Should be able to redeem all when only staker");
+        assertEq(maxRedeemable, minShares, "Should be able to redeem all when only staker");
     }
 
     function test_RevertIf_BurnCausesUnderflow() public {
@@ -203,10 +201,10 @@ contract AuditFixesTest is TestHelper {
     }
 
     function test_GatekeeperCanPause() public {
-        bytes32 GATEKEEPER_ROLE = naraUsdPlus.GATEKEEPER_ROLE();
+        bytes32 gatekeeperRole = naraUsdPlus.GATEKEEPER_ROLE();
 
         // Verify delegate has GATEKEEPER_ROLE (granted in initialize)
-        assertTrue(naraUsdPlus.hasRole(GATEKEEPER_ROLE, delegate), "Delegate should have GATEKEEPER_ROLE");
+        assertTrue(naraUsdPlus.hasRole(gatekeeperRole, delegate), "Delegate should have GATEKEEPER_ROLE");
 
         // Non-gatekeeper cannot pause
         vm.prank(alice);

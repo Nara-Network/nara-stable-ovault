@@ -144,6 +144,14 @@ contract MultiCollateralToken is
     }
 
     /**
+     * @notice Burn MCT tokens
+     * @param amount The amount of MCT to burn
+     */
+    function burn(uint256 amount) public virtual override(ERC20BurnableUpgradeable, IMultiCollateralToken) {
+        super.burn(amount);
+    }
+
+    /**
      * @notice Redeem MCT for collateral
      * @param collateralAsset The asset to receive
      * @param mctAmount The amount of MCT to burn

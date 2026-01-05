@@ -2,7 +2,6 @@
 pragma solidity ^0.8.22;
 
 import { TestHelper } from "../helpers/TestHelper.sol";
-import { MultiCollateralToken } from "../../contracts/mct/MultiCollateralToken.sol";
 import { IMultiCollateralToken } from "../../contracts/interfaces/mct/IMultiCollateralToken.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
