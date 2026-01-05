@@ -1042,7 +1042,7 @@ contract NaraUSD is
     /**
      * @notice Override maxWithdraw to reflect that ERC4626 withdraw is disabled
      * @return The maximum amount of assets that can be withdrawn
-     * @dev Returns 0 because ERC4626 withdraw() is disabled. Use redeem() instead.
+     * @dev Returns 0 because ERC4626 withdraw() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
      */
     function maxWithdraw(address) public pure override returns (uint256) {
         return 0;
@@ -1068,6 +1068,9 @@ contract NaraUSD is
      * @return shares The amount of shares (NaraUSD) that would be minted to the receiver after fees
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev Fee is calculated on MCT amount, then shares are minted 1:1 with remaining MCT
+     * @dev Note: Since MCT is 1:1 with supported stablecoins (normalized to 18 decimals),
+     *      this preview reflects the ratio between supported stablecoins (in 18 decimals) and NaraUSD.
+     *      For example, 1000e18 USDC (normalized) = 1000e18 MCT = 1000e18 NaraUSD (minus fees).
      */
     function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
         uint256 baseShares = super.previewDeposit(assets);
@@ -1085,6 +1088,9 @@ contract NaraUSD is
      * @return assets The amount of assets (MCT) needed to mint shares (inclusive of fees)
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev To get 'shares' after fee, we need more MCT assets
+     * @dev Note: Since MCT is 1:1 with supported stablecoins (normalized to 18 decimals),
+     *      this preview reflects the ratio between NaraUSD and supported stablecoins (in 18 decimals).
+     *      For example, to mint 1000e18 NaraUSD, you need 1000e18+ MCT (normalized stablecoins, plus fees).
      */
     function previewMint(uint256 shares) public view override returns (uint256 assets) {
         // Calculate how many shares we need before fee to get 'shares' after fee
