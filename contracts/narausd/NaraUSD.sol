@@ -39,6 +39,12 @@ interface IKeyring {
  * - Collateral is converted to MCT, then NaraUSD shares are minted
  * - Redemptions: instant if liquidity available, otherwise queued for solver execution
  * - Users can cancel queued redemption requests anytime
+ * @dev IMPORTANT - ERC4626 Limitations: This contract partially implements ERC4626.
+ *      - ERC4626 deposit() and mint() are DISABLED - use mintWithCollateral() instead
+ *      - ERC4626 withdraw() and redeem() are DISABLED - use redeem(collateralAsset, naraUsdAmount, allowQueue) instead
+ *      - maxDeposit() and maxMint() reflect per-block limits and paused state
+ *      - maxWithdraw() and maxRedeem() return 0 (ERC4626 withdraw/redeem are unsupported)
+ *      - preview* functions account for fees but the corresponding actions may be disabled
  * @dev IMPORTANT - Redemption Mechanism: The "redemption queue" is NOT an ordered FIFO queue.
  *      It is implemented as a per-user mapping (one active request per user). There is no global
  *      ordering, no "next in line" concept, and no automatic FIFO processing. Completion order is
@@ -964,20 +970,91 @@ contract NaraUSD is
     /* --------------- OVERRIDES --------------- */
 
     /**
-     * @notice Override ERC4626 withdraw - disabled in favor of custom redeem flow
-     * @dev Use redeem() with instant/queue logic instead
+     * @notice Override ERC4626 withdraw - intentionally disabled
+     * @dev ERC4626 withdraw() is unsupported. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
+     *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function withdraw(uint256, address, address) public pure override returns (uint256) {
-        revert("Use redeem()");
+        revert("ERC4626 withdraw() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
     }
 
     /**
-     * @notice Override ERC4626 redeem - disabled in favor of custom redeem flow
-     * @dev The ERC4626 redeem(shares, receiver, owner) is replaced by our custom
-     *      redeem(collateralAsset, naraUsdAmount, allowQueue) function
+     * @notice Override ERC4626 redeem - intentionally disabled
+     * @dev ERC4626 redeem() is unsupported. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
+     *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert("Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+        revert("ERC4626 redeem() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+    }
+
+    /**
+     * @notice Override ERC4626 deposit - disabled in favor of mintWithCollateral flow
+     * @dev ERC4626 deposit() is intentionally disabled. Use mintWithCollateral() instead.
+     *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
+     */
+    function deposit(uint256, address) public pure override returns (uint256) {
+        revert("Use mintWithCollateral()");
+    }
+
+    /**
+     * @notice Override ERC4626 mint - disabled in favor of mintWithCollateral flow
+     * @dev ERC4626 mint() is intentionally disabled. Use mintWithCollateral() instead.
+     *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
+     */
+    function mint(uint256, address) public pure override returns (uint256) {
+        revert("Use mintWithCollateral()");
+    }
+
+    /**
+     * @notice Override maxDeposit to reflect actual constraints
+     * @return The maximum amount of assets that can be deposited
+     * @dev Returns 0 when paused or when maxMintPerBlock is 0 (disabled)
+     * @dev ERC4626 deposit is disabled, but this override ensures integrations see accurate limits
+     */
+    function maxDeposit(address) public view override returns (uint256) {
+        if (paused() || maxMintPerBlock == 0) {
+            return 0;
+        }
+        // Return remaining capacity for this block
+        uint256 remaining = maxMintPerBlock > mintedPerBlock[block.number]
+            ? maxMintPerBlock - mintedPerBlock[block.number]
+            : 0;
+        return remaining;
+    }
+
+    /**
+     * @notice Override maxMint to reflect actual constraints
+     * @return The maximum amount of shares that can be minted
+     * @dev Returns 0 when paused or when maxMintPerBlock is 0 (disabled)
+     * @dev ERC4626 mint is disabled, but this override ensures integrations see accurate limits
+     */
+    function maxMint(address) public view override returns (uint256) {
+        if (paused() || maxMintPerBlock == 0) {
+            return 0;
+        }
+        // Return remaining capacity for this block
+        uint256 remaining = maxMintPerBlock > mintedPerBlock[block.number]
+            ? maxMintPerBlock - mintedPerBlock[block.number]
+            : 0;
+        return remaining;
+    }
+
+    /**
+     * @notice Override maxWithdraw to reflect that ERC4626 withdraw is disabled
+     * @return The maximum amount of assets that can be withdrawn
+     * @dev Returns 0 because ERC4626 withdraw() is disabled. Use redeem() instead.
+     */
+    function maxWithdraw(address) public pure override returns (uint256) {
+        return 0;
+    }
+
+    /**
+     * @notice Override maxRedeem to reflect that ERC4626 redeem is disabled
+     * @return The maximum amount of shares that can be redeemed
+     * @dev Returns 0 because ERC4626 redeem() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
+     */
+    function maxRedeem(address) public pure override returns (uint256) {
+        return 0;
     }
 
     /// @dev Override decimals to ensure 18 decimals
