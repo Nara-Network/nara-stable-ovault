@@ -13,6 +13,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../mct/MultiCollateralToken.sol";
 import "./NaraUSDRedeemSilo.sol";
+import "../interfaces/narausd/INaraUSD.sol";
 
 /**
  * @title IKeyring
@@ -39,6 +40,25 @@ interface IKeyring {
  * - Redemptions: instant if liquidity available, otherwise queued for solver execution
  * - Users can cancel queued redemption requests anytime
  * @dev This contract is upgradeable using UUPS proxy pattern
+ *
+ * @dev Privileged roles:
+ * - DEFAULT_ADMIN_ROLE: Full administrative control. Can:
+ *   - Upgrade contract implementation (UUPS)
+ *   - Set all configuration parameters (fees, limits, minimums, treasury, Keyring config)
+ *   - Redistribute locked amounts from blacklisted users
+ *   - Grant/revoke all other roles
+ * - GATEKEEPER_ROLE: Emergency controls. Can:
+ *   - Pause/unpause all operations
+ *   - Disable mint and redeem (set max per block to 0)
+ * - COLLATERAL_MANAGER_ROLE: Manages redemption queue execution. Can:
+ *   - Complete queued redemptions (completeRedeem, bulkCompleteRedeem)
+ *   - Acts as "solver" to process escrowed redemption requests when liquidity becomes available
+ * - MINTER_ROLE: Can mint NaraUSD without collateral backing (for incentives, etc.)
+ * - BLACKLIST_MANAGER_ROLE: Can add/remove addresses from blacklist (FULL_RESTRICTED_ROLE)
+ * - FULL_RESTRICTED_ROLE: Restriction status (not a role to grant). Addresses with this role:
+ *   - Cannot transfer tokens (including via transferFrom)
+ *   - Cannot mint or redeem
+ *   - Can have their locked balances redistributed by admin
  */
 contract NaraUSD is
     Initializable,
@@ -47,7 +67,8 @@ contract NaraUSD is
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable,
     PausableUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    INaraUSD
 {
     using SafeERC20 for IERC20;
 
@@ -74,18 +95,10 @@ contract NaraUSD is
     /// @notice Basis points denominator (100% = 10000 bps)
     uint16 public constant BPS_DENOMINATOR = 10000;
 
-    /* --------------- STRUCTS --------------- */
-
-    /// @notice Redemption request structure
-    struct RedemptionRequest {
-        uint152 naraUsdAmount; // Amount of NaraUSD locked for redemption
-        address collateralAsset; // Collateral asset to receive
-    }
-
     /* --------------- STATE VARIABLES --------------- */
 
     /// @notice The MCT token (underlying asset)
-    MultiCollateralToken public mct;
+    IMultiCollateralToken public mct;
 
     /// @notice NaraUSD minted per block
     mapping(uint256 => uint256) public mintedPerBlock;
@@ -105,14 +118,16 @@ contract NaraUSD is
     /// @notice Minimum NaraUSD amount required for redemption (18 decimals)
     uint256 public minRedeemAmount;
 
-    /// @notice Delegated signer status for smart contracts
-    mapping(address => mapping(address => DelegatedSignerStatus)) public delegatedSigner;
-
     /// @notice Mapping of user addresses to their redemption requests
-    mapping(address => RedemptionRequest) public redemptionRequests;
+    mapping(address => RedemptionRequest) private _redemptionRequests;
+
+    /// @notice Get redemption request for a user
+    function redemptionRequests(address user) public view returns (RedemptionRequest memory) {
+        return _redemptionRequests[user];
+    }
 
     /// @notice Silo contract for holding locked NaraUSD during redemption queue
-    NaraUSDRedeemSilo public redeemSilo;
+    INaraUSDRedeemSilo public redeemSilo;
 
     /// @notice Mint fee in basis points (e.g., 10 = 0.1%)
     uint16 public mintFeeBps;
@@ -138,72 +153,11 @@ contract NaraUSD is
     /// @notice Mapping to track whitelist status of addresses (for contracts like AMM pools)
     mapping(address => bool) public keyringWhitelist;
 
-    /* --------------- ENUMS --------------- */
-
-    enum DelegatedSignerStatus {
-        REJECTED,
-        PENDING,
-        ACCEPTED
-    }
-
-    /* --------------- EVENTS --------------- */
-
-    event Mint(
-        address indexed beneficiary,
-        address indexed collateralAsset,
-        uint256 collateralAmount,
-        uint256 naraUsdAmount
-    );
-    event Redeem(
-        address indexed beneficiary,
-        address indexed collateralAsset,
-        uint256 naraUsdAmount,
-        uint256 collateralAmount
-    );
-    event MaxMintPerBlockChanged(uint256 oldMax, uint256 newMax);
-    event MaxRedeemPerBlockChanged(uint256 oldMax, uint256 newMax);
-    event DelegatedSignerInitiated(address indexed delegateTo, address indexed delegatedBy);
-    event DelegatedSignerAdded(address indexed signer, address indexed delegatedBy);
-    event DelegatedSignerRemoved(address indexed signer, address indexed delegatedBy);
-    event RedemptionRequested(address indexed user, uint256 naraUsdAmount, address indexed collateralAsset);
-    event RedemptionCompleted(
-        address indexed user,
-        uint256 naraUsdAmount,
-        address indexed collateralAsset,
-        uint256 collateralAmount
-    );
-    event RedemptionCancelled(address indexed user, uint256 naraUsdAmount);
-    event MintFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
-    event RedeemFeeUpdated(uint16 oldFeeBps, uint16 newFeeBps);
-    event FeeTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
-    event FeeCollected(address indexed treasury, uint256 feeAmount, bool isMintFee);
-    event LockedAmountRedistributed(address indexed from, address indexed to, uint256 amount);
-    event MinMintAmountUpdated(uint256 oldAmount, uint256 newAmount);
-    event MinRedeemAmountUpdated(uint256 oldAmount, uint256 newAmount);
-    event MinMintFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
-    event MinRedeemFeeAmountUpdated(uint256 oldAmount, uint256 newAmount);
-    event KeyringConfigUpdated(address indexed keyringAddress, uint256 policyId);
-    event KeyringWhitelistUpdated(address indexed account, bool status);
-
-    /* --------------- ERRORS --------------- */
-
-    error ZeroAddressException();
-    error InvalidAmount();
-    error UnsupportedAsset();
-    error MaxMintPerBlockExceeded();
-    error MaxRedeemPerBlockExceeded();
-    error InvalidSignature();
-    error DelegationNotInitiated();
-    error CantRenounceOwnership();
-    error NoRedemptionRequest();
-    error ExistingRedemptionRequest();
-    error InvalidFee();
-    error OperationNotAllowed();
-    error CantBlacklistOwner();
-    error BelowMinimumAmount();
-    error KeyringCredentialInvalid(address account);
-    error InsufficientCollateral();
-    error InvalidToken();
+    /**
+     * @dev Storage gap to allow for new storage variables in future upgrades
+     * @dev Reserves 50 storage slots for future versions
+     */
+    uint256[50] private __gap;
 
     /* --------------- MODIFIERS --------------- */
 
@@ -320,8 +274,8 @@ contract NaraUSD is
         __Pausable_init();
         __UUPSUpgradeable_init();
 
-        mct = _mct;
-        redeemSilo = _redeemSilo;
+        mct = IMultiCollateralToken(address(_mct));
+        redeemSilo = INaraUSDRedeemSilo(address(_redeemSilo));
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GATEKEEPER_ROLE, admin);
@@ -351,25 +305,7 @@ contract NaraUSD is
         address collateralAsset,
         uint256 collateralAmount
     ) external nonReentrant whenNotPaused returns (uint256 naraUsdAmount) {
-        return _mintWithCollateral(collateralAsset, collateralAmount, msg.sender);
-    }
-
-    /**
-     * @notice Mint NaraUSD on behalf of a beneficiary
-     * @param collateralAsset The collateral asset to deposit
-     * @param collateralAmount The amount of collateral to deposit
-     * @param beneficiary The address to receive minted NaraUSD
-     * @return naraUsdAmount The amount of NaraUSD minted
-     */
-    function mintWithCollateralFor(
-        address collateralAsset,
-        uint256 collateralAmount,
-        address beneficiary
-    ) external nonReentrant whenNotPaused returns (uint256 naraUsdAmount) {
-        if (delegatedSigner[msg.sender][beneficiary] != DelegatedSignerStatus.ACCEPTED) {
-            revert InvalidSignature();
-        }
-        return _mintWithCollateral(collateralAsset, collateralAmount, beneficiary);
+        return _mintWithCollateral(collateralAsset, collateralAmount);
     }
 
     /**
@@ -378,10 +314,29 @@ contract NaraUSD is
      * @param amount The amount of NaraUSD to mint
      * @dev Intended for protocol-controlled operations such as incentive programs
      */
-    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused {
+    function mintWithoutCollateral(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused {
         if (to == address(0)) revert ZeroAddressException();
         if (amount == 0) revert InvalidAmount();
         _mint(to, amount);
+
+        // Mint corresponding MCT to maintain 1:1 backing
+        mct.mintWithoutCollateral(address(this), amount);
+    }
+
+    /**
+     * @notice Mint NaraUSD without collateral backing for a specific beneficiary (admin-controlled)
+     * @param beneficiary The address to receive freshly minted NaraUSD
+     * @param amount The amount of NaraUSD to mint
+     * @dev Alias for mint() with more explicit naming to clarify this is unbacked minting
+     * @dev Intended for protocol-controlled operations such as incentive programs
+     */
+    function mintWithoutCollateralFor(
+        address beneficiary,
+        uint256 amount
+    ) external onlyRole(MINTER_ROLE) whenNotPaused {
+        if (beneficiary == address(0)) revert ZeroAddressException();
+        if (amount == 0) revert InvalidAmount();
+        _mint(beneficiary, amount);
 
         // Mint corresponding MCT to maintain 1:1 backing
         mct.mintWithoutCollateral(address(this), amount);
@@ -396,6 +351,14 @@ contract NaraUSD is
      * @param allowQueue If false, reverts when insufficient liquidity; if true, queues the request
      * @return collateralAmount The amount of collateral received (0 if queued)
      * @return wasQueued True if request was queued, false if executed instantly
+     * @dev The minRedeemAmount check is enforced only at request creation time.
+     *      Queued requests are "grandfathered" and will complete even if minRedeemAmount is increased later.
+     * @dev IMPORTANT - Asset Removal Risk: If governance removes a collateral asset from MCT's supported
+     *      assets list while redemption requests are queued for that asset, those queued requests will
+     *      become non-completable (completion requires asset to be supported in MCT). However, users can
+     *      ALWAYS call cancelRedeem() to recover their escrowed NaraUSD regardless of asset support status.
+     *      Users should monitor asset support changes for queued requests. Governance should ensure queued
+     *      requests are completed or users are notified before removing asset support.
      */
     function redeem(
         address collateralAsset,
@@ -470,7 +433,7 @@ contract NaraUSD is
      * @dev If liquidity is now available, automatically executes instant redemption instead of keeping queued
      */
     function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
-        RedemptionRequest memory request = redemptionRequests[msg.sender];
+        RedemptionRequest memory request = _redemptionRequests[msg.sender];
 
         if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
         if (newAmount == 0) revert InvalidAmount();
@@ -479,6 +442,12 @@ contract NaraUSD is
         if (minRedeemAmount > 0 && newAmount < minRedeemAmount) {
             revert BelowMinimumAmount();
         }
+
+        // Check blacklist and Keyring compliance (required for all redemption operations)
+        if (_isBlacklisted(msg.sender)) {
+            revert OperationNotAllowed();
+        }
+        _checkKeyringCredential(msg.sender);
 
         address collateralAsset = request.collateralAsset;
         uint256 currentAmount = request.naraUsdAmount;
@@ -489,16 +458,12 @@ contract NaraUSD is
 
         if (availableCollateral >= collateralNeeded) {
             // Liquidity available - execute instant redemption
-            if (_isBlacklisted(msg.sender)) {
-                revert OperationNotAllowed();
-            }
-            _checkKeyringCredential(msg.sender);
             _checkBelowMaxRedeemPerBlock(newAmount);
 
             redeemedPerBlock[block.number] += newAmount;
 
             // Clear the queued request first
-            delete redemptionRequests[msg.sender];
+            delete _redemptionRequests[msg.sender];
 
             // Withdraw currently escrowed NaraUSD from silo to this contract
             redeemSilo.withdraw(address(this), currentAmount);
@@ -534,7 +499,7 @@ contract NaraUSD is
             }
 
             // Update stored amount
-            redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
+            _redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
 
             emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
         }
@@ -542,20 +507,22 @@ contract NaraUSD is
 
     /**
      * @notice Cancel redemption request and return locked NaraUSD to user
+     * @dev This function always works regardless of asset support status, providing an escape hatch
+     *      for users if their requested collateral asset is removed from MCT's supported assets.
      */
-    function cancelRedeem() external nonReentrant {
+    function cancelRedeem() external nonReentrant whenNotPaused {
         if (_isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
 
-        RedemptionRequest memory request = redemptionRequests[msg.sender];
+        RedemptionRequest memory request = _redemptionRequests[msg.sender];
 
         if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
 
         uint256 naraUsdAmount = request.naraUsdAmount;
 
         // Clear redemption request
-        delete redemptionRequests[msg.sender];
+        delete _redemptionRequests[msg.sender];
 
         // Return NaraUSD from silo to user
         redeemSilo.withdraw(msg.sender, naraUsdAmount);
@@ -609,6 +576,7 @@ contract NaraUSD is
      */
     function setMintFee(uint16 _mintFeeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_mintFeeBps > MAX_FEE_BPS) revert InvalidFee();
+        if (_mintFeeBps == mintFeeBps) revert ValueUnchanged();
         uint16 oldFee = mintFeeBps;
         mintFeeBps = _mintFeeBps;
         emit MintFeeUpdated(oldFee, _mintFeeBps);
@@ -620,6 +588,7 @@ contract NaraUSD is
      */
     function setRedeemFee(uint16 _redeemFeeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_redeemFeeBps > MAX_FEE_BPS) revert InvalidFee();
+        if (_redeemFeeBps == redeemFeeBps) revert ValueUnchanged();
         uint16 oldFee = redeemFeeBps;
         redeemFeeBps = _redeemFeeBps;
         emit RedeemFeeUpdated(oldFee, _redeemFeeBps);
@@ -631,6 +600,7 @@ contract NaraUSD is
      */
     function setFeeTreasury(address _feeTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_feeTreasury == address(0)) revert ZeroAddressException();
+        if (_feeTreasury == feeTreasury) revert ValueUnchanged();
         address oldTreasury = feeTreasury;
         feeTreasury = _feeTreasury;
         emit FeeTreasuryUpdated(oldTreasury, _feeTreasury);
@@ -641,6 +611,11 @@ contract NaraUSD is
      * @param _minMintAmount New minimum mint amount (18 decimals)
      */
     function setMinMintAmount(uint256 _minMintAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minMintAmount == minMintAmount) revert ValueUnchanged();
+        // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
+        if (_minMintAmount > 0 && minMintFeeAmount > 0 && minMintFeeAmount >= _minMintAmount) {
+            revert InvalidFee();
+        }
         uint256 oldAmount = minMintAmount;
         minMintAmount = _minMintAmount;
         emit MinMintAmountUpdated(oldAmount, _minMintAmount);
@@ -649,8 +624,15 @@ contract NaraUSD is
     /**
      * @notice Set minimum redeem amount
      * @param _minRedeemAmount New minimum redeem amount (18 decimals)
+     * @dev Note: Increasing this value will NOT invalidate existing queued redemption requests.
+     *      Queued requests below the new minimum will remain valid and can still be completed.
      */
     function setMinRedeemAmount(uint256 _minRedeemAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minRedeemAmount == minRedeemAmount) revert ValueUnchanged();
+        // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
+        if (_minRedeemAmount > 0 && minRedeemFeeAmount > 0 && minRedeemFeeAmount >= _minRedeemAmount) {
+            revert InvalidFee();
+        }
         uint256 oldAmount = minRedeemAmount;
         minRedeemAmount = _minRedeemAmount;
         emit MinRedeemAmountUpdated(oldAmount, _minRedeemAmount);
@@ -661,6 +643,11 @@ contract NaraUSD is
      * @param _minMintFeeAmount New minimum mint fee amount (18 decimals)
      */
     function setMinMintFeeAmount(uint256 _minMintFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minMintFeeAmount == minMintFeeAmount) revert ValueUnchanged();
+        // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
+        if (minMintAmount > 0 && _minMintFeeAmount > 0 && _minMintFeeAmount >= minMintAmount) {
+            revert InvalidFee();
+        }
         uint256 oldAmount = minMintFeeAmount;
         minMintFeeAmount = _minMintFeeAmount;
         emit MinMintFeeAmountUpdated(oldAmount, _minMintFeeAmount);
@@ -671,6 +658,11 @@ contract NaraUSD is
      * @param _minRedeemFeeAmount New minimum redeem fee amount (18 decimals)
      */
     function setMinRedeemFeeAmount(uint256 _minRedeemFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minRedeemFeeAmount == minRedeemFeeAmount) revert ValueUnchanged();
+        // Ensure minimum fee doesn't exceed minimum amount (if both are non-zero)
+        if (minRedeemAmount > 0 && _minRedeemFeeAmount > 0 && _minRedeemFeeAmount >= minRedeemAmount) {
+            revert InvalidFee();
+        }
         uint256 oldAmount = minRedeemFeeAmount;
         minRedeemFeeAmount = _minRedeemFeeAmount;
         emit MinRedeemFeeAmountUpdated(oldAmount, _minRedeemFeeAmount);
@@ -682,6 +674,7 @@ contract NaraUSD is
      * @param _policyId The policy ID to check credentials against
      */
     function setKeyringConfig(address _keyringAddress, uint256 _policyId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_keyringAddress == keyringAddress && _policyId == keyringPolicyId) revert ValueUnchanged();
         keyringAddress = _keyringAddress;
         keyringPolicyId = _policyId;
         emit KeyringConfigUpdated(_keyringAddress, _policyId);
@@ -694,6 +687,8 @@ contract NaraUSD is
      * @dev Whitelisted addresses bypass Keyring checks (useful for AMM pools, smart contracts)
      */
     function setKeyringWhitelist(address account, bool status) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (account == address(0)) revert ZeroAddressException();
+        if (keyringWhitelist[account] == status) revert ValueUnchanged();
         keyringWhitelist[account] = status;
         emit KeyringWhitelistUpdated(account, status);
     }
@@ -703,6 +698,8 @@ contract NaraUSD is
      * @param target The address to blacklist
      */
     function addToBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) notAdmin(target) {
+        if (target == address(0)) revert ZeroAddressException();
+        if (hasRole(FULL_RESTRICTED_ROLE, target)) revert ValueUnchanged();
         _grantRole(FULL_RESTRICTED_ROLE, target);
     }
 
@@ -711,31 +708,63 @@ contract NaraUSD is
      * @param target The address to un-blacklist
      */
     function removeFromBlacklist(address target) external onlyRole(BLACKLIST_MANAGER_ROLE) {
+        if (target == address(0)) revert ZeroAddressException();
+        if (!hasRole(FULL_RESTRICTED_ROLE, target)) revert ValueUnchanged();
         _revokeRole(FULL_RESTRICTED_ROLE, target);
     }
 
     /**
-     * @notice Redistribute locked amount from full restricted user
-     * @param from The address to burn the entire balance from (must have FULL_RESTRICTED_ROLE)
-     * @param to The address to mint the entire balance to (or address(0) to burn)
+     * @notice Redistribute locked amount from blacklisted user (both wallet and escrowed)
+     * @param from The address to redistribute from (must have FULL_RESTRICTED_ROLE)
+     * @param to The address to mint the balance to (or address(0) to burn)
+     * @dev Handles both:
+     *      1. Wallet balance - regular balanceOf(from)
+     *      2. Escrowed balance - NaraUSD locked in redeemSilo from queued redemptions
+     *      This ensures all funds from a blacklisted user can be recovered/redistributed
      */
     function redistributeLockedAmount(address from, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_isBlacklisted(from) && !_isBlacklisted(to)) {
-            uint256 amountToDistribute = balanceOf(from);
-
-            // Bypass blacklist check by calling super._update directly for the burn
-            // This is safe because it's admin-only and explicitly for moving frozen funds
-            super._update(from, address(0), amountToDistribute);
-
-            // to address of address(0) enables burning
-            if (to != address(0)) {
-                _mint(to, amountToDistribute);
-            }
-
-            emit LockedAmountRedistributed(from, to, amountToDistribute);
-        } else {
+        if (from == address(0)) revert ZeroAddressException();
+        if (!_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
+        // Allow to = address(0) for burning, but otherwise check blacklist
+        if (to != address(0) && _isBlacklisted(to)) {
+            revert OperationNotAllowed();
+        }
+
+        uint256 walletAmount = balanceOf(from);
+        uint256 escrowedAmount = 0;
+
+        // Handle wallet balance
+        if (walletAmount > 0) {
+            // Bypass blacklist check by calling super._update directly for the burn
+            // This is safe because it's admin-only and explicitly for moving frozen funds
+            super._update(from, address(0), walletAmount);
+        }
+
+        // Handle escrowed balance in redemption queue
+        RedemptionRequest memory request = _redemptionRequests[from];
+        if (request.naraUsdAmount > 0) {
+            escrowedAmount = request.naraUsdAmount;
+
+            // Clear the redemption request
+            delete _redemptionRequests[from];
+
+            // Withdraw escrowed NaraUSD from silo to this contract
+            redeemSilo.withdraw(address(this), escrowedAmount);
+
+            // Burn the escrowed tokens
+            _burn(address(this), escrowedAmount);
+        }
+
+        uint256 totalAmount = walletAmount + escrowedAmount;
+
+        // Mint total amount to recipient (or burn if to == address(0))
+        if (to != address(0) && totalAmount > 0) {
+            _mint(to, totalAmount);
+        }
+
+        emit LockedAmountRedistributed(from, to, walletAmount, escrowedAmount);
     }
 
     /**
@@ -772,38 +801,6 @@ contract NaraUSD is
         // This keeps the collateral in MCT but reduces MCT supply
         // Making remaining MCT more valuable (since same collateral backs fewer tokens)
         mct.burn(amount);
-    }
-
-    /* --------------- DELEGATED SIGNER FUNCTIONS --------------- */
-
-    /**
-     * @notice Enable smart contracts to delegate signing
-     * @param _delegateTo The address to delegate to
-     */
-    function setDelegatedSigner(address _delegateTo) external {
-        delegatedSigner[_delegateTo][msg.sender] = DelegatedSignerStatus.PENDING;
-        emit DelegatedSignerInitiated(_delegateTo, msg.sender);
-    }
-
-    /**
-     * @notice Confirm delegation
-     * @param _delegatedBy The address that initiated delegation
-     */
-    function confirmDelegatedSigner(address _delegatedBy) external {
-        if (delegatedSigner[msg.sender][_delegatedBy] != DelegatedSignerStatus.PENDING) {
-            revert DelegationNotInitiated();
-        }
-        delegatedSigner[msg.sender][_delegatedBy] = DelegatedSignerStatus.ACCEPTED;
-        emit DelegatedSignerAdded(msg.sender, _delegatedBy);
-    }
-
-    /**
-     * @notice Remove delegated signer
-     * @param _removedSigner The address to remove
-     */
-    function removeDelegatedSigner(address _removedSigner) external {
-        delegatedSigner[_removedSigner][msg.sender] = DelegatedSignerStatus.REJECTED;
-        emit DelegatedSignerRemoved(_removedSigner, msg.sender);
     }
 
     /* --------------- INTERNAL --------------- */
@@ -846,51 +843,43 @@ contract NaraUSD is
      * @notice Internal mint logic with collateral
      * @param collateralAsset The collateral asset
      * @param collateralAmount The amount of collateral
-     * @param beneficiary The address to receive NaraUSD
-     * @return naraUsdAmount The amount of NaraUSD minted
+     * @return The amount of NaraUSD minted (after fees)
      */
-    function _mintWithCollateral(
-        address collateralAsset,
-        uint256 collateralAmount,
-        address beneficiary
-    ) internal belowMaxMintPerBlock(collateralAmount) returns (uint256 naraUsdAmount) {
+    function _mintWithCollateral(address collateralAsset, uint256 collateralAmount) internal returns (uint256) {
         if (collateralAmount == 0) revert InvalidAmount();
         if (!mct.isSupportedAsset(collateralAsset)) revert UnsupportedAsset();
-        if (beneficiary == address(0)) revert ZeroAddressException();
 
         // Check blacklist restrictions (full restriction prevents minting)
-        if (_isBlacklisted(msg.sender) || _isBlacklisted(beneficiary)) {
+        if (_isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
 
-        // Check Keyring credentials for sender only
+        // Check Keyring credentials
         _checkKeyringCredential(msg.sender);
 
         // Convert collateral to NaraUSD amount (normalize decimals)
-        naraUsdAmount = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
+        uint256 naraUsdAmount = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
 
-        // Check minimum mint amount
-        if (minMintAmount > 0 && naraUsdAmount < minMintAmount) {
-            revert BelowMinimumAmount();
-        }
+        // Calculate mint fee to determine actual mint amount
+        uint256 feeAmount18 = _calculateMintFee(naraUsdAmount);
+        uint256 expectedMintAmount = naraUsdAmount - feeAmount18;
 
-        // Track minted amount
-        mintedPerBlock[block.number] += naraUsdAmount;
+        // Check per-block mint limit using post-fee amount (actual amount that will be minted)
+        _checkBelowMaxMintPerBlock(expectedMintAmount);
 
-        // Transfer collateral from user to this contract
-        IERC20(collateralAsset).safeTransferFrom(beneficiary, address(this), collateralAmount);
+        // Track minted amount using post-fee amount (actual circulating supply increase)
+        mintedPerBlock[block.number] += expectedMintAmount;
 
-        // Calculate mint fee on collateral amount (convert to 18 decimals for fee calculation)
-        uint256 collateralAmount18 = _convertToNaraUsdAmount(collateralAsset, collateralAmount);
-        uint256 feeAmount18 = _calculateMintFee(collateralAmount18);
-        uint256 collateralAfterFee = collateralAmount;
+        // Transfer collateral from caller to this contract
+        IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), collateralAmount);
+
+        // Calculate collateral for minting (after deducting fee)
         uint256 collateralForMinting = collateralAmount;
 
         if (feeAmount18 > 0) {
             // Convert fee from 18 decimals back to collateral decimals
             uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
-            collateralAfterFee = collateralAmount - feeAmountCollateral;
-            collateralForMinting = collateralAfterFee;
+            collateralForMinting = collateralAmount - feeAmountCollateral;
 
             // Transfer fee in collateral to treasury
             IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmountCollateral);
@@ -903,12 +892,16 @@ contract NaraUSD is
         // Mint MCT by depositing remaining collateral
         uint256 mctAmount = mct.mint(collateralAsset, collateralForMinting, address(this));
 
-        // Mint NaraUSD shares to beneficiary (1:1 with MCT)
-        _mint(beneficiary, mctAmount);
+        // Check minimum mint amount (after fees)
+        if (minMintAmount > 0 && mctAmount < minMintAmount) {
+            revert BelowMinimumAmount();
+        }
 
-        emit Mint(beneficiary, collateralAsset, collateralAmount, mctAmount);
+        // Mint NaraUSD shares to msg.sender (1:1 with MCT)
+        _mint(msg.sender, mctAmount);
 
-        // Return the actual amount minted to beneficiary (after fees)
+        emit Mint(msg.sender, collateralAsset, collateralAmount, mctAmount);
+
         return mctAmount;
     }
 
@@ -984,7 +977,7 @@ contract NaraUSD is
      * @notice Override ERC4626 withdraw - disabled in favor of custom redeem flow
      * @dev Use redeem() with instant/queue logic instead
      */
-    function withdraw(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
+    function withdraw(uint256, address, address) public pure override returns (uint256) {
         revert("Use redeem()");
     }
 
@@ -993,12 +986,12 @@ contract NaraUSD is
      * @dev The ERC4626 redeem(shares, receiver, owner) is replaced by our custom
      *      redeem(collateralAsset, naraUsdAmount, allowQueue) function
      */
-    function redeem(uint256, address, address) public pure override(ERC4626Upgradeable) returns (uint256) {
+    function redeem(uint256, address, address) public pure override returns (uint256) {
         revert("Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
     }
 
     /// @dev Override decimals to ensure 18 decimals
-    function decimals() public pure override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
+    function decimals() public pure override(ERC20Upgradeable, ERC4626Upgradeable) returns (uint8) {
         return 18;
     }
 
@@ -1009,9 +1002,8 @@ contract NaraUSD is
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev Fee is calculated on MCT amount, then shares are minted 1:1 with remaining MCT
      */
-    function previewDeposit(uint256 assets) public view override(ERC4626Upgradeable) returns (uint256 shares) {
-        // First get base conversion using ERC4626 formula
-        uint256 baseShares = convertToShares(assets);
+    function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
+        uint256 baseShares = super.previewDeposit(assets);
 
         // Apply mint fee if configured
         uint256 feeAmount = _calculateMintFee(baseShares);
@@ -1027,7 +1019,7 @@ contract NaraUSD is
      * @dev MUST be inclusive of deposit fees per ERC4626 standard
      * @dev To get 'shares' after fee, we need more MCT assets
      */
-    function previewMint(uint256 shares) public view override(ERC4626Upgradeable) returns (uint256 assets) {
+    function previewMint(uint256 shares) public view override returns (uint256 assets) {
         // Calculate how many shares we need before fee to get 'shares' after fee
         uint256 sharesBeforeFee = shares;
         if (feeTreasury != address(0)) {
@@ -1049,8 +1041,7 @@ contract NaraUSD is
             }
         }
 
-        // Convert sharesBeforeFee to assets using base conversion
-        assets = convertToAssets(sharesBeforeFee);
+        assets = super.previewMint(sharesBeforeFee);
 
         return assets;
     }
@@ -1062,9 +1053,8 @@ contract NaraUSD is
      * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
      * @dev Note: Actual redeem fee is on collateral, but for ERC4626 we apply it to MCT (1:1 equivalent)
      */
-    function previewRedeem(uint256 shares) public view override(ERC4626Upgradeable) returns (uint256 assets) {
-        // First get base conversion using ERC4626 formula
-        uint256 baseAssets = convertToAssets(shares);
+    function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
+        uint256 baseAssets = super.previewRedeem(shares);
 
         // Apply redeem fee if configured
         uint256 feeAmount = _calculateRedeemFee(baseAssets);
@@ -1080,7 +1070,7 @@ contract NaraUSD is
      * @dev MUST be inclusive of withdrawal fees per ERC4626 standard
      * @dev To get 'assets' after fee, we need to redeem more shares
      */
-    function previewWithdraw(uint256 assets) public view override(ERC4626Upgradeable) returns (uint256 shares) {
+    function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
         // Calculate how many assets we need before fee to get 'assets' after fee
         uint256 assetsBeforeFee = assets;
         if (feeTreasury != address(0)) {
@@ -1102,8 +1092,7 @@ contract NaraUSD is
             }
         }
 
-        // Convert assetsBeforeFee to shares using base conversion
-        shares = convertToShares(assetsBeforeFee);
+        shares = super.previewWithdraw(assetsBeforeFee);
 
         return shares;
     }
@@ -1141,13 +1130,13 @@ contract NaraUSD is
      * @param naraUsdAmount The amount of NaraUSD to lock
      */
     function _queueRedeem(address user, address collateralAsset, uint256 naraUsdAmount) internal {
-        if (redemptionRequests[user].naraUsdAmount > 0) revert ExistingRedemptionRequest();
+        if (_redemptionRequests[user].naraUsdAmount > 0) revert ExistingRedemptionRequest();
 
         // Transfer NaraUSD from user to silo (escrow)
         _transfer(user, address(redeemSilo), naraUsdAmount);
 
         // Record redemption request (valid until completed or cancelled)
-        redemptionRequests[user] = RedemptionRequest({
+        _redemptionRequests[user] = RedemptionRequest({
             naraUsdAmount: uint152(naraUsdAmount),
             collateralAsset: collateralAsset
         });
@@ -1158,11 +1147,19 @@ contract NaraUSD is
     /**
      * @notice Internal helper to complete a single redemption
      * @dev Reverts if the request does not exist
+     * @dev Note: Queued redemption requests are NOT re-validated against the current minRedeemAmount.
+     *      The minimum amount check is enforced only at request creation time in redeem().
+     *      This means if governance increases minRedeemAmount after requests are queued,
+     *      those legacy requests below the new minimum can still be completed ("grandfathered").
+     * @dev IMPORTANT: This function depends on the collateral asset being supported in MCT at completion
+     *      time, as MCT's redeem() function requires asset support. If governance removes the asset from
+     *      MCT's supported assets after a request is queued, this function will revert. Users must use
+     *      cancelRedeem() to recover their escrowed NaraUSD in such cases.
      * @param user The address whose redemption request should be completed
      * @return collateralAmount The amount of collateral sent to the user (after fees)
      */
     function _completeRedemption(address user) internal returns (uint256 collateralAmount) {
-        RedemptionRequest memory request = redemptionRequests[user];
+        RedemptionRequest memory request = _redemptionRequests[user];
 
         if (request.naraUsdAmount == 0) revert NoRedemptionRequest();
 
@@ -1177,6 +1174,12 @@ contract NaraUSD is
         uint256 naraUsdAmount = request.naraUsdAmount;
         address collateralAsset = request.collateralAsset;
 
+        // Check if sufficient collateral is available before attempting completion
+        uint256 requiredCollateral = _convertToCollateralAmount(collateralAsset, naraUsdAmount);
+        if (mct.collateralBalance(collateralAsset) < requiredCollateral) {
+            revert InsufficientCollateral();
+        }
+
         // Check per-block redemption limit
         _checkBelowMaxRedeemPerBlock(naraUsdAmount);
 
@@ -1184,7 +1187,7 @@ contract NaraUSD is
         redeemedPerBlock[block.number] += naraUsdAmount;
 
         // Clear redemption request
-        delete redemptionRequests[user];
+        delete _redemptionRequests[user];
 
         // Withdraw NaraUSD from silo back to this contract
         redeemSilo.withdraw(address(this), naraUsdAmount);
@@ -1205,25 +1208,25 @@ contract NaraUSD is
      * @param user The user receiving collateral
      * @param collateralAsset The collateral asset to receive
      * @param naraUsdAmount The amount of NaraUSD being redeemed
-     * @return collateralAmount The amount of collateral sent to user (after fees)
+     * @return The amount of collateral sent to user (after fees)
      */
     function _executeRedemption(
         address user,
         address collateralAsset,
         uint256 naraUsdAmount
-    ) internal returns (uint256 collateralAmount) {
+    ) internal returns (uint256) {
         // Redeem MCT for collateral to this contract
         uint256 receivedCollateral = mct.redeem(collateralAsset, naraUsdAmount, address(this));
 
         // Calculate redeem fee (convert collateral to 18 decimals for fee calculation)
         uint256 receivedCollateral18 = _convertToNaraUsdAmount(collateralAsset, receivedCollateral);
         uint256 feeAmount18 = _calculateRedeemFee(receivedCollateral18);
-        uint256 collateralAfterFee = receivedCollateral;
+        uint256 collateralAmount = receivedCollateral;
 
         if (feeAmount18 > 0) {
             // Convert fee from 18 decimals back to collateral decimals
             uint256 feeAmountCollateral = _convertToCollateralAmount(collateralAsset, feeAmount18);
-            collateralAfterFee = receivedCollateral - feeAmountCollateral;
+            collateralAmount = receivedCollateral - feeAmountCollateral;
 
             // Transfer fee in collateral to treasury
             IERC20(collateralAsset).safeTransfer(feeTreasury, feeAmountCollateral);
@@ -1231,9 +1234,9 @@ contract NaraUSD is
         }
 
         // Transfer remaining collateral to user
-        IERC20(collateralAsset).safeTransfer(user, collateralAfterFee);
+        IERC20(collateralAsset).safeTransfer(user, collateralAmount);
 
-        return collateralAfterFee;
+        return collateralAmount;
     }
 
     /**
@@ -1243,11 +1246,16 @@ contract NaraUSD is
      * @dev Note: Keyring checks are NOT applied to transfers - NaraUSD is freely transferrable
      */
     function _update(address from, address to, uint256 value) internal virtual override(ERC20Upgradeable) {
-        // Blacklisted addresses are completely frozen
+        // Blacklisted addresses are completely frozen - they cannot send, receive, or operate transfers
         if (_isBlacklisted(from)) {
             revert OperationNotAllowed();
         }
         if (_isBlacklisted(to)) {
+            revert OperationNotAllowed();
+        }
+        // Check msg.sender to prevent blacklisted operators from moving tokens via transferFrom
+        // Note: from == msg.sender in direct transfers, but differs in transferFrom calls
+        if (msg.sender != from && _isBlacklisted(msg.sender)) {
             revert OperationNotAllowed();
         }
 

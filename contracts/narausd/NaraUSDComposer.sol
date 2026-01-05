@@ -6,7 +6,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { VaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/VaultComposerSync.sol";
 import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
-import { IOFT, SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import { SendParam } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
 interface INaraUSD {
     function mintWithCollateral(
@@ -33,6 +33,8 @@ interface IMCT {
     function defaultAdminRole() external view returns (bytes32);
 
     function collateralBalance(address asset) external view returns (uint256);
+
+    function isSupportedAsset(address asset) external view returns (bool);
 }
 
 /// @notice Error thrown when sender does not have valid Keyring credentials
@@ -49,6 +51,21 @@ error CollateralNotWhitelisted(address collateral);
 
 /// @notice Error thrown when collateral OFT is not whitelisted for compose
 error CollateralOFTNotWhitelisted(address oft);
+
+/// @notice Error thrown when msg.value is sent for a local transfer that doesn't require fees
+error NoMsgValueExpected();
+
+/// @notice Error thrown when address(0) is provided as parameter
+error ZeroAddressException();
+
+/// @notice Error thrown when OFT is already mapped to a different collateral asset
+error OFTAlreadyMapped(address oft, address existingAsset);
+
+/// @notice Error thrown when asset is not supported by MCT
+error AssetNotSupportedByMCT(address asset);
+
+/// @notice Error thrown when ASSET_OFT is used in compose (it's validation-only, not for operations)
+error AssetOFTNotAllowedInCompose();
 
 /**
  * @title NaraUSDComposer
@@ -89,18 +106,26 @@ error CollateralOFTNotWhitelisted(address oft);
  *
  * The ASSET_OFT (MCTOFTAdapter) exists ONLY to pass constructor validation.
  * It is NEVER used in the actual compose flow!
+ * ASSET_OFT compose operations are explicitly blocked at runtime with AssetOFTNotAllowedInCompose().
  *
  * Actual Flow Uses:
  * ✅ collateralAsset - What users actually deposit (USDC/USDT)
  * ✅ collateralAssetOFT - For cross-chain collateral (Stargate USDC OFT)
  * ✅ SHARE_OFT - For sending NaraUSD cross-chain (NaraUSDOFTAdapter)
- * ❌ ASSET_OFT - Only for validation, never used in operations
+ * ❌ ASSET_OFT - Only for validation, explicitly blocked in compose operations
  *
  * See _depositCollateralAndSend() for the actual deposit logic that uses
  * collateralAsset, not ASSET_OFT.
  *
  * @custom:security MCT stays on hub chain only, ASSET_OFT is not used for cross-chain
  * @custom:note See MCTOFTAdapter.sol and WHY_MCTOFT_ADAPTER_EXISTS.md for details
+ *
+ * @dev Privileged roles:
+ * - MCT DEFAULT_ADMIN_ROLE: Controls collateral whitelisting. Can:
+ *   - Add/remove collateral assets and their OFTs to/from whitelist
+ *   - Must be the same admin role that manages MCT's supported assets
+ *   - Note: This contract does not define its own roles; it uses MCT's admin role
+ *     to ensure composer whitelist stays synchronized with MCT supported assets
  */
 contract NaraUSDComposer is VaultComposerSync {
     using SafeERC20 for IERC20;
@@ -151,6 +176,21 @@ contract NaraUSDComposer is VaultComposerSync {
         bytes32 adminRole = IMCT(mct).defaultAdminRole();
         if (!IMCT(mct).hasRole(adminRole, msg.sender)) {
             revert Unauthorized();
+        }
+
+        if (asset == address(0) || assetOft == address(0)) {
+            revert ZeroAddressException();
+        }
+
+        // Verify asset is supported by MCT (composer whitelist must be subset of MCT supported assets)
+        if (!IMCT(mct).isSupportedAsset(asset)) {
+            revert AssetNotSupportedByMCT(asset);
+        }
+
+        // Check if OFT is already mapped to a different asset
+        address existingAsset = oftToCollateral[assetOft];
+        if (existingAsset != address(0) && existingAsset != asset) {
+            revert OFTAlreadyMapped(assetOft, existingAsset);
         }
 
         if (!_whitelistedCollaterals.add(asset)) {
@@ -321,12 +361,22 @@ contract NaraUSDComposer is VaultComposerSync {
 
         _assertSlippage(collateralAmount, _sendParam.minAmountLD);
 
-        // Prepare send param for collateral
-        _sendParam.amountLD = collateralAmount;
-        _sendParam.minAmountLD = 0;
-
-        // Send collateral cross-chain via collateral OFT
-        _send(collateralOft, _sendParam, _refundAddress);
+        // Handle local sends differently to avoid base VaultComposerSync._send limitation
+        // Base _send only handles ASSET_OFT and SHARE_OFT for local sends, not collateral OFTs
+        if (_sendParam.dstEid == VAULT_EID) {
+            // Local send (same chain as vault) - transfer collateral ERC20 directly to recipient
+            if (msg.value > 0) revert NoMsgValueExpected();
+            SafeERC20.safeTransfer(
+                IERC20(_collateralAsset),
+                OFTComposeMsgCodec.bytes32ToAddress(_sendParam.to),
+                collateralAmount
+            );
+        } else {
+            // Cross-chain send - use OFT
+            _sendParam.amountLD = collateralAmount;
+            _sendParam.minAmountLD = 0;
+            _send(collateralOft, _sendParam, _refundAddress);
+        }
     }
 
     /**
@@ -347,8 +397,13 @@ contract NaraUSDComposer is VaultComposerSync {
     ) external payable override {
         if (msg.sender != ENDPOINT) revert OnlyEndpoint(msg.sender);
 
-        // Validate compose sender is either ASSET_OFT, SHARE_OFT, or a whitelisted collateral OFT
-        bool isValidOft = _composeSender == ASSET_OFT || _composeSender == SHARE_OFT;
+        // ASSET_OFT is validation-only and not allowed in compose operations
+        if (_composeSender == ASSET_OFT) {
+            revert AssetOFTNotAllowedInCompose();
+        }
+
+        // Validate compose sender is either SHARE_OFT or a whitelisted collateral OFT
+        bool isValidOft = _composeSender == SHARE_OFT;
         bool isWhitelistedCollateral = oftToCollateral[_composeSender] != address(0);
 
         if (!isValidOft && !isWhitelistedCollateral) {
@@ -393,15 +448,12 @@ contract NaraUSDComposer is VaultComposerSync {
         /// @dev Can only be called by self
         if (msg.sender != address(this)) revert OnlySelf(msg.sender);
 
+        // ASSET_OFT is validation-only and not allowed in compose operations
         if (_oftIn == ASSET_OFT) {
-            /// @dev SendParam defines how the composer will handle the user's funds
-            /// @dev The minMsgValue is the minimum amount of msg.value that must be sent
-            (SendParam memory sendParam, uint256 minMsgValue) = abi.decode(_composeMsg, (SendParam, uint256));
+            revert AssetOFTNotAllowedInCompose();
+        }
 
-            if (msg.value < minMsgValue) revert InsufficientMsgValue(minMsgValue, msg.value);
-
-            super._depositAndSend(_composeFrom, _amount, sendParam, tx.origin);
-        } else if (_oftIn == SHARE_OFT) {
+        if (_oftIn == SHARE_OFT) {
             /// @dev For SHARE_OFT, compose message includes collateral asset address
             /// @dev Format: abi.encode(SendParam, uint256 minMsgValue, address collateralAsset)
             (SendParam memory sendParam, uint256 minMsgValue, address collateralAsset) = abi.decode(
@@ -424,23 +476,6 @@ contract NaraUSDComposer is VaultComposerSync {
             _depositCollateralAndSend(_composeFrom, _amount, sendParam, tx.origin, _oftIn);
         } else {
             revert OnlyValidComposeCaller(_oftIn);
-        }
-    }
-
-    /**
-     * @notice Override _refund to handle any whitelisted collateral asset via its OFT
-     */
-    function _refund(address _oft, bytes calldata _message, uint256 _amount, address _refundAddress) internal override {
-        if (oftToCollateral[_oft] != address(0)) {
-            // It's a whitelisted collateral OFT - handle refund
-            SendParam memory refundSendParam;
-            refundSendParam.dstEid = OFTComposeMsgCodec.srcEid(_message);
-            refundSendParam.to = OFTComposeMsgCodec.composeFrom(_message);
-            refundSendParam.amountLD = _amount;
-
-            IOFT(_oft).send{ value: msg.value }(refundSendParam, MessagingFee(msg.value, 0), _refundAddress);
-        } else {
-            super._refund(_oft, _message, _amount, _refundAddress);
         }
     }
 }

@@ -13,12 +13,12 @@ contract NaraUSDPlusTest is TestHelper {
         super.setUp();
 
         // Mint naraUsd for testing
-        naraUsd.mint(alice, 100_000e18);
-        naraUsd.mint(bob, 100_000e18);
-        naraUsd.mint(owner, 100_000e18);
+        naraUsd.mintWithoutCollateral(alice, 100_000e18);
+        naraUsd.mintWithoutCollateral(bob, 100_000e18);
+        naraUsd.mintWithoutCollateral(owner, 100_000e18);
 
         // Test contract needs naraUsd for reward distribution (has REWARDER_ROLE)
-        naraUsd.mint(address(this), 1_000_000e18);
+        naraUsd.mintWithoutCollateral(address(this), 1_000_000e18);
     }
 
     /**

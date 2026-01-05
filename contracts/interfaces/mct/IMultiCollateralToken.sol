@@ -60,6 +60,12 @@ interface IMultiCollateralToken is IERC20 {
     function mintWithoutCollateral(address beneficiary, uint256 mctAmount) external;
 
     /**
+     * @notice Burn MCT tokens
+     * @param amount The amount of MCT to burn
+     */
+    function burn(uint256 amount) external;
+
+    /**
      * @notice Redeem MCT for collateral
      * @param collateralAsset The asset to receive
      * @param mctAmount The amount of MCT to burn

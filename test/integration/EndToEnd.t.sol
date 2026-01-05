@@ -47,7 +47,7 @@ contract EndToEndTest is TestHelper {
         vm.stopPrank();
         // Test contract has REWARDER_ROLE
         uint256 rewardsAmount = 100e18; // 10% yield
-        naraUsd.mint(address(this), rewardsAmount);
+        naraUsd.mintWithoutCollateral(address(this), rewardsAmount);
         naraUsd.approve(address(naraUsdPlus), rewardsAmount);
         naraUsdPlus.transferInRewards(rewardsAmount);
 
@@ -201,7 +201,7 @@ contract EndToEndTest is TestHelper {
         vm.stopPrank();
 
         // Rewards distributed (test contract has REWARDER_ROLE)
-        naraUsd.mint(address(this), rewardAmount);
+        naraUsd.mintWithoutCollateral(address(this), rewardAmount);
         naraUsd.approve(address(naraUsdPlus), rewardAmount);
         naraUsdPlus.transferInRewards(rewardAmount);
 
@@ -222,7 +222,7 @@ contract EndToEndTest is TestHelper {
         vm.warp(block.timestamp + 8 hours);
 
         // Test contract has REWARDER_ROLE
-        naraUsd.mint(address(this), rewardAmount);
+        naraUsd.mintWithoutCollateral(address(this), rewardAmount);
         naraUsd.approve(address(naraUsdPlus), rewardAmount);
         naraUsdPlus.transferInRewards(rewardAmount);
 
@@ -338,7 +338,7 @@ contract EndToEndTest is TestHelper {
 
             // Ensure alice has enough balance
             if (amount > naraUsd.balanceOf(alice)) {
-                naraUsd.mint(alice, amount);
+                naraUsd.mintWithoutCollateral(alice, amount);
             }
 
             vm.startPrank(alice);
