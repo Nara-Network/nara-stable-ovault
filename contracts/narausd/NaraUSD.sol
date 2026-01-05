@@ -428,9 +428,19 @@ contract NaraUSD is
     }
 
     /**
+     * @notice Attempt to complete own queued redemption if liquidity is available
+     * @dev Allows users to complete their own redemption request if sufficient collateral is available
+     * @dev Reverts if insufficient collateral or other validation fails
+     * @return collateralAmount The amount of collateral received
+     */
+    function tryCompleteRedeem() external nonReentrant whenNotPaused returns (uint256 collateralAmount) {
+        return _completeRedemption(msg.sender);
+    }
+
+    /**
      * @notice Update queued redemption request amount
      * @param newAmount The new amount of NaraUSD to redeem
-     * @dev If liquidity is now available, automatically executes instant redemption instead of keeping queued
+     * @dev Only updates the queued amount. Use tryCompleteRedeem() to attempt completion.
      */
     function updateRedemptionRequest(uint256 newAmount) external nonReentrant whenNotPaused {
         RedemptionRequest memory request = _redemptionRequests[msg.sender];
@@ -452,57 +462,21 @@ contract NaraUSD is
         address collateralAsset = request.collateralAsset;
         uint256 currentAmount = request.naraUsdAmount;
 
-        // Check if instant redemption is now possible
-        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, newAmount);
-        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
-
-        if (availableCollateral >= collateralNeeded) {
-            // Liquidity available - execute instant redemption
-            _checkBelowMaxRedeemPerBlock(newAmount);
-
-            redeemedPerBlock[block.number] += newAmount;
-
-            // Clear the queued request first
-            delete _redemptionRequests[msg.sender];
-
-            // Withdraw currently escrowed NaraUSD from silo to this contract
-            redeemSilo.withdraw(address(this), currentAmount);
-
-            // Adjust balance: if newAmount > currentAmount, need more from user
-            if (newAmount > currentAmount) {
-                uint256 additionalAmount = newAmount - currentAmount;
-                _transfer(msg.sender, address(this), additionalAmount);
-            } else if (newAmount < currentAmount) {
-                // Return excess to user
-                uint256 excessAmount = currentAmount - newAmount;
-                _transfer(address(this), msg.sender, excessAmount);
-            }
-
-            // Now execute instant redemption from this contract's balance
-            _burn(address(this), newAmount);
-
-            // Execute redemption and transfer to user
-            uint256 collateralReceived = _executeRedemption(msg.sender, collateralAsset, newAmount);
-
-            // Emit RedemptionCompleted because this was a queued request that is being fulfilled
-            emit RedemptionCompleted(msg.sender, newAmount, collateralAsset, collateralReceived);
-        } else {
-            // Still no liquidity - update queued amount
-            if (newAmount > currentAmount) {
-                // Increasing - transfer additional NaraUSD to silo
-                uint256 additionalAmount = newAmount - currentAmount;
-                _transfer(msg.sender, address(redeemSilo), additionalAmount);
-            } else if (newAmount < currentAmount) {
-                // Decreasing - return excess NaraUSD from silo to user
-                uint256 excessAmount = currentAmount - newAmount;
-                redeemSilo.withdraw(msg.sender, excessAmount);
-            }
-
-            // Update stored amount
-            _redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
-
-            emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
+        // Update queued amount only (no automatic instant redemption)
+        if (newAmount > currentAmount) {
+            // Increasing - transfer additional NaraUSD to silo
+            uint256 additionalAmount = newAmount - currentAmount;
+            _transfer(msg.sender, address(redeemSilo), additionalAmount);
+        } else if (newAmount < currentAmount) {
+            // Decreasing - return excess NaraUSD from silo to user
+            uint256 excessAmount = currentAmount - newAmount;
+            redeemSilo.withdraw(msg.sender, excessAmount);
         }
+
+        // Update stored amount
+        _redemptionRequests[msg.sender].naraUsdAmount = uint152(newAmount);
+
+        emit RedemptionRequested(msg.sender, newAmount, collateralAsset);
     }
 
     /**

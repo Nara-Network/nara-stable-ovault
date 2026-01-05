@@ -119,8 +119,17 @@ interface INaraUSD {
     function bulkCompleteRedeem(address[] calldata users) external;
 
     /**
+     * @notice Attempt to complete own queued redemption if liquidity is available
+     * @dev Allows users to complete their own redemption request if sufficient collateral is available
+     * @dev Reverts if insufficient collateral or other validation fails
+     * @return collateralAmount The amount of collateral received
+     */
+    function tryCompleteRedeem() external returns (uint256 collateralAmount);
+
+    /**
      * @notice Update queued redemption request amount
      * @param newAmount The new amount of NaraUSD to redeem
+     * @dev Only updates the queued amount, never executes instant redemption. Use tryCompleteRedeem() to attempt completion.
      */
     function updateRedemptionRequest(uint256 newAmount) external;
 
