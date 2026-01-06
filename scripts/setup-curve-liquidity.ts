@@ -26,28 +26,25 @@ import type { Contract, Signer } from 'ethers'
 
 // Network-specific configurations
 // Note: Curve Finance may not be deployed on Arbitrum Sepolia testnet
-const NETWORK_CONFIG: Record<number, { naraUsd: string; usdc: string; curveFactory?: string }> = {
+const NETWORK_CONFIG: Record<number, { naraUsd: string; usdc: string; usdt: string; curveFactory?: string }> = {
     // Arbitrum Sepolia (supported network)
     421614: {
         naraUsd: '0x8edde47955949B96F5aCcA75404615104EAb84aF', // NaraUSD on Arbitrum Sepolia
         usdc: '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773', // USDC on Arbitrum Sepolia
+        usdt: '0x095f40616FA98Ff75D1a7D0c68685c5ef806f110', // USDT on Arbitrum Sepolia
         curveFactory: '0x4279B80fc9e645B4266db351AbB6F6aBe3e35d6e', // https://github.com/curvefi/curve-core/blob/main/deployments/devnet/arb_sepolia.yaml
     },
 }
-
-// Fallback addresses (Arbitrum Sepolia defaults)
-const DEFAULT_NARAUSD_ADDRESS = '0x8edde47955949B96F5aCcA75404615104EAb84aF'
-const DEFAULT_USDC_ADDRESS = '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773'
-// Note: Curve Factory may not be available on Arbitrum Sepolia
 
 // Initial liquidity amounts (adjust as needed)
 // Format: amounts in token's native decimals (NaraUSD: 18, USDC: 6)
 const INITIAL_NARAUSD_AMOUNT = ethers.utils.parseEther('10000') // 10,000 NaraUSD
 const INITIAL_USDC_AMOUNT = ethers.utils.parseUnits('10000', 6) // 10,000 USDC
+const INITIAL_USDT_AMOUNT = ethers.utils.parseUnits('10000', 6) // 10,000 USDT
 
 // Pool metadata
-const POOL_NAME = 'NaraUSD-USDC'
-const POOL_SYMBOL = 'naraUSD-po'
+const POOL_NAME = 'NaraUSD-USDC-USDT'
+const POOL_SYMBOL = 'naraUSD3' // Max 10 characters (Curve contract requirement)
 const POOL_A = 100 // Amplification parameter (lower = more stable, typical range: 50-200)
 
 // ============================================
@@ -99,23 +96,24 @@ async function main() {
     const chainId = Number(network.chainId)
 
     // Get network-specific configuration
-    const config = NETWORK_CONFIG[chainId] || {
-        naraUsd: DEFAULT_NARAUSD_ADDRESS,
-        usdc: DEFAULT_USDC_ADDRESS,
-        curveFactory: undefined,
+    const config = NETWORK_CONFIG[chainId]
+    if (!config) {
+        throw new Error(`Unsupported network: ${network.name} (Chain ID: ${chainId})`)
     }
 
     const NARAUSD_ADDRESS = config.naraUsd
     const USDC_ADDRESS = config.usdc
+    const USDT_ADDRESS = config.usdt
     const CURVE_FACTORY_ADDRESS = config.curveFactory
 
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log('Curve Finance Stable Pool Setup')
+    console.log('Curve Finance Tri-Pool Setup (NaraUSD-USDC-USDT)')
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.log(`Network: ${network.name} (Chain ID: ${chainId})`)
     console.log(`Deployer: ${deployer.address}`)
     console.log(`NaraUSD: ${NARAUSD_ADDRESS}`)
     console.log(`USDC: ${USDC_ADDRESS}`)
+    console.log(`USDT: ${USDT_ADDRESS}`)
     console.log(`Curve Factory: ${CURVE_FACTORY_ADDRESS}`)
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 
@@ -133,24 +131,32 @@ async function main() {
     // Get token contracts
     const naraUsd = new ethers.Contract(NARAUSD_ADDRESS, ERC20_ABI, deployer)
     const usdc = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, deployer)
+    const usdt = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, deployer)
 
     // Check token balances
     console.log('📊 Checking token balances...')
     const naraUsdBalance = await naraUsd.balanceOf(deployer.address)
     const usdcBalance = await usdc.balanceOf(deployer.address)
+    const usdtBalance = await usdt.balanceOf(deployer.address)
     const naraUsdSymbol = await naraUsd.symbol()
     const usdcSymbol = await usdc.symbol()
+    const usdtSymbol = await usdt.symbol()
     const naraUsdDecimals = await naraUsd.decimals()
     const usdcDecimals = await usdc.decimals()
+    const usdtDecimals = await usdt.decimals()
 
     console.log(`   ${naraUsdSymbol} balance: ${ethers.utils.formatUnits(naraUsdBalance, naraUsdDecimals)}`)
     console.log(`   ${usdcSymbol} balance: ${ethers.utils.formatUnits(usdcBalance, usdcDecimals)}`)
+    console.log(`   ${usdtSymbol} balance: ${ethers.utils.formatUnits(usdtBalance, usdtDecimals)}`)
     console.log(`   ${naraUsdSymbol} decimals: ${naraUsdDecimals}`)
     console.log(`   ${usdcSymbol} decimals: ${usdcDecimals}`)
+    console.log(`   ${usdtSymbol} decimals: ${usdtDecimals}`)
 
     // Validate decimals (Curve requires ≤ 18)
-    if (naraUsdDecimals > 18 || usdcDecimals > 18) {
-        throw new Error(`Token decimals exceed maximum (18). NaraUSD: ${naraUsdDecimals}, USDC: ${usdcDecimals}`)
+    if (naraUsdDecimals > 18 || usdcDecimals > 18 || usdtDecimals > 18) {
+        throw new Error(
+            `Token decimals exceed maximum (18). NaraUSD: ${naraUsdDecimals}, USDC: ${usdcDecimals}, USDT: ${usdtDecimals}`
+        )
     }
 
     // Check if we have enough tokens
@@ -163,6 +169,12 @@ async function main() {
     if (usdcBalance.lt(INITIAL_USDC_AMOUNT)) {
         throw new Error(
             `Insufficient ${usdcSymbol} balance. Need ${ethers.utils.formatUnits(INITIAL_USDC_AMOUNT, usdcDecimals)}, have ${ethers.utils.formatUnits(usdcBalance, usdcDecimals)}`
+        )
+    }
+
+    if (usdtBalance.lt(INITIAL_USDT_AMOUNT)) {
+        throw new Error(
+            `Insufficient ${usdtSymbol} balance. Need ${ethers.utils.formatUnits(INITIAL_USDT_AMOUNT, usdtDecimals)}, have ${ethers.utils.formatUnits(usdtBalance, usdtDecimals)}`
         )
     }
 
@@ -193,47 +205,84 @@ async function main() {
     // Get Curve Factory contract
     const curveFactory = new ethers.Contract(CURVE_FACTORY_ADDRESS, CURVE_FACTORY_ABI, deployer)
 
-    // Check if pool already exists via contract
-    console.log('🔍 Checking for existing pool via contract...')
+    // Check if tri-pool already exists via contract
+    console.log('🔍 Checking for existing tri-pool...')
     let existingPoolAddress: string | null = null
     try {
+        // Check for pool with NaraUSD-USDC pair (will find both 2-coin and 3-coin pools)
         const existingPool = await curveFactory.find_pool_for_coins(NARAUSD_ADDRESS, USDC_ADDRESS, 0)
         if (existingPool !== ethers.constants.AddressZero) {
-            existingPoolAddress = existingPool
-            console.log(`   ✅ Found existing pool: ${existingPoolAddress}`)
-            console.log('   Using existing pool for liquidity provision...\n')
-            if (existingPoolAddress) {
-                await addLiquidityToPool(
-                    existingPoolAddress,
-                    deployer,
-                    naraUsd,
-                    usdc,
-                    NARAUSD_ADDRESS,
-                    naraUsdDecimals,
-                    usdcDecimals
+            // Verify it's a tri-pool by checking number of coins
+            const nCoins = await curveFactory.get_n_coins(existingPool)
+            const coinCount = Number(nCoins)
+
+            if (coinCount === 3) {
+                // Verify it contains all three coins (NaraUSD, USDC, USDT)
+                const pool = new ethers.Contract(existingPool, CURVE_POOL_ABI, deployer)
+                const poolCoin0 = await pool.coins(0)
+                const poolCoin1 = await pool.coins(1)
+                const poolCoin2 = await pool.coins(2)
+
+                const hasNaraUsd = [poolCoin0, poolCoin1, poolCoin2].some(
+                    (c) => c.toLowerCase() === NARAUSD_ADDRESS.toLowerCase()
                 )
-                return
+                const hasUsdc = [poolCoin0, poolCoin1, poolCoin2].some(
+                    (c) => c.toLowerCase() === USDC_ADDRESS.toLowerCase()
+                )
+                const hasUsdt = [poolCoin0, poolCoin1, poolCoin2].some(
+                    (c) => c.toLowerCase() === USDT_ADDRESS.toLowerCase()
+                )
+
+                if (hasNaraUsd && hasUsdc && hasUsdt) {
+                    existingPoolAddress = existingPool
+                    console.log(`   ✅ Found existing tri-pool: ${existingPoolAddress}`)
+                    console.log('   Using existing tri-pool for liquidity provision...\n')
+                    await addLiquidityToPool(
+                        existingPoolAddress as string,
+                        deployer,
+                        naraUsd,
+                        usdc,
+                        usdt,
+                        NARAUSD_ADDRESS,
+                        USDC_ADDRESS,
+                        USDT_ADDRESS,
+                        naraUsdDecimals,
+                        usdcDecimals,
+                        usdtDecimals
+                    )
+                    return
+                } else {
+                    console.log(
+                        `   ℹ️  Found 3-coin pool but it doesn't contain all required coins (NaraUSD, USDC, USDT)`
+                    )
+                    console.log(`   Will create new tri-pool.\n`)
+                }
+            } else {
+                console.log(`   ℹ️  Found existing ${coinCount}-coin pool (not a tri-pool)`)
+                console.log(`   Will create new 3-coin tri-pool (NaraUSD-USDC-USDT).\n`)
             }
+        } else {
+            console.log('   ℹ️  No existing pool found, will create new tri-pool\n')
         }
     } catch (error) {
-        console.log('   ℹ️  No existing pool found (or error checking), will create new pool\n')
+        console.log('   ℹ️  Error checking for existing pool, will create new tri-pool\n')
     }
 
-    // Create new pool
-    console.log('🏗️  Creating new Curve stable pool...')
-    const coins = [NARAUSD_ADDRESS, USDC_ADDRESS]
+    // Create new tri-pool
+    console.log('🏗️  Creating new Curve tri-pool (NaraUSD-USDC-USDT)...')
+    const coins = [NARAUSD_ADDRESS, USDC_ADDRESS, USDT_ADDRESS]
     // Curve Stableswap-NG parameters (based on successful example)
     // Fee is in 1e10 format: 0.01% = 1000000, 0.04% = 4000000, 1% = 100000000
-    const fee = 4000000 // 0.01% fee (from successful example)
-    const offpegFeeMultiplier = 20000000000 // 10x multiplier when pool is off-peg (from example)
+    const fee = 4000000 // 0.04% fee
+    const offpegFeeMultiplier = 20000000000 // 10x multiplier when pool is off-peg
     const maExpTime = 866 // Moving average expiration time in seconds (from example)
-    const implementationIdx = 0 // Implementation index (confirmed to be 0xE12374F193f91f71CE40D53E0db102eBaA9098D5)
+    const implementationIdx = 0 // Implementation index
     // Asset types: 0 = plain pool (one per coin)
-    const assetTypes = [0, 0] // Both coins are plain assets
+    const assetTypes = [0, 0, 0] // All three coins are plain assets
     // Method IDs: 0x00000000 for plain pools (one per coin)
-    const methodIds = ['0x00000000', '0x00000000'] // No special methods
+    const methodIds = ['0x00000000', '0x00000000', '0x00000000'] // No special methods
     // Oracles: zero address for plain pools (one per coin)
-    const oracles = [ethers.constants.AddressZero, ethers.constants.AddressZero] // No oracles needed
+    const oracles = [ethers.constants.AddressZero, ethers.constants.AddressZero, ethers.constants.AddressZero] // No oracles needed
 
     console.log(`   Pool name: ${POOL_NAME}`)
     console.log(`   Pool symbol: ${POOL_SYMBOL}`)
@@ -317,8 +366,20 @@ async function main() {
         // Note: Curve SDK/API will automatically index the pool once it's created
         // No manual registration needed
 
-        // Add liquidity to the new pool
-        await addLiquidityToPool(poolAddress, deployer, naraUsd, usdc, NARAUSD_ADDRESS, naraUsdDecimals, usdcDecimals)
+        // Add liquidity to the new tri-pool
+        await addLiquidityToPool(
+            poolAddress,
+            deployer,
+            naraUsd,
+            usdc,
+            usdt,
+            NARAUSD_ADDRESS,
+            USDC_ADDRESS,
+            USDT_ADDRESS,
+            naraUsdDecimals,
+            usdcDecimals,
+            usdtDecimals
+        )
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         console.error('   ❌ Error creating pool:', errorMessage)
@@ -338,11 +399,15 @@ async function addLiquidityToPool(
     deployer: Signer,
     naraUsd: Contract,
     usdc: Contract,
+    usdt: Contract,
     naraUsdAddress: string,
+    usdcAddress: string,
+    usdtAddress: string,
     naraUsdDecimals: number,
-    usdcDecimals: number
+    usdcDecimals: number,
+    usdtDecimals: number
 ) {
-    console.log('💧 Adding liquidity to pool...')
+    console.log('💧 Adding liquidity to tri-pool...')
     console.log(`   Pool address: ${poolAddress}`)
 
     const pool = new ethers.Contract(poolAddress, CURVE_POOL_ABI, deployer)
@@ -357,20 +422,52 @@ async function addLiquidityToPool(
     await usdcApproveTx.wait()
     console.log(`   ✅ ${await usdc.symbol()} approved`)
 
+    const usdtApproveTx = await usdt.approve(poolAddress, INITIAL_USDT_AMOUNT)
+    await usdtApproveTx.wait()
+    console.log(`   ✅ ${await usdt.symbol()} approved`)
+
     // Prepare amounts array (order matters - check pool coin order)
     const coin0 = await pool.coins(0)
     const coin1 = await pool.coins(1)
+    const coin2 = await pool.coins(2)
 
-    let amounts: string[]
-    if (coin0.toLowerCase() === naraUsdAddress.toLowerCase()) {
-        amounts = [INITIAL_NARAUSD_AMOUNT.toString(), INITIAL_USDC_AMOUNT.toString()]
-    } else {
-        amounts = [INITIAL_USDC_AMOUNT.toString(), INITIAL_NARAUSD_AMOUNT.toString()]
+    // Match coins by address and build amounts array in pool coin order
+    const usdcAddressLower = usdcAddress.toLowerCase()
+    const usdtAddressLower = usdtAddress.toLowerCase()
+    const naraUsdAddressLower = naraUsdAddress.toLowerCase()
+    const amountsByAddress: string[] = []
+    const coin0Lower = coin0.toLowerCase()
+    const coin1Lower = coin1.toLowerCase()
+    const coin2Lower = coin2.toLowerCase()
+
+    if (coin0Lower === naraUsdAddressLower) {
+        amountsByAddress[0] = INITIAL_NARAUSD_AMOUNT.toString()
+    } else if (coin0Lower === usdcAddressLower) {
+        amountsByAddress[0] = INITIAL_USDC_AMOUNT.toString()
+    } else if (coin0Lower === usdtAddressLower) {
+        amountsByAddress[0] = INITIAL_USDT_AMOUNT.toString()
+    }
+
+    if (coin1Lower === naraUsdAddressLower) {
+        amountsByAddress[1] = INITIAL_NARAUSD_AMOUNT.toString()
+    } else if (coin1Lower === usdcAddressLower) {
+        amountsByAddress[1] = INITIAL_USDC_AMOUNT.toString()
+    } else if (coin1Lower === usdtAddressLower) {
+        amountsByAddress[1] = INITIAL_USDT_AMOUNT.toString()
+    }
+
+    if (coin2Lower === naraUsdAddressLower) {
+        amountsByAddress[2] = INITIAL_NARAUSD_AMOUNT.toString()
+    } else if (coin2Lower === usdcAddressLower) {
+        amountsByAddress[2] = INITIAL_USDC_AMOUNT.toString()
+    } else if (coin2Lower === usdtAddressLower) {
+        amountsByAddress[2] = INITIAL_USDT_AMOUNT.toString()
     }
 
     console.log(`   Coin 0: ${coin0}`)
     console.log(`   Coin 1: ${coin1}`)
-    console.log(`   Amounts: [${amounts[0]}, ${amounts[1]}]`)
+    console.log(`   Coin 2: ${coin2}`)
+    console.log(`   Amounts: [${amountsByAddress[0]}, ${amountsByAddress[1]}, ${amountsByAddress[2]}]`)
 
     // Add liquidity (min_mint_amount = 0 for initial liquidity)
     const minMintAmount = 0
@@ -378,7 +475,7 @@ async function addLiquidityToPool(
     console.log(`   ⏳ Adding liquidity (min LP tokens: ${minMintAmount}, receiver: ${receiver})...`)
 
     try {
-        const tx = await pool.add_liquidity(amounts, minMintAmount, receiver)
+        const tx = await pool.add_liquidity(amountsByAddress, minMintAmount, receiver)
         console.log(`   ⏳ Transaction sent: ${tx.hash}`)
         const receipt = await tx.wait()
         console.log(`   ✅ Liquidity added! Gas used: ${receipt.gasUsed.toString()}`)
@@ -386,11 +483,33 @@ async function addLiquidityToPool(
         // Check pool balances
         const poolBalance0 = await pool.balances(0)
         const poolBalance1 = await pool.balances(1)
+        const poolBalance2 = await pool.balances(2)
         const totalSupply = await pool.totalSupply()
 
+        // Determine decimals for each coin
+        const decimals0 =
+            coin0Lower === naraUsdAddressLower
+                ? naraUsdDecimals
+                : coin0Lower === usdcAddressLower
+                  ? usdcDecimals
+                  : usdtDecimals
+        const decimals1 =
+            coin1Lower === naraUsdAddressLower
+                ? naraUsdDecimals
+                : coin1Lower === usdcAddressLower
+                  ? usdcDecimals
+                  : usdtDecimals
+        const decimals2 =
+            coin2Lower === naraUsdAddressLower
+                ? naraUsdDecimals
+                : coin2Lower === usdcAddressLower
+                  ? usdcDecimals
+                  : usdtDecimals
+
         console.log('\n📊 Pool Status:')
-        console.log(`   Pool balance 0: ${ethers.utils.formatUnits(poolBalance0, naraUsdDecimals)}`)
-        console.log(`   Pool balance 1: ${ethers.utils.formatUnits(poolBalance1, usdcDecimals)}`)
+        console.log(`   Pool balance 0: ${ethers.utils.formatUnits(poolBalance0, decimals0)}`)
+        console.log(`   Pool balance 1: ${ethers.utils.formatUnits(poolBalance1, decimals1)}`)
+        console.log(`   Pool balance 2: ${ethers.utils.formatUnits(poolBalance2, decimals2)}`)
         console.log(`   Total LP tokens: ${ethers.utils.formatEther(totalSupply)}`)
         console.log(`   Pool address: ${poolAddress}`)
     } catch (error: unknown) {
