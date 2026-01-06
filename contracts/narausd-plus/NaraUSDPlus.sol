@@ -91,7 +91,7 @@ contract NaraUSDPlus is
     NaraUSDPlusSilo public silo;
 
     /// @dev Storage gap for future upgrades
-    uint256[44] private __gap;
+    uint256[50] private __gap;
 
     /* --------------- MODIFIERS --------------- */
 

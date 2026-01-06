@@ -48,7 +48,7 @@ contract StakingRewardsDistributor is
     address public operator;
 
     /// @dev Storage gap for future upgrades
-    uint256[47] private __gap;
+    uint256[50] private __gap;
 
     /* --------------- EVENTS --------------- */
 

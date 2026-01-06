@@ -51,7 +51,7 @@ contract MultiCollateralToken is
     mapping(address => uint256) public collateralBalance;
 
     /// @dev Storage gap for future upgrades
-    uint256[48] private __gap;
+    uint256[50] private __gap;
 
     /* --------------- INITIALIZER --------------- */
 
