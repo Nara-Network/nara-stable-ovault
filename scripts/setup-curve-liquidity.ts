@@ -35,7 +35,7 @@ const NETWORK_CONFIG: Record<number, { naraUsd: string; usdc: string; usdt: stri
 
 // Pool address (leave empty to auto-find or create)
 // If set, will use this pool directly instead of searching/creating
-const POOL_ADDRESS = '0x230a045c50CC1441E80216a20a8CAf065c4869E6' as string // Set to pool address if you want to use an existing pool
+const POOL_ADDRESS = '0x765e199aC49BFA8E1Be071c23FAAc93C2906821D' as string // Set to pool address if you want to use an existing pool
 
 // Initial liquidity amounts (adjust as needed)
 // Format: amounts in token's native decimals (NaraUSD: 18, USDC: 6)
