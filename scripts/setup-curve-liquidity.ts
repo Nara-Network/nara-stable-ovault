@@ -33,6 +33,10 @@ const NETWORK_CONFIG: Record<number, { naraUsd: string; usdc: string; usdt: stri
     },
 }
 
+// Pool address (leave empty to auto-find or create)
+// If set, will use this pool directly instead of searching/creating
+const POOL_ADDRESS = '0x230a045c50CC1441E80216a20a8CAf065c4869E6' as string // Set to pool address if you want to use an existing pool
+
 // Initial liquidity amounts (adjust as needed)
 // Format: amounts in token's native decimals (NaraUSD: 18, USDC: 6)
 const INITIAL_NARAUSD_AMOUNT = ethers.utils.parseEther('10000') // 10,000 NaraUSD
@@ -198,6 +202,50 @@ async function main() {
 
     // Get Curve Factory contract
     const curveFactory = new ethers.Contract(CURVE_FACTORY_ADDRESS, CURVE_FACTORY_ABI, deployer)
+
+    // If POOL_ADDRESS is set, use it directly
+    if (POOL_ADDRESS) {
+        console.log('📍 Using provided pool address...')
+        console.log(`   Pool address: ${POOL_ADDRESS}\n`)
+
+        // Verify pool exists and has 3 coins
+        try {
+            const pool = new ethers.Contract(POOL_ADDRESS, CURVE_POOL_ABI, deployer)
+            const coin0 = await pool.coins(0)
+            const coin1 = await pool.coins(1)
+            const coin2 = await pool.coins(2)
+
+            const hasNaraUsd = [coin0, coin1, coin2].some((c) => c.toLowerCase() === NARAUSD_ADDRESS.toLowerCase())
+            const hasUsdc = [coin0, coin1, coin2].some((c) => c.toLowerCase() === USDC_ADDRESS.toLowerCase())
+            const hasUsdt = [coin0, coin1, coin2].some((c) => c.toLowerCase() === USDT_ADDRESS.toLowerCase())
+
+            if (!hasNaraUsd || !hasUsdc || !hasUsdt) {
+                throw new Error(
+                    'Pool does not contain all required coins (NaraUSD, USDC, USDT). Please verify the pool address.'
+                )
+            }
+
+            console.log('   ✅ Pool verified - contains NaraUSD, USDC, and USDT\n')
+            await addLiquidityToPool(
+                POOL_ADDRESS,
+                deployer,
+                naraUsd,
+                usdc,
+                usdt,
+                NARAUSD_ADDRESS,
+                USDC_ADDRESS,
+                USDT_ADDRESS,
+                naraUsdDecimals,
+                usdcDecimals,
+                usdtDecimals
+            )
+            return
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error(`   ❌ Error using provided pool address: ${errorMessage}`)
+            throw error
+        }
+    }
 
     // Check if tri-pool already exists via contract
     console.log('🔍 Checking for existing tri-pool...')
