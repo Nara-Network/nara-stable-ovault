@@ -39,20 +39,20 @@ Paladin audit remediation for StakingRewardsDistributor, MCT, NaraUSDPlus.
 
 ## NaraUSDPlus
 
-| #     | Issue                                       | Fix                                       |
-| ----- | ------------------------------------------- | ----------------------------------------- |
-| 28    | Immediate UUPS upgrades                     | Documented in NatSpec                     |
-| 29    | Blacklist bypass in `unstake()`             | Added `_isBlacklisted(msg.sender)` check  |
-| 30    | Silo shares ignored in redistribute         | Now includes cooldown shares              |
-| 31    | MIN_SHARES violated in redistribute         | Added `_checkMinShares()`                 |
-| 32    | `cooldownAssets` locks shares               | Documented in NatSpec                     |
-| 33/35 | `maxRedeem`/`maxWithdraw` ignore MIN_SHARES | Added overrides                           |
-| 34    | `burnAssets` underflow                      | Added unvested amount check               |
-| 36    | `cancelCooldown` works when paused          | Added `whenNotPaused`                     |
-| 37    | Blacklist doesn't check operator            | Documented as intentional                 |
-| 38    | No dedicated pause role                     | Added `GATEKEEPER_ROLE`                   |
-| 39    | `burnAssets` negative yield                 | Documented as intentional                 |
-| 40    | Missing zero checks                         | Added to `addToBlacklist`, `rescueTokens` |
+| #     | Issue                                       | Fix                                               |
+| ----- | ------------------------------------------- | ------------------------------------------------- |
+| 28    | Immediate UUPS upgrades                     | Documented in NatSpec                             |
+| 29    | Blacklist bypass in `unstake()`             | Added `_isBlacklisted(msg.sender)` check          |
+| 30    | Silo shares ignored in redistribute         | Now includes cooldown shares                      |
+| 31    | MIN_SHARES violated in redistribute         | Added `_checkMinShares()`                         |
+| 32    | `cooldownAssets` locks shares               | Documented in NatSpec                             |
+| 33/35 | `maxRedeem`/`maxWithdraw` ignore MIN_SHARES | Added overrides                                   |
+| 34    | `burnAssets` underflow                      | Added unvested amount check                       |
+| 36    | `cancelCooldown` works when paused          | Added `whenNotPaused`                             |
+| 37    | Blacklist doesn't check msg.sender          | Added `msg.sender` blacklist check in `_update()` |
+| 38    | No dedicated pause role                     | Added `GATEKEEPER_ROLE`                           |
+| 39    | `burnAssets` negative yield                 | Documented as intentional                         |
+| 40    | Missing zero checks                         | Added to `addToBlacklist`, `rescueTokens`         |
 
 ## NaraUSDComposer Contract
 
