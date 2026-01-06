@@ -13,11 +13,8 @@ import type { Contract, Signer } from 'ethers'
  * Run:
  * npx hardhat run scripts/setup-curve-liquidity.ts --network arbitrum-sepolia
  *
- * Note: Curve Finance contracts may not be deployed on Arbitrum Sepolia.
- * If not available, you may need to:
- * 1. Deploy Curve contracts to Arbitrum Sepolia first
- * 2. Use a different DEX (Uniswap, etc.)
- * 3. Use mainnet where Curve is available
+ * Note: Curve Finance is available on Arbitrum Sepolia testnet.
+ * Factory address: 0x4279B80fc9e645B4266db351AbB6F6aBe3e35d6e
  */
 
 // ============================================
@@ -184,12 +181,9 @@ async function main() {
     if (!CURVE_FACTORY_ADDRESS || CURVE_FACTORY_ADDRESS === '0x0000000000000000000000000000000000000000') {
         console.log('⚠️  WARNING: Curve Factory address not configured!')
         console.log(`   Network: ${network.name} (Chain ID: ${chainId})`)
-        console.log('   Curve Finance contracts may not be deployed on Arbitrum Sepolia testnet.')
         console.log('\n   Options:')
-        console.log('   1. Update CURVE_FACTORY_ADDRESS in NETWORK_CONFIG if Curve is deployed')
-        console.log('   2. Deploy Curve Factory contracts to Arbitrum Sepolia first')
-        console.log('   3. Use a different DEX (Uniswap V3, etc.) for liquidity provision')
-        console.log('   4. Use mainnet where Curve Finance is available\n')
+        console.log('   1. Update CURVE_FACTORY_ADDRESS in NETWORK_CONFIG')
+        console.log('   2. For Arbitrum Sepolia, use: 0x4279B80fc9e645B4266db351AbB6F6aBe3e35d6e\n')
         throw new Error('Curve Factory address not configured')
     }
 
@@ -291,50 +285,51 @@ async function main() {
     console.log(`   Fee: ${(fee / 1e8).toFixed(4)}%`)
     console.log(`   Coins: [${coins.join(', ')}]`)
 
+    // Try static call first to check if the call would succeed
+    console.log('   ⏳ Checking if pool creation would succeed...')
     try {
-        // Try static call first to check if the call would succeed
-        console.log('   ⏳ Checking if pool creation would succeed...')
-        try {
-            await curveFactory.callStatic.deploy_plain_pool(
-                POOL_NAME,
-                POOL_SYMBOL,
-                coins,
-                POOL_A,
-                fee,
-                offpegFeeMultiplier,
-                maExpTime,
-                implementationIdx,
-                assetTypes,
-                methodIds,
-                oracles
-            )
-        } catch (staticError: unknown) {
-            const staticErrorMessage = staticError instanceof Error ? staticError.message : String(staticError)
-            console.log(`   ⚠️  Static call failed: ${staticErrorMessage}`)
-            console.log('\n   ❌ Parameter validation failed!')
-            console.log('   Note: deploy_plain_pool is permissionless, but parameters must meet requirements:\n')
-            console.log('   Required parameter limits:')
-            console.log('   - Fee: 1000000 (0.01%) ≤ fee ≤ 100000000 (1%)')
-            console.log(`   - Current fee: ${fee} (${(fee / 1e8).toFixed(4)}%)`)
-            console.log(`   - Offpeg fee multiplier: ${offpegFeeMultiplier}`)
-            console.log(`   - MA exp time: ${maExpTime}`)
-            console.log('   - Valid implementation_idx (cannot be ZERO_ADDRESS)')
-            console.log(`   - Current implementation_idx: ${implementationIdx}`)
-            console.log('   - Minimum 2 coins, maximum 4 coins')
-            console.log(`   - Current coins: ${coins.length}`)
-            console.log('   - Maximum 18 decimals for coins')
-            console.log('   - No duplicate coins')
-            console.log('   - Cannot pair with a coin included in a basepool')
-            console.log('\n   Possible fixes:')
-            console.log('   1. Verify fee is between 0.01% and 1%')
-            console.log('   2. Check token decimals (must be ≤ 18)')
-            console.log('   3. Ensure no duplicate coins in the array')
-            console.log('   4. Verify tokens are valid ERC20 contracts')
-            console.log('   5. Check if pool already exists with these tokens')
-            console.log('   6. Verify asset_types, method_ids, and oracles arrays match coins length\n')
-            throw staticError
-        }
+        await curveFactory.callStatic.deploy_plain_pool(
+            POOL_NAME,
+            POOL_SYMBOL,
+            coins,
+            POOL_A,
+            fee,
+            offpegFeeMultiplier,
+            maExpTime,
+            implementationIdx,
+            assetTypes,
+            methodIds,
+            oracles
+        )
+    } catch (staticError: unknown) {
+        const staticErrorMessage = staticError instanceof Error ? staticError.message : String(staticError)
+        console.log(`   ⚠️  Static call failed: ${staticErrorMessage}`)
+        console.log('\n   ❌ Parameter validation failed!')
+        console.log('   Note: deploy_plain_pool is permissionless, but parameters must meet requirements:\n')
+        console.log('   Required parameter limits:')
+        console.log('   - Fee: 1000000 (0.01%) ≤ fee ≤ 100000000 (1%)')
+        console.log(`   - Current fee: ${fee} (${(fee / 1e8).toFixed(4)}%)`)
+        console.log(`   - Offpeg fee multiplier: ${offpegFeeMultiplier}`)
+        console.log(`   - MA exp time: ${maExpTime}`)
+        console.log('   - Valid implementation_idx (cannot be ZERO_ADDRESS)')
+        console.log(`   - Current implementation_idx: ${implementationIdx}`)
+        console.log('   - Minimum 2 coins, maximum 4 coins')
+        console.log(`   - Current coins: ${coins.length}`)
+        console.log('   - Maximum 18 decimals for coins')
+        console.log('   - No duplicate coins')
+        console.log('   - Cannot pair with a coin included in a basepool')
+        console.log('\n   Possible fixes:')
+        console.log('   1. Verify fee is between 0.01% and 1%')
+        console.log('   2. Check token decimals (must be ≤ 18)')
+        console.log('   3. Ensure no duplicate coins in the array')
+        console.log('   4. Verify tokens are valid ERC20 contracts')
+        console.log('   5. Check if pool already exists with these tokens')
+        console.log('   6. Verify asset_types, method_ids, and oracles arrays match coins length\n')
+        throw staticError
+    }
 
+    let poolAddress: string
+    try {
         console.log('   ✅ Static call succeeded, sending transaction...')
         const tx = await curveFactory.deploy_plain_pool(
             POOL_NAME,
@@ -356,7 +351,7 @@ async function main() {
         // Extract pool address from events (if available)
         // Note: You may need to check the transaction receipt events to get the pool address
         // For now, we'll try to find it
-        const poolAddress = await curveFactory.find_pool_for_coins(NARAUSD_ADDRESS, USDC_ADDRESS, 0)
+        poolAddress = await curveFactory.find_pool_for_coins(NARAUSD_ADDRESS, USDC_ADDRESS, 0)
         if (poolAddress === ethers.constants.AddressZero) {
             throw new Error('Pool created but address not found. Check transaction events.')
         }
@@ -365,33 +360,33 @@ async function main() {
 
         // Note: Curve SDK/API will automatically index the pool once it's created
         // No manual registration needed
-
-        // Add liquidity to the new tri-pool
-        await addLiquidityToPool(
-            poolAddress,
-            deployer,
-            naraUsd,
-            usdc,
-            usdt,
-            NARAUSD_ADDRESS,
-            USDC_ADDRESS,
-            USDT_ADDRESS,
-            naraUsdDecimals,
-            usdcDecimals,
-            usdtDecimals
-        )
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         console.error('   ❌ Error creating pool:', errorMessage)
         if (errorMessage.includes('non-contract') || errorMessage.includes('call revert')) {
-            console.error('\n   💡 Tip: Curve Finance contracts may not be deployed on Arbitrum Sepolia testnet.')
-            console.error('   Consider:')
-            console.error('   1. Deploying Curve contracts to Arbitrum Sepolia first')
-            console.error('   2. Using a different DEX (Uniswap V3, etc.) for testnet liquidity')
-            console.error('   3. Using mainnet where Curve Finance is available\n')
+            console.error('\n   💡 Tip: Check the following:')
+            console.error('   1. Verify Curve Factory address is correct for this network')
+            console.error('   2. Ensure implementation index is valid (try 0)')
+            console.error('   3. Check that all token addresses are valid ERC20 contracts')
+            console.error('   4. Verify pool parameters meet Curve requirements\n')
         }
         throw error
     }
+
+    // Add liquidity to the new tri-pool
+    await addLiquidityToPool(
+        poolAddress,
+        deployer,
+        naraUsd,
+        usdc,
+        usdt,
+        NARAUSD_ADDRESS,
+        USDC_ADDRESS,
+        USDT_ADDRESS,
+        naraUsdDecimals,
+        usdcDecimals,
+        usdtDecimals
+    )
 }
 
 async function addLiquidityToPool(
@@ -474,13 +469,23 @@ async function addLiquidityToPool(
     const receiver = await deployer.getAddress() // LP tokens will be sent to deployer
     console.log(`   ⏳ Adding liquidity (min LP tokens: ${minMintAmount}, receiver: ${receiver})...`)
 
+    // Execute add_liquidity transaction
+    let tx
+    let receipt
     try {
-        const tx = await pool.add_liquidity(amountsByAddress, minMintAmount, receiver)
+        tx = await pool.add_liquidity(amountsByAddress, minMintAmount, receiver)
         console.log(`   ⏳ Transaction sent: ${tx.hash}`)
-        const receipt = await tx.wait()
+        receipt = await tx.wait()
         console.log(`   ✅ Liquidity added! Gas used: ${receipt.gasUsed.toString()}`)
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.error('   ❌ Error adding liquidity to pool:', errorMessage)
+        console.error('   This error occurred during the add_liquidity transaction.')
+        throw error
+    }
 
-        // Check pool balances
+    // Check pool balances after successful liquidity addition
+    try {
         const poolBalance0 = await pool.balances(0)
         const poolBalance1 = await pool.balances(1)
         const poolBalance2 = await pool.balances(2)
@@ -514,8 +519,9 @@ async function addLiquidityToPool(
         console.log(`   Pool address: ${poolAddress}`)
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error)
-        console.error('   ❌ Error adding liquidity:', errorMessage)
-        throw error
+        console.error('   ⚠️  Warning: Could not fetch pool balances after adding liquidity:', errorMessage)
+        console.error('   Liquidity was added successfully, but balance check failed.')
+        // Don't throw here - liquidity was already added successfully
     }
 }
 
