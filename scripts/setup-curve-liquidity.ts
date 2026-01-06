@@ -47,7 +47,7 @@ const INITIAL_USDC_AMOUNT = ethers.utils.parseUnits('10000', 6) // 10,000 USDC
 
 // Pool metadata
 const POOL_NAME = 'NaraUSD-USDC'
-const POOL_SYMBOL = 'naraUSD-USDC'
+const POOL_SYMBOL = 'naraUSD-po'
 const POOL_A = 100 // Amplification parameter (lower = more stable, typical range: 50-200)
 
 // ============================================
@@ -73,8 +73,7 @@ const CURVE_FACTORY_ABI = [
 
 // Minimal Curve Pool interface
 const CURVE_POOL_ABI = [
-    'function add_liquidity(uint256[2] memory amounts, uint256 min_mint_amount) external returns (uint256)',
-    'function add_liquidity(uint256[2] memory amounts, uint256 min_mint_amount, address receiver) external returns (uint256)',
+    'function add_liquidity(uint256[] memory amounts, uint256 min_mint_amount, address receiver) external returns (uint256)',
     'function coins(uint256 i) external view returns (address)',
     'function balances(uint256 i) external view returns (uint256)',
     'function totalSupply() external view returns (uint256)',
@@ -193,28 +192,6 @@ async function main() {
 
     // Get Curve Factory contract
     const curveFactory = new ethers.Contract(CURVE_FACTORY_ADDRESS, CURVE_FACTORY_ABI, deployer)
-
-    // Check factory admin (informational - deployment is permissionless)
-    console.log('🔍 Checking Curve Factory info...')
-    try {
-        const admin = await curveFactory.admin()
-        console.log(`   Factory admin: ${admin}`)
-        console.log(`   Deployer: ${deployer.address}`)
-        console.log(`   ℹ️  Note: Pool deployment is permissionless (anyone can deploy)\n`)
-    } catch (_adminError) {
-        console.log(`   ℹ️  Could not check factory admin (function may not exist)\n`)
-    }
-
-    // Verify function exists by checking if we can encode the call
-    console.log('🔍 Verifying function signature...')
-    try {
-        const iface = new ethers.utils.Interface(CURVE_FACTORY_ABI)
-        const functionFragment = iface.getFunction('deploy_plain_pool')
-        console.log(`   ✅ Function 'deploy_plain_pool' found in ABI`)
-        console.log(`   Function selector: ${functionFragment.format()}\n`)
-    } catch (error) {
-        console.log(`   ⚠️  Could not verify function signature\n`)
-    }
 
     // Check if pool already exists via contract
     console.log('🔍 Checking for existing pool via contract...')
@@ -384,7 +361,7 @@ async function addLiquidityToPool(
     const coin0 = await pool.coins(0)
     const coin1 = await pool.coins(1)
 
-    let amounts: [string, string]
+    let amounts: string[]
     if (coin0.toLowerCase() === naraUsdAddress.toLowerCase()) {
         amounts = [INITIAL_NARAUSD_AMOUNT.toString(), INITIAL_USDC_AMOUNT.toString()]
     } else {
@@ -397,10 +374,11 @@ async function addLiquidityToPool(
 
     // Add liquidity (min_mint_amount = 0 for initial liquidity)
     const minMintAmount = 0
-    console.log(`   ⏳ Adding liquidity (min LP tokens: ${minMintAmount})...`)
+    const receiver = await deployer.getAddress() // LP tokens will be sent to deployer
+    console.log(`   ⏳ Adding liquidity (min LP tokens: ${minMintAmount}, receiver: ${receiver})...`)
 
     try {
-        const tx = await pool.add_liquidity(amounts, minMintAmount)
+        const tx = await pool.add_liquidity(amounts, minMintAmount, receiver)
         console.log(`   ⏳ Transaction sent: ${tx.hash}`)
         const receipt = await tx.wait()
         console.log(`   ✅ Liquidity added! Gas used: ${receipt.gasUsed.toString()}`)
