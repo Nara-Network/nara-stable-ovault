@@ -1,0 +1,417 @@
+{
+  "address": "0x21FC141edBd091EC1F2495D5e7CE467048DbE18c",
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        }
+      ],
+      "name": "AddressEmptyCode",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        }
+      ],
+      "name": "ERC1967InvalidImplementation",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ERC1967NonPayable",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FailedCall",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidInitialization",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidZeroAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotInitializing",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OnlyVault",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableInvalidOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UUPSUnauthorizedCallContext",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "slot",
+          "type": "bytes32"
+        }
+      ],
+      "name": "UUPSUnsupportedProxiableUUID",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "version",
+          "type": "uint64"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferStarted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        }
+      ],
+      "name": "Upgraded",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "UPGRADE_INTERFACE_VERSION",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "acceptOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_vault",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_narausd",
+          "type": "address"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "naraUsd",
+      "outputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "narausd",
+          "type": "address"
+        }
+      ],
+      "name": "setNaraUsd",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vault",
+          "type": "address"
+        }
+      ],
+      "name": "setVault",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "upgradeToAndCall",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "vault",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x4cd2a6c18ae3d7f4e3277127aad5864862b55d3ba37af1bdc63685ba95ee2398",
+  "receipt": {
+    "to": null,
+    "from": "0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671",
+    "contractAddress": "0x21FC141edBd091EC1F2495D5e7CE467048DbE18c",
+    "transactionIndex": 74,
+    "gasUsed": "349381",
+    "logsBloom": "0x00000000000000000000000000000000400000000000000000800000010000000000000000000000000000000000000000000000001000000000000000200000000000000000000000000000010002000001000000000000000000000000000000042000020000000000000000000840000000000000000000000000000000400000000000000000000800000000000000000000000080000000000000080000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000004000000000000000020000000000000000000000000004000000000000000000000000000000000000000",
+    "blockHash": "0x6a9cab455ae8146d20fb839aa67fc085f2ff41bad04d154ee4617a76d84e9400",
+    "transactionHash": "0x4cd2a6c18ae3d7f4e3277127aad5864862b55d3ba37af1bdc63685ba95ee2398",
+    "logs": [
+      {
+        "transactionIndex": 74,
+        "blockNumber": 9990471,
+        "transactionHash": "0x4cd2a6c18ae3d7f4e3277127aad5864862b55d3ba37af1bdc63685ba95ee2398",
+        "address": "0x21FC141edBd091EC1F2495D5e7CE467048DbE18c",
+        "topics": [
+          "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
+          "0x00000000000000000000000032018248ab52ffeef27c5b8d50313af0b81175b6"
+        ],
+        "data": "0x",
+        "logIndex": 311,
+        "blockHash": "0x6a9cab455ae8146d20fb839aa67fc085f2ff41bad04d154ee4617a76d84e9400"
+      },
+      {
+        "transactionIndex": 74,
+        "blockNumber": 9990471,
+        "transactionHash": "0x4cd2a6c18ae3d7f4e3277127aad5864862b55d3ba37af1bdc63685ba95ee2398",
+        "address": "0x21FC141edBd091EC1F2495D5e7CE467048DbE18c",
+        "topics": [
+          "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "0x000000000000000000000000fd8b2fc9b759db3bcb8f713224e17119dd9d3671"
+        ],
+        "data": "0x",
+        "logIndex": 312,
+        "blockHash": "0x6a9cab455ae8146d20fb839aa67fc085f2ff41bad04d154ee4617a76d84e9400"
+      },
+      {
+        "transactionIndex": 74,
+        "blockNumber": 9990471,
+        "transactionHash": "0x4cd2a6c18ae3d7f4e3277127aad5864862b55d3ba37af1bdc63685ba95ee2398",
+        "address": "0x21FC141edBd091EC1F2495D5e7CE467048DbE18c",
+        "topics": [
+          "0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "logIndex": 313,
+        "blockHash": "0x6a9cab455ae8146d20fb839aa67fc085f2ff41bad04d154ee4617a76d84e9400"
+      }
+    ],
+    "blockNumber": 9990471,
+    "cumulativeGasUsed": "12776717",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671",
+    "0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671",
+    "0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671"
+  ],
+  "numDeployments": 1,
+  "libraries": {}
+}
