@@ -135,11 +135,6 @@ contract NaraUSD is
     ///      Completion order is discretionary by COLLATERAL_MANAGER_ROLE (solver).
     mapping(address => RedemptionRequest) private _redemptionRequests;
 
-    /// @notice Get redemption request for a user
-    function redemptionRequests(address user) public view returns (RedemptionRequest memory) {
-        return _redemptionRequests[user];
-    }
-
     /// @notice Silo contract for holding locked NaraUSD during redemption queue
     INaraUSDRedeemSilo public redeemSilo;
 
@@ -499,6 +494,15 @@ contract NaraUSD is
         }
 
         return collateralAmount;
+    }
+
+    /**
+     * @notice Get redemption request for a user
+     * @param user The address to query
+     * @return The redemption request for the user (empty if no active request)
+     */
+    function redemptionRequests(address user) public view returns (RedemptionRequest memory) {
+        return _redemptionRequests[user];
     }
 
     /**
