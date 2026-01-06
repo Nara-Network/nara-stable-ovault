@@ -5,7 +5,7 @@ import { ethers } from 'hardhat'
  * Requires MINTER_ROLE on the NaraUSD contract
  *
  * Run:
- * npx hardhat run scripts/mint-narausd.ts --network sepolia
+ * npx hardhat run scripts/mint-narausd.ts --network arbitrum-sepolia
  *
  * Configuration:
  * Update NARAUSD_ADDRESS, RECIPIENT_ADDRESS, and AMOUNT below
@@ -15,9 +15,9 @@ import { ethers } from 'hardhat'
 // CONFIGURATION
 // ============================================
 
-const NARAUSD_ADDRESS = '0x574d3B7E5dF90c540A54735E70Dff24b9Ecf63E3' // NaraUSD on Sepolia
+const NARAUSD_ADDRESS = '0x8edde47955949B96F5aCcA75404615104EAb84aF' // NaraUSD on Arbitrum Sepolia
 const RECIPIENT_ADDRESS = '0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671' as string // TODO: Set recipient address
-const AMOUNT = ethers.utils.parseEther('10000') // Amount to mint (1000 NaraUSD)
+const AMOUNT = ethers.utils.parseEther('10000') // Amount to mint (10000 NaraUSD)
 
 // ============================================
 // MAIN SCRIPT

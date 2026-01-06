@@ -11,11 +11,11 @@ import type { Contract, Signer } from 'ethers'
  * - USDC: Standard USDC address
  *
  * Run:
- * npx hardhat run scripts/setup-curve-liquidity.ts --network sepolia
+ * npx hardhat run scripts/setup-curve-liquidity.ts --network arbitrum-sepolia
  *
- * Note: Curve Finance contracts may not be deployed on testnets.
+ * Note: Curve Finance contracts may not be deployed on Arbitrum Sepolia.
  * If not available, you may need to:
- * 1. Deploy Curve contracts to testnet first
+ * 1. Deploy Curve contracts to Arbitrum Sepolia first
  * 2. Use a different DEX (Uniswap, etc.)
  * 3. Use mainnet where Curve is available
  */
@@ -25,25 +25,20 @@ import type { Contract, Signer } from 'ethers'
 // ============================================
 
 // Network-specific configurations
-// Curve Finance Sepolia contracts (from Curve docs):
-// - Math: 0x2cad7b3e78e10bcbf2cc443ddd69ca8bcc09a758
-// - Factory: 0xfb37b8D939FFa77114005e61CFc2e543d6F49A81
-// - Plain AMM: 0xE12374F193f91f71CE40D53E0db102eBaA9098D5
-// - Meta AMM: 0xB00E89EaBD59cD3254c88E390103Cf17E914f678
-// Note: This script is configured only for Ethereum Sepolia testnet
+// Note: Curve Finance may not be deployed on Arbitrum Sepolia testnet
 const NETWORK_CONFIG: Record<number, { naraUsd: string; usdc: string; curveFactory?: string }> = {
-    // Ethereum Sepolia (only supported network)
-    11155111: {
-        naraUsd: '0x574d3B7E5dF90c540A54735E70Dff24b9Ecf63E3', // NaraUSD on Sepolia
-        usdc: '0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590', // USDC on Sepolia
-        curveFactory: '0xfb37b8D939FFa77114005e61CFc2e543d6F49A81', // Curve Factory on Sepolia
+    // Arbitrum Sepolia (supported network)
+    421614: {
+        naraUsd: '0x8edde47955949B96F5aCcA75404615104EAb84aF', // NaraUSD on Arbitrum Sepolia
+        usdc: '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773', // USDC on Arbitrum Sepolia
+        curveFactory: '0x4279B80fc9e645B4266db351AbB6F6aBe3e35d6e', // https://github.com/curvefi/curve-core/blob/main/deployments/devnet/arb_sepolia.yaml
     },
 }
 
-// Fallback addresses (Sepolia defaults)
-const DEFAULT_NARAUSD_ADDRESS = '0x574d3B7E5dF90c540A54735E70Dff24b9Ecf63E3'
-const DEFAULT_USDC_ADDRESS = '0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590'
-const DEFAULT_CURVE_FACTORY_ADDRESS = '0xfb37b8D939FFa77114005e61CFc2e543d6F49A81' // Curve Factory on Sepolia
+// Fallback addresses (Arbitrum Sepolia defaults)
+const DEFAULT_NARAUSD_ADDRESS = '0x8edde47955949B96F5aCcA75404615104EAb84aF'
+const DEFAULT_USDC_ADDRESS = '0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773'
+// Note: Curve Factory may not be available on Arbitrum Sepolia
 
 // Initial liquidity amounts (adjust as needed)
 // Format: amounts in token's native decimals (NaraUSD: 18, USDC: 6)
@@ -60,10 +55,20 @@ const POOL_A = 100 // Amplification parameter (lower = more stable, typical rang
 // ============================================
 
 // Minimal Curve Factory interface for creating pools
+// Curve Factory ABIs
+// According to Curve docs: deploy_plain_pool is permissionless but requires:
+// - Fee: 4000000 (0.04%) ≤ fee ≤ 100000000 (1%)
+// - Valid implementation_idx (cannot be ZERO_ADDRESS)
+// - Minimum 2 coins, maximum 4 coins
+// - Maximum 18 decimals for coins
+// - No duplicate coins
 const CURVE_FACTORY_ABI = [
-    'function deploy_plain_pool(string memory _name, string memory _symbol, address[] memory _coins, uint256 A, uint256 fee, uint256 asset_type) external returns (address)',
+    // Stableswap-NG factory signature (confirmed from successful call)
+    'function deploy_plain_pool(string _name, string _symbol, address[] _coins, uint256 _A, uint256 _fee, uint256 _offpeg_fee_multiplier, uint256 _ma_exp_time, uint256 _implementation_idx, uint8[] _asset_types, bytes4[] _method_ids, address[] _oracles) external returns (address)',
     'function find_pool_for_coins(address _from, address _to, uint256 i) external view returns (address)',
     'function get_n_coins(address _pool) external view returns (uint256)',
+    'function owner() external view returns (address)',
+    'function admin() external view returns (address)',
 ]
 
 // Minimal Curve Pool interface
@@ -98,12 +103,12 @@ async function main() {
     const config = NETWORK_CONFIG[chainId] || {
         naraUsd: DEFAULT_NARAUSD_ADDRESS,
         usdc: DEFAULT_USDC_ADDRESS,
-        curveFactory: DEFAULT_CURVE_FACTORY_ADDRESS,
+        curveFactory: undefined,
     }
 
     const NARAUSD_ADDRESS = config.naraUsd
     const USDC_ADDRESS = config.usdc
-    const CURVE_FACTORY_ADDRESS = config.curveFactory || DEFAULT_CURVE_FACTORY_ADDRESS
+    const CURVE_FACTORY_ADDRESS = config.curveFactory
 
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.log('Curve Finance Stable Pool Setup')
@@ -115,14 +120,14 @@ async function main() {
     console.log(`Curve Factory: ${CURVE_FACTORY_ADDRESS}`)
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 
-    // Validate network - Only Ethereum Sepolia is supported
-    if (chainId !== 11155111) {
-        console.log('⚠️  ERROR: This script only supports Ethereum Sepolia testnet!')
+    // Validate network - Only Arbitrum Sepolia is supported
+    if (chainId !== 421614) {
+        console.log('⚠️  ERROR: This script only supports Arbitrum Sepolia testnet!')
         console.log(`   Current network: ${network.name} (Chain ID: ${chainId})`)
-        console.log('   Required network: Ethereum Sepolia (Chain ID: 11155111)')
-        console.log('   Run with: npx hardhat run scripts/setup-curve-liquidity.ts --network sepolia\n')
+        console.log('   Required network: Arbitrum Sepolia (Chain ID: 421614)')
+        console.log('   Run with: npx hardhat run scripts/setup-curve-liquidity.ts --network arbitrum-sepolia\n')
         throw new Error(
-            `Unsupported network: ${network.name} (Chain ID: ${chainId}). Only Ethereum Sepolia is supported.`
+            `Unsupported network: ${network.name} (Chain ID: ${chainId}). Only Arbitrum Sepolia is supported.`
         )
     }
 
@@ -141,6 +146,13 @@ async function main() {
 
     console.log(`   ${naraUsdSymbol} balance: ${ethers.utils.formatUnits(naraUsdBalance, naraUsdDecimals)}`)
     console.log(`   ${usdcSymbol} balance: ${ethers.utils.formatUnits(usdcBalance, usdcDecimals)}`)
+    console.log(`   ${naraUsdSymbol} decimals: ${naraUsdDecimals}`)
+    console.log(`   ${usdcSymbol} decimals: ${usdcDecimals}`)
+
+    // Validate decimals (Curve requires ≤ 18)
+    if (naraUsdDecimals > 18 || usdcDecimals > 18) {
+        throw new Error(`Token decimals exceed maximum (18). NaraUSD: ${naraUsdDecimals}, USDC: ${usdcDecimals}`)
+    }
 
     // Check if we have enough tokens
     if (naraUsdBalance.lt(INITIAL_NARAUSD_AMOUNT)) {
@@ -161,10 +173,10 @@ async function main() {
     if (!CURVE_FACTORY_ADDRESS || CURVE_FACTORY_ADDRESS === '0x0000000000000000000000000000000000000000') {
         console.log('⚠️  WARNING: Curve Factory address not configured!')
         console.log(`   Network: ${network.name} (Chain ID: ${chainId})`)
-        console.log('   Curve Finance contracts may not be deployed on this testnet.')
+        console.log('   Curve Finance contracts may not be deployed on Arbitrum Sepolia testnet.')
         console.log('\n   Options:')
         console.log('   1. Update CURVE_FACTORY_ADDRESS in NETWORK_CONFIG if Curve is deployed')
-        console.log('   2. Deploy Curve Factory contracts to this network first')
+        console.log('   2. Deploy Curve Factory contracts to Arbitrum Sepolia first')
         console.log('   3. Use a different DEX (Uniswap V3, etc.) for liquidity provision')
         console.log('   4. Use mainnet where Curve Finance is available\n')
         throw new Error('Curve Factory address not configured')
@@ -181,6 +193,28 @@ async function main() {
 
     // Get Curve Factory contract
     const curveFactory = new ethers.Contract(CURVE_FACTORY_ADDRESS, CURVE_FACTORY_ABI, deployer)
+
+    // Check factory admin (informational - deployment is permissionless)
+    console.log('🔍 Checking Curve Factory info...')
+    try {
+        const admin = await curveFactory.admin()
+        console.log(`   Factory admin: ${admin}`)
+        console.log(`   Deployer: ${deployer.address}`)
+        console.log(`   ℹ️  Note: Pool deployment is permissionless (anyone can deploy)\n`)
+    } catch (_adminError) {
+        console.log(`   ℹ️  Could not check factory admin (function may not exist)\n`)
+    }
+
+    // Verify function exists by checking if we can encode the call
+    console.log('🔍 Verifying function signature...')
+    try {
+        const iface = new ethers.utils.Interface(CURVE_FACTORY_ABI)
+        const functionFragment = iface.getFunction('deploy_plain_pool')
+        console.log(`   ✅ Function 'deploy_plain_pool' found in ABI`)
+        console.log(`   Function selector: ${functionFragment.format()}\n`)
+    } catch (error) {
+        console.log(`   ⚠️  Could not verify function signature\n`)
+    }
 
     // Check if pool already exists via contract
     console.log('🔍 Checking for existing pool via contract...')
@@ -211,17 +245,84 @@ async function main() {
     // Create new pool
     console.log('🏗️  Creating new Curve stable pool...')
     const coins = [NARAUSD_ADDRESS, USDC_ADDRESS]
-    const fee = 1000000 // 0.01% fee (1e6 = 0.01%, 4e6 = 0.04%, etc.)
-    const assetType = 0 // Plain pool
+    // Curve Stableswap-NG parameters (based on successful example)
+    // Fee is in 1e10 format: 0.01% = 1000000, 0.04% = 4000000, 1% = 100000000
+    const fee = 4000000 // 0.01% fee (from successful example)
+    const offpegFeeMultiplier = 20000000000 // 10x multiplier when pool is off-peg (from example)
+    const maExpTime = 866 // Moving average expiration time in seconds (from example)
+    const implementationIdx = 0 // Implementation index (confirmed to be 0xE12374F193f91f71CE40D53E0db102eBaA9098D5)
+    // Asset types: 0 = plain pool (one per coin)
+    const assetTypes = [0, 0] // Both coins are plain assets
+    // Method IDs: 0x00000000 for plain pools (one per coin)
+    const methodIds = ['0x00000000', '0x00000000'] // No special methods
+    // Oracles: zero address for plain pools (one per coin)
+    const oracles = [ethers.constants.AddressZero, ethers.constants.AddressZero] // No oracles needed
 
     console.log(`   Pool name: ${POOL_NAME}`)
     console.log(`   Pool symbol: ${POOL_SYMBOL}`)
     console.log(`   Amplification (A): ${POOL_A}`)
-    console.log(`   Fee: ${fee / 10000}%`)
+    // Fee display: convert from 1e10 format to percentage (fee / 1e8)
+    console.log(`   Fee: ${(fee / 1e8).toFixed(4)}%`)
     console.log(`   Coins: [${coins.join(', ')}]`)
 
     try {
-        const tx = await curveFactory.deploy_plain_pool(POOL_NAME, POOL_SYMBOL, coins, POOL_A, fee, assetType)
+        // Try static call first to check if the call would succeed
+        console.log('   ⏳ Checking if pool creation would succeed...')
+        try {
+            await curveFactory.callStatic.deploy_plain_pool(
+                POOL_NAME,
+                POOL_SYMBOL,
+                coins,
+                POOL_A,
+                fee,
+                offpegFeeMultiplier,
+                maExpTime,
+                implementationIdx,
+                assetTypes,
+                methodIds,
+                oracles
+            )
+        } catch (staticError: unknown) {
+            const staticErrorMessage = staticError instanceof Error ? staticError.message : String(staticError)
+            console.log(`   ⚠️  Static call failed: ${staticErrorMessage}`)
+            console.log('\n   ❌ Parameter validation failed!')
+            console.log('   Note: deploy_plain_pool is permissionless, but parameters must meet requirements:\n')
+            console.log('   Required parameter limits:')
+            console.log('   - Fee: 1000000 (0.01%) ≤ fee ≤ 100000000 (1%)')
+            console.log(`   - Current fee: ${fee} (${(fee / 1e8).toFixed(4)}%)`)
+            console.log(`   - Offpeg fee multiplier: ${offpegFeeMultiplier}`)
+            console.log(`   - MA exp time: ${maExpTime}`)
+            console.log('   - Valid implementation_idx (cannot be ZERO_ADDRESS)')
+            console.log(`   - Current implementation_idx: ${implementationIdx}`)
+            console.log('   - Minimum 2 coins, maximum 4 coins')
+            console.log(`   - Current coins: ${coins.length}`)
+            console.log('   - Maximum 18 decimals for coins')
+            console.log('   - No duplicate coins')
+            console.log('   - Cannot pair with a coin included in a basepool')
+            console.log('\n   Possible fixes:')
+            console.log('   1. Verify fee is between 0.01% and 1%')
+            console.log('   2. Check token decimals (must be ≤ 18)')
+            console.log('   3. Ensure no duplicate coins in the array')
+            console.log('   4. Verify tokens are valid ERC20 contracts')
+            console.log('   5. Check if pool already exists with these tokens')
+            console.log('   6. Verify asset_types, method_ids, and oracles arrays match coins length\n')
+            throw staticError
+        }
+
+        console.log('   ✅ Static call succeeded, sending transaction...')
+        const tx = await curveFactory.deploy_plain_pool(
+            POOL_NAME,
+            POOL_SYMBOL,
+            coins,
+            POOL_A,
+            fee,
+            offpegFeeMultiplier,
+            maExpTime,
+            implementationIdx,
+            assetTypes,
+            methodIds,
+            oracles
+        )
         console.log(`   ⏳ Transaction sent: ${tx.hash}`)
         const receipt = await tx.wait()
         console.log(`   ✅ Pool created! Gas used: ${receipt.gasUsed.toString()}`)
@@ -245,11 +346,11 @@ async function main() {
         const errorMessage = error instanceof Error ? error.message : String(error)
         console.error('   ❌ Error creating pool:', errorMessage)
         if (errorMessage.includes('non-contract') || errorMessage.includes('call revert')) {
-            console.error('\n   💡 Tip: Curve Finance contracts may not be deployed on Sepolia testnet.')
+            console.error('\n   💡 Tip: Curve Finance contracts may not be deployed on Arbitrum Sepolia testnet.')
             console.error('   Consider:')
-            console.error('   1. Deploying Curve contracts to Sepolia first')
-            console.error('   2. Using Arbitrum Sepolia where Curve may be available')
-            console.error('   3. Using a different DEX for testnet liquidity\n')
+            console.error('   1. Deploying Curve contracts to Arbitrum Sepolia first')
+            console.error('   2. Using a different DEX (Uniswap V3, etc.) for testnet liquidity')
+            console.error('   3. Using mainnet where Curve Finance is available\n')
         }
         throw error
     }
