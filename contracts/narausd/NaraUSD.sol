@@ -323,7 +323,7 @@ contract NaraUSD is
      * @param amount The amount of NaraUSD to mint
      * @dev Intended for protocol-controlled operations such as incentive programs
      */
-    function mintWithoutCollateral(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused {
+    function mintWithoutCollateral(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         if (to == address(0)) revert ZeroAddressException();
         if (amount == 0) revert InvalidAmount();
         _mint(to, amount);
