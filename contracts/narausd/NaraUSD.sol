@@ -332,25 +332,6 @@ contract NaraUSD is
         mct.mintWithoutCollateral(address(this), amount);
     }
 
-    /**
-     * @notice Mint NaraUSD without collateral backing for a specific beneficiary (admin-controlled)
-     * @param beneficiary The address to receive freshly minted NaraUSD
-     * @param amount The amount of NaraUSD to mint
-     * @dev Alias for mint() with more explicit naming to clarify this is unbacked minting
-     * @dev Intended for protocol-controlled operations such as incentive programs
-     */
-    function mintWithoutCollateralFor(
-        address beneficiary,
-        uint256 amount
-    ) external onlyRole(MINTER_ROLE) whenNotPaused {
-        if (beneficiary == address(0)) revert ZeroAddressException();
-        if (amount == 0) revert InvalidAmount();
-        _mint(beneficiary, amount);
-
-        // Mint corresponding MCT to maintain 1:1 backing
-        mct.mintWithoutCollateral(address(this), amount);
-    }
-
     /* --------------- REDEMPTION (INSTANT OR QUEUED) --------------- */
 
     /**
