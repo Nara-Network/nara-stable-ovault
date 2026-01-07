@@ -1,5 +1,5 @@
 {
-  "address": "0xdB97ea2e6C1494B0D579a0b35F5C439A4fa830e7",
+  "address": "0xec089034DA33d066eC5e16D8B5809125454460a8",
   "abi": [
     {
       "inputs": [],
@@ -51,11 +51,6 @@
     {
       "inputs": [],
       "name": "CantRenounceOwnership",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "DelegationNotInitiated",
       "type": "error"
     },
     {
@@ -355,16 +350,6 @@
       "type": "error"
     },
     {
-      "inputs": [],
-      "name": "InvalidSignature",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "InvalidToken",
-      "type": "error"
-    },
-    {
       "inputs": [
         {
           "internalType": "address",
@@ -439,6 +424,11 @@
     },
     {
       "inputs": [],
+      "name": "ValueUnchanged",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "ZeroAddressException",
       "type": "error"
     },
@@ -465,63 +455,6 @@
         }
       ],
       "name": "Approval",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "signer",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "delegatedBy",
-          "type": "address"
-        }
-      ],
-      "name": "DelegatedSignerAdded",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "delegateTo",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "delegatedBy",
-          "type": "address"
-        }
-      ],
-      "name": "DelegatedSignerInitiated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "signer",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "delegatedBy",
-          "type": "address"
-        }
-      ],
-      "name": "DelegatedSignerRemoved",
       "type": "event"
     },
     {
@@ -674,7 +607,13 @@
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "amount",
+          "name": "walletAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "escrowedAmount",
           "type": "uint256"
         }
       ],
@@ -1424,19 +1363,6 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "_delegatedBy",
-          "type": "address"
-        }
-      ],
-      "name": "confirmDelegatedSigner",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
           "internalType": "uint256",
           "name": "shares",
           "type": "uint256"
@@ -1488,37 +1414,13 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "delegatedSigner",
-      "outputs": [
-        {
-          "internalType": "enum NaraUSD.DelegatedSignerStatus",
-          "name": "",
-          "type": "uint8"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
           "internalType": "uint256",
-          "name": "assets",
+          "name": "",
           "type": "uint256"
         },
         {
           "internalType": "address",
-          "name": "receiver",
+          "name": "",
           "type": "address"
         }
       ],
@@ -1530,7 +1432,7 @@
           "type": "uint256"
         }
       ],
-      "stateMutability": "nonpayable",
+      "stateMutability": "pure",
       "type": "function"
     },
     {
@@ -1828,7 +1730,7 @@
       "inputs": [
         {
           "internalType": "address",
-          "name": "owner",
+          "name": "",
           "type": "address"
         }
       ],
@@ -1840,7 +1742,7 @@
           "type": "uint256"
         }
       ],
-      "stateMutability": "view",
+      "stateMutability": "pure",
       "type": "function"
     },
     {
@@ -1860,7 +1762,7 @@
       "inputs": [
         {
           "internalType": "address",
-          "name": "owner",
+          "name": "",
           "type": "address"
         }
       ],
@@ -1872,7 +1774,7 @@
           "type": "uint256"
         }
       ],
-      "stateMutability": "view",
+      "stateMutability": "pure",
       "type": "function"
     },
     {
@@ -1880,7 +1782,7 @@
       "name": "mct",
       "outputs": [
         {
-          "internalType": "contract MultiCollateralToken",
+          "internalType": "contract IMultiCollateralToken",
           "name": "",
           "type": "address"
         }
@@ -1943,31 +1845,13 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
           "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "mint",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "shares",
+          "name": "",
           "type": "uint256"
         },
         {
           "internalType": "address",
-          "name": "receiver",
+          "name": "",
           "type": "address"
         }
       ],
@@ -1979,7 +1863,7 @@
           "type": "uint256"
         }
       ],
-      "stateMutability": "nonpayable",
+      "stateMutability": "pure",
       "type": "function"
     },
     {
@@ -2023,28 +1907,35 @@
       "inputs": [
         {
           "internalType": "address",
-          "name": "collateralAsset",
+          "name": "to",
           "type": "address"
         },
         {
           "internalType": "uint256",
-          "name": "collateralAmount",
+          "name": "amount",
           "type": "uint256"
-        },
+        }
+      ],
+      "name": "mintWithoutCollateral",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
         {
           "internalType": "address",
           "name": "beneficiary",
           "type": "address"
-        }
-      ],
-      "name": "mintWithCollateralFor",
-      "outputs": [
+        },
         {
           "internalType": "uint256",
-          "name": "naraUsdAmount",
+          "name": "amount",
           "type": "uint256"
         }
       ],
+      "name": "mintWithoutCollateralFor",
+      "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
     },
@@ -2204,7 +2095,7 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "shares",
+          "name": "",
           "type": "uint256"
         }
       ],
@@ -2216,6 +2107,30 @@
           "type": "uint256"
         }
       ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "collateralAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "naraUsdAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "previewRedeem",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "collateralAmount",
+          "type": "uint256"
+        }
+      ],
       "stateMutability": "view",
       "type": "function"
     },
@@ -2223,7 +2138,7 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "assets",
+          "name": "",
           "type": "uint256"
         }
       ],
@@ -2235,7 +2150,7 @@
           "type": "uint256"
         }
       ],
-      "stateMutability": "view",
+      "stateMutability": "pure",
       "type": "function"
     },
     {
@@ -2332,7 +2247,7 @@
       "name": "redeemSilo",
       "outputs": [
         {
-          "internalType": "contract NaraUSDRedeemSilo",
+          "internalType": "contract INaraUSDRedeemSilo",
           "name": "",
           "type": "address"
         }
@@ -2363,21 +2278,28 @@
       "inputs": [
         {
           "internalType": "address",
-          "name": "",
+          "name": "user",
           "type": "address"
         }
       ],
       "name": "redemptionRequests",
       "outputs": [
         {
-          "internalType": "uint152",
-          "name": "naraUsdAmount",
-          "type": "uint152"
-        },
-        {
-          "internalType": "address",
-          "name": "collateralAsset",
-          "type": "address"
+          "components": [
+            {
+              "internalType": "uint152",
+              "name": "naraUsdAmount",
+              "type": "uint152"
+            },
+            {
+              "internalType": "address",
+              "name": "collateralAsset",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct INaraUSD.RedemptionRequest",
+          "name": "",
+          "type": "tuple"
         }
       ],
       "stateMutability": "view",
@@ -2397,19 +2319,6 @@
         }
       ],
       "name": "redistributeLockedAmount",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_removedSigner",
-          "type": "address"
-        }
-      ],
-      "name": "removeDelegatedSigner",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -2459,19 +2368,6 @@
         }
       ],
       "name": "revokeRole",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_delegateTo",
-          "type": "address"
-        }
-      ],
-      "name": "setDelegatedSigner",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -2742,6 +2638,19 @@
     },
     {
       "inputs": [],
+      "name": "tryCompleteRedeem",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "collateralAmount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "unpause",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -2808,35 +2717,35 @@
       "type": "function"
     }
   ],
-  "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
+  "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
   "receipt": {
     "to": null,
     "from": "0xfd8b2FC9b759Db3bCb8f713224e17119Dd9d3671",
-    "contractAddress": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+    "contractAddress": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
     "transactionIndex": 1,
-    "gasUsed": "644664",
-    "logsBloom": "0x00000004000000000000000000000000400000000000000000800000200000001000000080000200000000000000004010000000001000200000000000000000000000000000000000000000010002000000008000000000000000000000000000040000020000000000000000000800000000000000000000104000001000000000000000000000000802000000000000000000000080000000000280200000000000000000002000000000000000000000000000000000001000008000040000000020800000000000000000000000001000000804000100000000000020000000000000000800000000000000000000000000000000080000000000000000",
-    "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d",
-    "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
+    "gasUsed": "644563",
+    "logsBloom": "0x00080004000000000400000000000000400000000000000000000000200000000000000080000202000000000000004000000000001000200000000000000000000000000000000000000000010002000000008000000000000000000000000000040000020000000000000000000800000000000000000000004000001000000000010000000000000802000000000000000000000080000000000280200000000000000000002000000000000000000100000000000000001000008000040000000020000000000000000000000000001000000004000100100000000020000000000000000800000000000000000000000000000000080000000000000000",
+    "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269",
+    "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
     "logs": [
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
-          "0x000000000000000000000000db97ea2e6c1494b0d579a0b35f5c439a4fa830e7"
+          "0x000000000000000000000000ec089034da33d066ec5e16d8b5809125454460a8"
         ],
         "data": "0x",
         "logIndex": 0,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       },
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d",
           "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -2845,13 +2754,13 @@
         ],
         "data": "0x",
         "logIndex": 1,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       },
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d",
           "0x3c63e605be3290ab6b04cfc46c6e1516e626d43236b034f09d7ede1d017beb0c",
@@ -2860,13 +2769,13 @@
         ],
         "data": "0x",
         "logIndex": 2,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       },
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d",
           "0x85e8f2d6819d6b24108062d87ea08f54651bcb8960d98062d3faf96e7873b8b9",
@@ -2875,13 +2784,13 @@
         ],
         "data": "0x",
         "logIndex": 3,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       },
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d",
           "0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6",
@@ -2890,13 +2799,13 @@
         ],
         "data": "0x",
         "logIndex": 4,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       },
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d",
           "0xf988e4fb62b8e14f4820fed03192306ddf4d7dbfa215595ba1c6ba4b76b369ee",
@@ -2905,47 +2814,47 @@
         ],
         "data": "0x",
         "logIndex": 5,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       },
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0xb4a832eb73ba0066dc45acd0d1f4454cdee155b17bdb1ccbabb428cc39750ad1"
         ],
         "data": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d3c21bcecceda1000000",
         "logIndex": 6,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       },
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0x6fd3eacad9328fdc902c323518cfef3a2f6a9da89c40a7b82428adc2370114c3"
         ],
         "data": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d3c21bcecceda1000000",
         "logIndex": 7,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       },
       {
         "transactionIndex": 1,
-        "blockNumber": 223503324,
-        "transactionHash": "0x1d6b1aadf3260f3e9325e45e774ed10c3e3f920116d15189cc983d7e0e31c9b7",
-        "address": "0xe76465a357aB0e0BEb593DfD33fF2209A00b540F",
+        "blockNumber": 231167712,
+        "transactionHash": "0x5e34b1a5d04cc22f0b867171db7803cae54a1a9d6681c4d8b17af9c58458bb4a",
+        "address": "0x8edde47955949B96F5aCcA75404615104EAb84aF",
         "topics": [
           "0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2"
         ],
         "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
         "logIndex": 8,
-        "blockHash": "0x50e8bd6738ae301239b74646d6afe734a9e19bb081c4d82fe712448abb82350d"
+        "blockHash": "0xb92a5819a16db85823dab6f32e189ef088c9557233d6ad2d9c2fe202e80ee269"
       }
     ],
-    "blockNumber": 223503324,
-    "cumulativeGasUsed": "644664",
+    "blockNumber": 231167712,
+    "cumulativeGasUsed": "644563",
     "status": 1,
     "byzantium": true
   },
