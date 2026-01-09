@@ -253,12 +253,6 @@ interface INaraUSD {
      */
     function mintWithoutCollateral(address to, uint256 amount) external;
 
-    /**
-     * @notice Mint NaraUSD without collateral backing for a specific beneficiary (admin-controlled)
-     * @param beneficiary The address to receive freshly minted NaraUSD
-     * @param amount The amount of NaraUSD to mint
-     */
-    function mintWithoutCollateralFor(address beneficiary, uint256 amount) external;
 
     /**
      * @notice Burn NaraUSD and underlying MCT without withdrawing collateral

@@ -841,7 +841,7 @@ contract NaraUSDTest is TestHelper {
         uint256 aliceBalanceBefore = naraUsd.balanceOf(alice);
         uint256 mctBalanceBefore = mct.balanceOf(address(naraUsd));
 
-        naraUsd.mintWithoutCollateralFor(alice, amount);
+        naraUsd.mintWithoutCollateral(alice, amount);
 
         assertEq(naraUsd.balanceOf(alice) - aliceBalanceBefore, amount, "Alice should have additional naraUsd");
 
@@ -2574,7 +2574,7 @@ contract NaraUSDTest is TestHelper {
      */
     function test_RedistributeLockedAmount_BurnToZeroAddress() public {
         // Setup: Give alice balance first
-        naraUsd.mintWithoutCollateralFor(alice, 100e18);
+        naraUsd.mintWithoutCollateral(alice, 100e18);
 
         uint256 totalSupplyBefore = naraUsd.totalSupply();
         uint256 aliceBalance = naraUsd.balanceOf(alice);
