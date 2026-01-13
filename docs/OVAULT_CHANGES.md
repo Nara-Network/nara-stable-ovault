@@ -13,7 +13,7 @@ This document outlines the custom features added on top of the base OVault contr
 ## NaraUSD
 
 - **KYC validation using Keyring Network** - Validates user credentials before minting and redeeming operations
-- **Redemption queue** - When liquidity is insufficient at the time of redemption request, NaraUSD tokens are locked in a silo and the request is queued. If liquidity is available at request time, redemption executes instantly. Queued redemptions can only be completed by admins via `completeRedeem(user)` or `bulkCompleteRedeem(users[])` once liquidity is restored - they do not complete automatically.
+- **Redemption queue** - When liquidity is insufficient at the time of redemption request, NaraUSD tokens are locked in a silo and the request is queued. If liquidity is available at request time, redemption executes instantly. Queued redemptions can only be completed by admins via `completeRedeem(user)` or `bulkCompleteRedeem(users[])` once liquidity is restored - they do not complete automatically. **Note:** This is NOT an ordered FIFO queue - it is a per-user mapping (one active request per user). There is no global ordering, and completion order is discretionary by the collateral manager/solver.
 - **Redemption request update** - Users can update their redemption request amount anytime before it is completed by admins. If the liquidity is available at the time of update, redemption executes instantly.
 - **Redemption request cancellation** - Users can cancel their redemption request anytime before it is completed by admins. The locked NaraUSD tokens are returned to the user.
 - **Mint and redeem with MCT as underlying asset** - MCT is used as the underlying asset for NaraUSD, allowing for multiple collateral assets to be supported.

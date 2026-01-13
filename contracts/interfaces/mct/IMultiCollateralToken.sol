@@ -34,6 +34,8 @@ interface IMultiCollateralToken is IERC20 {
     error UnsupportedAsset();
     error InvalidAssetAddress();
     error InsufficientCollateral();
+    error AssetAlreadySupported();
+    error AssetHasCollateral();
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -56,6 +58,12 @@ interface IMultiCollateralToken is IERC20 {
      * @param mctAmount The amount of MCT to mint
      */
     function mintWithoutCollateral(address beneficiary, uint256 mctAmount) external;
+
+    /**
+     * @notice Burn MCT tokens
+     * @param amount The amount of MCT to burn
+     */
+    function burn(uint256 amount) external;
 
     /**
      * @notice Redeem MCT for collateral

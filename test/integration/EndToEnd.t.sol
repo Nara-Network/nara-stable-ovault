@@ -47,7 +47,7 @@ contract EndToEndTest is TestHelper {
         vm.stopPrank();
         // Test contract has REWARDER_ROLE
         uint256 rewardsAmount = 100e18; // 10% yield
-        naraUsd.mint(address(this), rewardsAmount);
+        naraUsd.mintWithoutCollateral(address(this), rewardsAmount);
         naraUsd.approve(address(naraUsdPlus), rewardsAmount);
         naraUsdPlus.transferInRewards(rewardsAmount);
 
@@ -201,7 +201,7 @@ contract EndToEndTest is TestHelper {
         vm.stopPrank();
 
         // Rewards distributed (test contract has REWARDER_ROLE)
-        naraUsd.mint(address(this), rewardAmount);
+        naraUsd.mintWithoutCollateral(address(this), rewardAmount);
         naraUsd.approve(address(naraUsdPlus), rewardAmount);
         naraUsdPlus.transferInRewards(rewardAmount);
 
@@ -222,7 +222,7 @@ contract EndToEndTest is TestHelper {
         vm.warp(block.timestamp + 8 hours);
 
         // Test contract has REWARDER_ROLE
-        naraUsd.mint(address(this), rewardAmount);
+        naraUsd.mintWithoutCollateral(address(this), rewardAmount);
         naraUsd.approve(address(naraUsdPlus), rewardAmount);
         naraUsdPlus.transferInRewards(rewardAmount);
 
@@ -254,10 +254,11 @@ contract EndToEndTest is TestHelper {
         // === Hub operations ===
         _switchToHub();
 
-        // Alice operations on hub
+        // Alice operations on hub - mint NaraUSD using collateral
+        usdc.mint(alice, amount / 1e12);
         vm.startPrank(alice);
-        mct.approve(address(naraUsd), amount);
-        naraUsd.deposit(amount, alice);
+        usdc.approve(address(naraUsd), amount / 1e12);
+        naraUsd.mintWithCollateral(address(usdc), amount / 1e12);
         vm.stopPrank();
 
         // Send NaraUSD to spoke for Bob
@@ -271,10 +272,11 @@ contract EndToEndTest is TestHelper {
         // Deliver packet to SPOKE chain at naraUsdOft
         verifyPackets(SPOKE_EID, addressToBytes32(address(naraUsdOft)));
 
-        // Bob operations on hub (parallel)
+        // Bob operations on hub (parallel) - mint NaraUSD using collateral
+        usdc.mint(bob, amount / 1e12);
         vm.startPrank(bob);
-        mct.approve(address(naraUsd), amount);
-        naraUsd.deposit(amount, bob);
+        usdc.approve(address(naraUsd), amount / 1e12);
+        naraUsd.mintWithCollateral(address(usdc), amount / 1e12);
         vm.stopPrank();
 
         // === Spoke operations ===
@@ -338,7 +340,7 @@ contract EndToEndTest is TestHelper {
 
             // Ensure alice has enough balance
             if (amount > naraUsd.balanceOf(alice)) {
-                naraUsd.mint(alice, amount);
+                naraUsd.mintWithoutCollateral(alice, amount);
             }
 
             vm.startPrank(alice);

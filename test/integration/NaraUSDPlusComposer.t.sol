@@ -239,7 +239,7 @@ contract NaraUSDPlusComposerTest is TestHelper {
         vm.stopPrank();
 
         // Add rewards (test contract has REWARDER_ROLE)
-        naraUsd.mint(address(this), rewardsAmount);
+        naraUsd.mintWithoutCollateral(address(this), rewardsAmount);
         naraUsd.approve(address(naraUsdPlus), rewardsAmount);
         naraUsdPlus.transferInRewards(rewardsAmount);
 
@@ -601,7 +601,7 @@ contract NaraUSDPlusComposerTest is TestHelper {
         vm.stopPrank();
 
         // Distribute rewards (test contract has REWARDER_ROLE)
-        naraUsd.mint(address(this), rewardsAmount);
+        naraUsd.mintWithoutCollateral(address(this), rewardsAmount);
         naraUsd.approve(address(naraUsdPlus), rewardsAmount);
         naraUsdPlus.transferInRewards(rewardsAmount);
 

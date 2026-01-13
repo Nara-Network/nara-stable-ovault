@@ -254,6 +254,7 @@ DEPLOY_ENV=testnet npx hardhat deploy --network arbitrum-sepolia --tags ovault
 
 # On Base Sepolia (spoke)
 DEPLOY_ENV=testnet npx hardhat deploy --network base-sepolia --tags ovault
+DEPLOY_ENV=testnet npx hardhat deploy --network base-sepolia --tags narausd-plus-oft
 ```
 
 **Mainnet:**
@@ -261,16 +262,16 @@ DEPLOY_ENV=testnet npx hardhat deploy --network base-sepolia --tags ovault
 ```bash
 # On Arbitrum (hub)
 DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
-DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags staked-narausd-oft
+DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags narausd-plus-oft
 DEPLOY_ENV=mainnet npx hardhat deploy --network arbitrum --tags ovault
 
 # On Base (spoke)
 DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags ovault
-DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags staked-narausd-oft
+DEPLOY_ENV=mainnet npx hardhat deploy --network base --tags narausd-plus-oft
 
 # On Ethereum (spoke)
 DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags ovault
-DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags staked-narausd-oft
+DEPLOY_ENV=mainnet npx hardhat deploy --network ethereum --tags narausd-plus-oft
 ```
 
 ### 3. Wire LayerZero Peers

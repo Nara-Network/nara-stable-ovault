@@ -324,8 +324,12 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('   MultiCollateralToken Implementation:', mctDeployment.implementationAddress)
     console.log('   naraUsd Proxy:', naraUsdAddress)
     console.log('   naraUsd Implementation:', naraUsdDeployment.implementationAddress)
+    console.log('   NaraUSDRedeemSilo Proxy:', redeemSiloAddress)
+    console.log('   NaraUSDRedeemSilo Implementation:', redeemSiloDeployment.implementationAddress)
     console.log('   NaraUSDPlus Proxy:', naraUsdPlusAddress)
     console.log('   NaraUSDPlus Implementation:', naraUsdPlusDeployment.implementationAddress)
+    console.log('   NaraUSDPlusSilo Proxy:', plusSiloAddress)
+    console.log('   NaraUSDPlusSilo Implementation:', plusSiloDeployment.implementationAddress)
     console.log('   StakingRewardsDistributor Proxy:', distributorAddress)
     console.log('   StakingRewardsDistributor Implementation:', distributorDeployment.implementationAddress)
     console.log('')
@@ -361,6 +365,12 @@ const deployFullSystem: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     )
     console.log(
         `   npx hardhat verify --contract contracts/narausd-plus/StakingRewardsDistributor.sol:StakingRewardsDistributor --network ${networkName} ${distributorDeployment.implementationAddress}`
+    )
+    console.log(
+        `   npx hardhat verify --contract contracts/narausd/NaraUSDRedeemSilo.sol:NaraUSDRedeemSilo --network ${networkName} ${redeemSiloDeployment.implementationAddress}`
+    )
+    console.log(
+        `   npx hardhat verify --contract contracts/narausd-plus/NaraUSDPlusSilo.sol:NaraUSDPlusSilo --network ${networkName} ${plusSiloDeployment.implementationAddress}`
     )
     console.log('')
 

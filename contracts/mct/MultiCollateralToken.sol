@@ -10,6 +10,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "../interfaces/mct/IMultiCollateralToken.sol";
 
 /**
  * @title MultiCollateralToken (MCT)
@@ -17,13 +18,18 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
  * @dev This token serves as the underlying asset for NaraUSD OVault
  * @dev This contract is upgradeable using UUPS proxy pattern
  */
+/**
+ * @dev Privileged roles: COLLATERAL_MANAGER can move collateral, MINTER can mint unbacked.
+ *      Roles can be renounced. redeem() may truncate decimals.
+ */
 contract MultiCollateralToken is
     Initializable,
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    IMultiCollateralToken
 {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -44,34 +50,8 @@ contract MultiCollateralToken is
     /// @notice Total collateral value tracked per asset
     mapping(address => uint256) public collateralBalance;
 
-    /* --------------- EVENTS --------------- */
-
-    event AssetAdded(address indexed asset);
-    event AssetRemoved(address indexed asset);
-    event Minted(
-        address indexed beneficiary,
-        address indexed collateralAsset,
-        uint256 collateralAmount,
-        uint256 mctAmount
-    );
-    event Redeemed(
-        address indexed beneficiary,
-        address indexed collateralAsset,
-        uint256 mctAmount,
-        uint256 collateralAmount
-    );
-    event CollateralWithdrawn(address indexed asset, uint256 amount, address indexed to);
-    event UnbackedMint(address indexed beneficiary, uint256 mctAmount);
-
-    /* --------------- ERRORS --------------- */
-
-    error ZeroAddressException();
-    error InvalidAmount();
-    error UnsupportedAsset();
-    error InvalidAssetAddress();
-    error InsufficientCollateral();
-    error AssetHasCollateral();
-    error InvalidToken();
+    /// @dev Storage gap for future upgrades
+    uint256[50] private __gap;
 
     /* --------------- INITIALIZER --------------- */
 
@@ -161,6 +141,14 @@ contract MultiCollateralToken is
 
         _mint(beneficiary, mctAmount);
         emit UnbackedMint(beneficiary, mctAmount);
+    }
+
+    /**
+     * @notice Burn MCT tokens
+     * @param amount The amount of MCT to burn
+     */
+    function burn(uint256 amount) public virtual override(ERC20BurnableUpgradeable, IMultiCollateralToken) {
+        super.burn(amount);
     }
 
     /**
@@ -326,8 +314,16 @@ contract MultiCollateralToken is
             revert InvalidAssetAddress();
         }
         if (!_supportedAssets.add(asset)) {
-            revert InvalidAssetAddress();
+            revert AssetAlreadySupported();
         }
         emit AssetAdded(asset);
+    }
+
+    /**
+     * @dev Prevent renouncing DEFAULT_ADMIN_ROLE to avoid ungovernability
+     */
+    function renounceRole(bytes32 role, address account) public virtual override(AccessControlUpgradeable) {
+        if (role == DEFAULT_ADMIN_ROLE) revert ZeroAddressException();
+        super.renounceRole(role, account);
     }
 }
