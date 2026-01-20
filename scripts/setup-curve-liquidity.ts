@@ -45,7 +45,7 @@ const INITIAL_USDT_AMOUNT = ethers.utils.parseUnits('10000', 6) // 10,000 USDT
 
 // Pool metadata
 const POOL_NAME = 'NaraUSD-USDC-USDT'
-const POOL_SYMBOL = 'naraUSD3' // Max 10 characters (Curve contract requirement)
+const POOL_SYMBOL = 'NaraUSD3' // Max 10 characters (Curve contract requirement)
 const POOL_A = 100 // Amplification parameter (lower = more stable, typical range: 50-200)
 
 // ============================================
