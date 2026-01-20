@@ -1109,6 +1109,10 @@ contract NaraUSD is
         uint256 feeAmount = _calculateMintFee(baseShares);
         shares = baseShares > feeAmount ? baseShares - feeAmount : 0;
 
+        if (minMintAmount > 0 && shares < minMintAmount) {
+            return 0;
+        }
+
         return shares;
     }
 
@@ -1125,6 +1129,9 @@ contract NaraUSD is
     function previewMint(uint256 shares) public view override returns (uint256 assets) {
         // Calculate how many shares we need before fee to get 'shares' after fee
         uint256 sharesBeforeFee = shares;
+        if (minMintAmount > 0 && shares < minMintAmount) {
+            return 0;
+        }
         if (feeTreasury != address(0)) {
             if (mintFeeBps > 0) {
                 // Calculate assuming percentage fee only
