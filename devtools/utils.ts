@@ -300,7 +300,7 @@ export async function prepareUpgrade(
     console.log(`   ✓ Upgrade preparation successful`)
     console.log(`   ✓ New implementation would be deployed at: ${newImplementationAddress}`)
 
-    return newImplementationAddress
+    return newImplementationAddress.toString()
 }
 
 // Network validation
