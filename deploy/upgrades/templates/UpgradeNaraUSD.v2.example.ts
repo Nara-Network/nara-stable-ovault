@@ -34,6 +34,8 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 // If in deploy/upgrades/, also use '../../devtools/utils'
 import { prepareUpgrade, upgradeContract } from '../../../devtools/utils'
 
+const NEW_IMPL_CONTRACT_NAME = 'NaraUSDV2'
+
 const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     const { getNamedAccounts } = hre
     const { deployer } = await getNamedAccounts()
@@ -43,7 +45,7 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     }
 
     console.log('\n========================================')
-    console.log('NaraUSD Upgrade Script - V2')
+    console.log(`${NEW_IMPL_CONTRACT_NAME} Upgrade Script`)
     console.log('========================================')
     console.log(`Network: ${hre.network.name}`)
     console.log(`Deployer: ${deployer}`)
@@ -65,10 +67,28 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const currentImplementation = await upgrades.erc1967.getImplementationAddress(proxyAddress)
     console.log(`Current implementation: ${currentImplementation}\n`)
 
+    // Step 2.5: Re-register proxy with OpenZeppelin manifest (in case .openzeppelin folder was deleted)
+    console.log('Step 0: Registering proxy with OpenZeppelin manifest...')
+    try {
+        const currentContractFactory = await hre.ethers.getContractFactory('NaraUSD')
+        await upgrades.forceImport(proxyAddress, currentContractFactory, { kind: 'uups' })
+        console.log(`   ✓ Proxy registered with manifest\n`)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+        // If already registered or other error, continue anyway
+        if (error.message?.includes('already registered')) {
+            console.log(`   ✓ Proxy already registered\n`)
+        } else {
+            console.log(`   ⚠️  Could not register proxy (may already be registered): ${error.message}\n`)
+        }
+    }
+
     // Step 3: Prepare upgrade (validates storage layout compatibility)
     console.log('Step 1: Preparing upgrade (validating compatibility)...')
     try {
-        const newImplementationAddress = await prepareUpgrade(hre, proxyAddress, 'NaraUSD')
+        const newImplementationAddress = await prepareUpgrade(hre, proxyAddress, NEW_IMPL_CONTRACT_NAME, {
+            redeployImplementation: 'always', // Force new deployment instead of reusing existing
+        })
         console.log(`   ✓ Validation passed! New implementation will be at: ${newImplementationAddress}\n`)
     } catch (error) {
         console.error('   ✗ Upgrade validation failed!')
@@ -86,14 +106,13 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     await new Promise((resolve) => setTimeout(resolve, 5000))
 
     try {
-        const result = await upgradeContract(hre, proxyAddress, 'NaraUSD', {
-            // Optional: If your new implementation has a migration function, call it here
-            // Example: Call migrateToV2() after upgrade
-            // call: {
-            //     fn: 'migrateToV2',
-            //     args: [],
-            // },
+        const result = await upgradeContract(hre, proxyAddress, NEW_IMPL_CONTRACT_NAME, {
             log: true,
+            // Need to be provided, if you don't need to call anything, just call any view function
+            call: {
+                fn: 'MINTER_ROLE',
+                args: [],
+            },
         })
 
         console.log('\n========================================')
@@ -123,11 +142,6 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
             const symbol = await naraUsd.symbol()
             console.log(`   ✓ Contract is responsive`)
             console.log(`   ✓ Name: ${name}, Symbol: ${symbol}`)
-
-            // Test any new functions added in this upgrade
-            // Example: if you added a new function, test it here
-            // const newValue = await naraUsd.newFunction()
-            // console.log(`   ✓ New function works: ${newValue}`)
         } catch (error) {
             console.error('   ⚠️  Warning: Could not verify contract functionality')
             console.error('   Error:', error)

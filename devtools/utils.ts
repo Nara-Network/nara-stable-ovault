@@ -180,10 +180,12 @@ export async function upgradeContract(
     proxyAddress: string,
     newContractName: string,
     options: {
+        // This call needs to be provided, to ensure the upgradeAndCall is used instead of upgradeTo
+        // This is due to usage of newer version of oz contracts (v5+), but older version of @openzeppelin/hardhat-upgrades
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        call?: { fn: string; args: any[] } // Optional call to make after upgrade (for migrations)
+        call: { fn: string; args: any[] }
         log?: boolean
-    } = {}
+    }
 ): Promise<{
     implementationAddress: string
     proxy: Contract
