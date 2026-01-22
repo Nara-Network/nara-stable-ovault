@@ -215,6 +215,9 @@ export async function upgradeContract(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const upgradeOptions: any = {
         kind: 'uups',
+        redeployImplementation: 'onchange',
+        // If you want to always redeploy the implementation, use 'always'
+        // redeployImplementation: 'always',
     }
 
     // Check UPGRADE_INTERFACE_VERSION to detect v5 contracts

@@ -87,7 +87,7 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     console.log('Step 1: Preparing upgrade (validating compatibility)...')
     try {
         const newImplementationAddress = await prepareUpgrade(hre, proxyAddress, NEW_IMPL_CONTRACT_NAME, {
-            redeployImplementation: 'always', // Force new deployment instead of reusing existing
+            redeployImplementation: 'onchange', // Force new deployment instead of reusing existing
         })
         console.log(`   ✓ Validation passed! New implementation will be at: ${newImplementationAddress}\n`)
     } catch (error) {

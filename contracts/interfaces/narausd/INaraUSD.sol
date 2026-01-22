@@ -77,6 +77,8 @@ interface INaraUSD {
     error KeyringCredentialInvalid(address account);
     error InsufficientCollateral();
     error ValueUnchanged();
+    error UseMintWithCollateral();
+    error UseRedeemWithTargetCollateral();
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -155,11 +157,6 @@ interface INaraUSD {
      * @param _maxRedeemPerBlock New max redeem per block
      */
     function setMaxRedeemPerBlock(uint256 _maxRedeemPerBlock) external;
-
-    /**
-     * @notice Disable mint and redeem in emergency
-     */
-    function disableMintRedeem() external;
 
     /**
      * @notice Pause all mint and redeem operations

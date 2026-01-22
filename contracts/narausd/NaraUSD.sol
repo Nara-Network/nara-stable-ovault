@@ -72,7 +72,7 @@ interface IKeyring {
  *   - Cannot mint or redeem
  *   - Can have their locked balances redistributed by admin
  */
-contract NaraUSD is
+contract NaraUSDV2 is
     Initializable,
     ERC4626Upgradeable,
     ERC20PermitUpgradeable,
@@ -238,11 +238,6 @@ contract NaraUSD is
      *      Uses hasValidCredentials() for the actual check
      */
     function _checkKeyringCredential(address account) internal view {
-        // Skip check for zero address (shouldn't happen but defensive)
-        if (account == address(0)) {
-            return;
-        }
-
         // Use the public function for consistency
         if (!hasValidCredentials(account)) {
             revert KeyringCredentialInvalid(account);
@@ -478,6 +473,43 @@ contract NaraUSD is
     }
 
     /**
+     * @notice Preview withdraw to account for redeem fees
+     * @param collateralAsset The collateral asset to withdraw
+     * @param assets The amount of collateral assets to withdraw
+     * @return shares The amount of NaraUSD shares needed to withdraw assets (inclusive of fees)
+     * @dev To get 'assets' after fee, we need more NaraUSD shares
+     * @dev Note: If the amount is not available to withdraw using instant redeem, it will return 0.
+     */
+    function previewWithdraw(address collateralAsset, uint256 assets) public view returns (uint256 shares) {
+        if (!mct.isSupportedAsset(collateralAsset)) {
+            return 0;
+        }
+
+        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
+        uint256 assetsAndFee = assets;
+        if (feeTreasury != address(0)) {
+            uint256 assetsAndFeePercentage = assets;
+            uint256 assetsAndFeeMinimum = assets;
+            // Calculate assuming percentage fee only
+            if (redeemFeeBps > 0) {
+                uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
+                assetsAndFeePercentage = Math.ceilDiv((assetsAndFeePercentage * BPS_DENOMINATOR), denominator);
+            }
+            if (minRedeemFeeAmount > 0) {
+                assetsAndFeeMinimum = assets + _convertToCollateralAmount(collateralAsset, minRedeemFeeAmount);
+            }
+            assetsAndFee = assetsAndFeePercentage > assetsAndFeeMinimum ? assetsAndFeePercentage : assetsAndFeeMinimum;
+        }
+
+        // Check if the available collateral is enough to withdraw the assets and fee
+        if (availableCollateral < assetsAndFee) {
+            return 0;
+        }
+
+        return _convertToNaraUsdAmount(collateralAsset, assetsAndFee);
+    }
+
+    /**
      * @notice Get redemption request for a user
      * @param user The address to query
      * @return The redemption request for the user (empty if no active request)
@@ -572,14 +604,6 @@ contract NaraUSD is
      */
     function setMaxRedeemPerBlock(uint256 _maxRedeemPerBlock) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setMaxRedeemPerBlock(_maxRedeemPerBlock);
-    }
-
-    /**
-     * @notice Disable mint and redeem in emergency
-     */
-    function disableMintRedeem() external onlyRole(GATEKEEPER_ROLE) {
-        _setMaxMintPerBlock(0);
-        _setMaxRedeemPerBlock(0);
     }
 
     /**
@@ -1005,7 +1029,7 @@ contract NaraUSD is
      *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function withdraw(uint256, address, address) public pure override returns (uint256) {
-        revert("ERC4626 withdraw() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+        revert UseRedeemWithTargetCollateral();
     }
 
     /**
@@ -1014,7 +1038,7 @@ contract NaraUSD is
      *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert("ERC4626 redeem() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+        revert UseRedeemWithTargetCollateral();
     }
 
     /**
@@ -1023,7 +1047,7 @@ contract NaraUSD is
      *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
      */
     function deposit(uint256, address) public pure override returns (uint256) {
-        revert("Use mintWithCollateral()");
+        revert UseMintWithCollateral();
     }
 
     /**
@@ -1032,7 +1056,7 @@ contract NaraUSD is
      *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
      */
     function mint(uint256, address) public pure override returns (uint256) {
-        revert("Use mintWithCollateral()");
+        revert UseMintWithCollateral();
     }
 
     /**
@@ -1091,8 +1115,9 @@ contract NaraUSD is
      * @notice Override maxRedeem to reflect actual constraints for instant redemption
      * @param owner The owner of the NaraUSD
      * @param collateralAsset The collateral asset to redeem
-     * @return The maximum amount of collateral that can be be instantly redeemed
+     * @return The maximum amount of NaraUSD that can be instantly redeemed (18 decimals)
      * @dev Returns 0 if the collateral asset is not supported or if the contract is paused or if the max redeem per block is 0
+     * @dev Accounts for fees and proper decimal conversion between NaraUSD (18 decimals) and collateral (native decimals)
      */
     function maxInstantRedeem(address owner, address collateralAsset) public view returns (uint256) {
         if (paused() || maxRedeemPerBlock == 0) {
@@ -1100,22 +1125,40 @@ contract NaraUSD is
         }
         if (!mct.isSupportedAsset(collateralAsset)) return 0;
 
-        // Return remaining capacity for this block
-        uint256 remaining = maxRedeemPerBlock > redeemedPerBlock[block.number]
+        // All calculations in NaraUSD (18 decimals)
+        uint256 remainingNaraUsd = maxRedeemPerBlock > redeemedPerBlock[block.number]
             ? maxRedeemPerBlock - redeemedPerBlock[block.number]
             : 0;
 
-        uint256 balance = balanceOf(owner);
-        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
+        uint256 balanceNaraUsd = balanceOf(owner);
 
-        uint256 maxRedeemable = remaining;
-        if (maxRedeemable > balance) {
-            maxRedeemable = balance;
+        // Get available collateral (in collateral decimals)
+        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
+        uint256 naraUsdAmountForAvailableCollateral = _convertToNaraUsdAmount(collateralAsset, availableCollateral);
+
+        // Find maximum NaraUSD that can be redeemed (considering per-block limit and user balance)
+        uint256 maxRedeemableNaraUsd = remainingNaraUsd;
+        if (maxRedeemableNaraUsd > balanceNaraUsd) {
+            maxRedeemableNaraUsd = balanceNaraUsd;
         }
-        if (maxRedeemable > availableCollateral) {
-            maxRedeemable = availableCollateral;
+
+        // Validate with the max instant redeemable amount
+        if (maxRedeemableNaraUsd > naraUsdAmountForAvailableCollateral) {
+            maxRedeemableNaraUsd = naraUsdAmountForAvailableCollateral;
         }
-        return maxRedeemable;
+
+        // Check minimum redeem amount
+        if (minRedeemAmount > 0 && maxRedeemableNaraUsd < minRedeemAmount) {
+            return 0;
+        }
+
+        // Verify that this amount would result in a valid redemption (previewRedeem returns > 0)
+        // This ensures fees don't make the redemption invalid
+        if (previewRedeem(collateralAsset, maxRedeemableNaraUsd) == 0) {
+            return 0;
+        }
+
+        return maxRedeemableNaraUsd;
     }
 
     /// @dev Override decimals to ensure 18 decimals
@@ -1134,7 +1177,8 @@ contract NaraUSD is
      *      For example, 1000e18 USDC (normalized) = 1000e18 MCT = 1000e18 NaraUSD (minus fees).
      */
     function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
-        uint256 baseShares = super.previewDeposit(assets);
+        // MCT is 1:1 with NaraUSD, so baseShares = assets
+        uint256 baseShares = assets;
 
         // Apply mint fee if configured
         uint256 feeAmount = _calculateMintFee(baseShares);
@@ -1164,25 +1208,28 @@ contract NaraUSD is
             return 0;
         }
         if (feeTreasury != address(0)) {
-            if (mintFeeBps > 0) {
-                // Calculate assuming percentage fee only
-                uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
-                sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
+            uint256 sharesBeforeFeePercentage = shares;
+            uint256 sharesBeforeFeeMinimum = shares;
 
-                // Check if minimum fee would apply
-                uint256 estimatedFee = _calculateMintFee(sharesBeforeFee);
-                uint256 estimatedPercentageFee = (sharesBeforeFee * mintFeeBps) / BPS_DENOMINATOR;
-                if (estimatedFee > estimatedPercentageFee) {
-                    // Minimum fee applies, so: shares = sharesBeforeFee - minMintFeeAmount
-                    sharesBeforeFee = shares + minMintFeeAmount;
-                }
-            } else if (minMintFeeAmount > 0) {
-                // Only minimum fee applies (no percentage)
-                sharesBeforeFee = shares + minMintFeeAmount;
+            // Calculate assuming percentage fee only
+            if (mintFeeBps > 0) {
+                uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
+                sharesBeforeFeePercentage = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
             }
+
+            // Calculate assuming minimum fee only
+            if (minMintFeeAmount > 0) {
+                sharesBeforeFeeMinimum = shares + minMintFeeAmount;
+            }
+
+            // Take the maximum - whichever requires more shares is the correct one
+            sharesBeforeFee = sharesBeforeFeePercentage > sharesBeforeFeeMinimum
+                ? sharesBeforeFeePercentage
+                : sharesBeforeFeeMinimum;
         }
 
-        assets = super.previewMint(sharesBeforeFee);
+        // MCT is 1:1 with NaraUSD, so assets = sharesBeforeFee
+        assets = sharesBeforeFee;
 
         return assets;
     }

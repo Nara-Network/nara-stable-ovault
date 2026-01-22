@@ -427,6 +427,7 @@ contract NaraUSDComposer is VaultComposerSync {
         address _refundAddress,
         address _collateralAsset
     ) external payable virtual nonReentrant {
+        IERC20(SHARE_ERC20).safeTransferFrom(msg.sender, address(this), _shareAmount);
         _redeemCollateralAndSend(
             OFTComposeMsgCodec.addressToBytes32(msg.sender),
             _shareAmount,

@@ -11,6 +11,8 @@ import { type DeployFunction } from 'hardhat-deploy/types'
 
 import { prepareUpgrade, upgradeContract } from '../../devtools/utils'
 
+const NEW_IMPL_CONTRACT_NAME = 'NaraUSDV2'
+
 const upgradeNaraUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     const { getNamedAccounts } = hre
     const { deployer } = await getNamedAccounts()
@@ -42,10 +44,28 @@ const upgradeNaraUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) =>
     const currentImplementation = await upgrades.erc1967.getImplementationAddress(proxyAddress)
     console.log(`Current implementation: ${currentImplementation}\n`)
 
+    // Step 2.5: Re-register proxy with OpenZeppelin manifest (in case .openzeppelin folder was deleted)
+    console.log('Step 0: Registering proxy with OpenZeppelin manifest...')
+    try {
+        const currentContractFactory = await hre.ethers.getContractFactory('NaraUSD')
+        await upgrades.forceImport(proxyAddress, currentContractFactory, { kind: 'uups' })
+        console.log(`   ✓ Proxy registered with manifest\n`)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+        // If already registered or other error, continue anyway
+        if (error.message?.includes('already registered')) {
+            console.log(`   ✓ Proxy already registered\n`)
+        } else {
+            console.log(`   ⚠️  Could not register proxy (may already be registered): ${error.message}\n`)
+        }
+    }
+
     // Step 3: Prepare upgrade (validates storage layout compatibility)
     console.log('Step 1: Preparing upgrade (validating compatibility)...')
     try {
-        const newImplementationAddress = await prepareUpgrade(hre, proxyAddress, 'NaraUSD')
+        const newImplementationAddress = await prepareUpgrade(hre, proxyAddress, NEW_IMPL_CONTRACT_NAME, {
+            redeployImplementation: 'always',
+        })
         console.log(`   ✓ Validation passed! New implementation will be at: ${newImplementationAddress}\n`)
     } catch (error) {
         console.error('   ✗ Upgrade validation failed!')
@@ -63,8 +83,12 @@ const upgradeNaraUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) =>
     await new Promise((resolve) => setTimeout(resolve, 5000))
 
     try {
-        const result = await upgradeContract(hre, proxyAddress, 'NaraUSD', {
+        const result = await upgradeContract(hre, proxyAddress, NEW_IMPL_CONTRACT_NAME, {
             log: true,
+            call: {
+                fn: 'MINTER_ROLE',
+                args: [],
+            },
         })
 
         console.log('\n========================================')
@@ -104,9 +128,23 @@ const upgradeNaraUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) =>
         console.log(`2. Test all critical functions`)
         console.log(`3. Monitor contract for any issues`)
         console.log(`4. Update documentation with new implementation address`)
-    } catch (error) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
         console.error('\n❌ Upgrade failed!')
-        console.error('Error:', error)
+
+        // Display revert reason if available
+        if (error.revertReason) {
+            console.error(`\n   Revert Reason: ${error.revertReason}`)
+        }
+
+        // Display full error message
+        console.error(`\n   Error Message: ${error.message || error}`)
+
+        // Display original error if available
+        if (error.originalError) {
+            console.error(`\n   Original Error:`, error.originalError)
+        }
+
         throw error
     }
 }
