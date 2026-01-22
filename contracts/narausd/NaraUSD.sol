@@ -624,14 +624,6 @@ contract NaraUSD is
     }
 
     /**
-     * @notice Disable mint and redeem in emergency
-     */
-    function disableMintRedeem() external onlyRole(GATEKEEPER_ROLE) {
-        _setMaxMintPerBlock(0);
-        _setMaxRedeemPerBlock(0);
-    }
-
-    /**
      * @notice Pause all mint and redeem operations
      */
     function pause() external onlyRole(GATEKEEPER_ROLE) {
@@ -1054,7 +1046,7 @@ contract NaraUSD is
      *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function withdraw(uint256, address, address) public pure override returns (uint256) {
-        revert("ERC4626 withdraw() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+        revert DisabledFunction();
     }
 
     /**
@@ -1063,7 +1055,7 @@ contract NaraUSD is
      *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert("ERC4626 redeem() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue)");
+        revert DisabledFunction();
     }
 
     /**
@@ -1072,7 +1064,7 @@ contract NaraUSD is
      *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
      */
     function deposit(uint256, address) public pure override returns (uint256) {
-        revert("Use mintWithCollateral()");
+        revert DisabledFunction();
     }
 
     /**
@@ -1081,7 +1073,7 @@ contract NaraUSD is
      *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
      */
     function mint(uint256, address) public pure override returns (uint256) {
-        revert("Use mintWithCollateral()");
+        revert DisabledFunction();
     }
 
     /**
@@ -1202,7 +1194,8 @@ contract NaraUSD is
      *      For example, 1000e18 USDC (normalized) = 1000e18 MCT = 1000e18 NaraUSD (minus fees).
      */
     function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
-        uint256 baseShares = super.previewDeposit(assets);
+        // MCT is 1:1 with NaraUSD, so baseShares = assets
+        uint256 baseShares = assets;
 
         // Apply mint fee if configured
         uint256 feeAmount = _calculateMintFee(baseShares);
@@ -1252,7 +1245,8 @@ contract NaraUSD is
                 : sharesBeforeFeeMinimum;
         }
 
-        assets = super.previewMint(sharesBeforeFee);
+        // MCT is 1:1 with NaraUSD, so assets = sharesBeforeFee
+        assets = sharesBeforeFee;
 
         return assets;
     }
