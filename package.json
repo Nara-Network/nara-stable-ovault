@@ -8,6 +8,7 @@
     "compile": "concurrently -c auto --names forge,hardhat '$npm_execpath run compile:forge' '$npm_execpath run compile:hardhat'",
     "compile:forge": "forge build",
     "compile:hardhat": "hardhat compile",
+    "size": "hardhat size-contracts",
     "gas:lzCompose": "forge script GasProfilerScript --via-ir --sig 'run_lzCompose(string,address,uint32,address,uint32,address,address,bytes[],uint256,uint256)'",
     "gas:lzReceive": "forge script GasProfilerScript --via-ir --sig 'run_lzReceive(string,address,uint32,address,uint32,address,bytes[],uint256,uint256)'",
     "gas:run": "forge script OFTProfilerExample --via-ir --sig 'run(uint256)'",
