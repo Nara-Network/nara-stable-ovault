@@ -1242,22 +1242,24 @@ contract NaraUSD is
             return 0;
         }
         if (feeTreasury != address(0)) {
-            if (mintFeeBps > 0) {
-                // Calculate assuming percentage fee only
-                uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
-                sharesBeforeFee = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
+            uint256 sharesBeforeFeePercentage = shares;
+            uint256 sharesBeforeFeeMinimum = shares;
 
-                // Check if minimum fee would apply
-                uint256 estimatedFee = _calculateMintFee(sharesBeforeFee);
-                uint256 estimatedPercentageFee = (sharesBeforeFee * mintFeeBps) / BPS_DENOMINATOR;
-                if (estimatedFee > estimatedPercentageFee) {
-                    // Minimum fee applies, so: shares = sharesBeforeFee - minMintFeeAmount
-                    sharesBeforeFee = shares + minMintFeeAmount;
-                }
-            } else if (minMintFeeAmount > 0) {
-                // Only minimum fee applies (no percentage)
-                sharesBeforeFee = shares + minMintFeeAmount;
+            // Calculate assuming percentage fee only
+            if (mintFeeBps > 0) {
+                uint256 denominator = BPS_DENOMINATOR - mintFeeBps;
+                sharesBeforeFeePercentage = Math.ceilDiv(shares * BPS_DENOMINATOR, denominator);
             }
+
+            // Calculate assuming minimum fee only
+            if (minMintFeeAmount > 0) {
+                sharesBeforeFeeMinimum = shares + minMintFeeAmount;
+            }
+
+            // Take the maximum - whichever requires more shares is the correct one
+            sharesBeforeFee = sharesBeforeFeePercentage > sharesBeforeFeeMinimum
+                ? sharesBeforeFeePercentage
+                : sharesBeforeFeeMinimum;
         }
 
         assets = super.previewMint(sharesBeforeFee);
