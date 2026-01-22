@@ -72,7 +72,7 @@ interface IKeyring {
  *   - Cannot mint or redeem
  *   - Can have their locked balances redistributed by admin
  */
-contract NaraUSD is
+contract NaraUSDV2 is
     Initializable,
     ERC4626Upgradeable,
     ERC20PermitUpgradeable,
@@ -471,6 +471,7 @@ contract NaraUSD is
 
         return collateralAmount;
     }
+
     /**
      * @notice Preview withdraw to account for redeem fees
      * @param collateralAsset The collateral asset to withdraw
@@ -485,45 +486,27 @@ contract NaraUSD is
         }
 
         uint256 availableCollateral = mct.collateralBalance(collateralAsset);
-        // Check if the available collateral is enough to withdraw the assets
-        if (availableCollateral < assets) {
+        uint256 assetsAndFee = assets;
+        if (feeTreasury != address(0)) {
+            uint256 assetsAndFeePercentage = assets;
+            uint256 assetsAndFeeMinimum = assets;
+            // Calculate assuming percentage fee only
+            if (redeemFeeBps > 0) {
+                uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
+                assetsAndFeePercentage = Math.ceilDiv((assetsAndFeePercentage * BPS_DENOMINATOR), denominator);
+            }
+            if (minRedeemFeeAmount > 0) {
+                assetsAndFeeMinimum = assets + _convertToCollateralAmount(collateralAsset, minRedeemFeeAmount);
+            }
+            assetsAndFee = assetsAndFeePercentage > assetsAndFeeMinimum ? assetsAndFeePercentage : assetsAndFeeMinimum;
+        }
+
+        // Check if the available collateral is enough to withdraw the assets and fee
+        if (availableCollateral < assetsAndFee) {
             return 0;
         }
 
-        uint256 naraUsdAmountAfterFeeDeduction = _convertToNaraUsdAmount(collateralAsset, assets);
-
-        if (feeTreasury == address(0)) {
-            return naraUsdAmountAfterFeeDeduction;
-        }
-
-        uint256 naraUsdAmountBeforeFee = naraUsdAmountAfterFeeDeduction;
-        uint256 naraUsdAmountBeforeFeePercentage = naraUsdAmountAfterFeeDeduction;
-        uint256 naraUsdAmountBeforeMinFeeAmount = naraUsdAmountAfterFeeDeduction;
-
-        // Calculate assuming percentage fee only
-        if (redeemFeeBps > 0) {
-            uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
-            naraUsdAmountBeforeFeePercentage = Math.ceilDiv(
-                (naraUsdAmountAfterFeeDeduction * BPS_DENOMINATOR),
-                denominator
-            );
-        }
-
-        // Calculate assuming minimum fee only
-        if (minRedeemFeeAmount > 0) {
-            naraUsdAmountBeforeMinFeeAmount = naraUsdAmountAfterFeeDeduction + minRedeemFeeAmount;
-        }
-
-        // Take the maximum - whichever requires more shares is the correct one
-        naraUsdAmountBeforeFee = naraUsdAmountBeforeFeePercentage > naraUsdAmountBeforeMinFeeAmount
-            ? naraUsdAmountBeforeFeePercentage
-            : naraUsdAmountBeforeMinFeeAmount;
-
-        if (minRedeemAmount > 0 && naraUsdAmountBeforeFee < minRedeemAmount) {
-            return 0;
-        }
-
-        return naraUsdAmountBeforeFee;
+        return _convertToNaraUsdAmount(collateralAsset, assetsAndFee);
     }
 
     /**
@@ -1151,7 +1134,7 @@ contract NaraUSD is
 
         // Get available collateral (in collateral decimals)
         uint256 availableCollateral = mct.collateralBalance(collateralAsset);
-        uint256 naraUsdAmountForAvailableCollateral = previewWithdraw(collateralAsset, availableCollateral);
+        uint256 naraUsdAmountForAvailableCollateral = _convertToNaraUsdAmount(collateralAsset, availableCollateral);
 
         // Find maximum NaraUSD that can be redeemed (considering per-block limit and user balance)
         uint256 maxRedeemableNaraUsd = remainingNaraUsd;
