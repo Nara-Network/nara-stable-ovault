@@ -87,11 +87,11 @@ const upgradeNaraUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) =>
 
     try {
         const result = await upgradeContract(hre, proxyAddress, 'NaraUSD', {
-            // Optional: If your new implementation has a migration function, call it here
-            // call: {
-            //     fn: 'migrate',
-            //     args: [],
-            // },
+            // This call is necessary, so if your new implementation doesn't need any calls, just call any view function
+            call: {
+                fn: 'DEFAULT_ADMIN_ROLE',
+                args: [],
+            },
             log: true,
         })
 

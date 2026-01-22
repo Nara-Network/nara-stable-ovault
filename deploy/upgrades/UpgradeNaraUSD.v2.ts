@@ -1,42 +1,17 @@
 /**
- * Upgrade NaraUSD Contract to V2
- *
- * This is an example of how to create a versioned upgrade script.
- * Copy this file and rename it to UpgradeNaraUSD.v2.ts (or v3, v4, etc.) for each upgrade.
- *
- * IMPORTANT: Document what this upgrade does in the header comments!
- *
  * Upgrade V2 Changes:
- * - Added new feature: [describe what changed]
- * - Fixed bug: [describe bug fix]
- * - Migration: [if any migration logic is needed]
+ * - Added new function: maxInstantRedeem(address owner, address collateralAsset)
  *
- * IMPORTANT SAFETY CHECKS BEFORE UPGRADING:
- * 1. ✅ Test the new implementation thoroughly on testnet
- * 2. ✅ Verify storage layout compatibility (OpenZeppelin Upgrades plugin does this automatically)
- * 3. ✅ Ensure you have the correct admin role (DEFAULT_ADMIN_ROLE for NaraUSD)
- * 4. ✅ Consider pausing the contract before upgrade (optional but recommended)
- * 5. ✅ Have a rollback plan ready
- *
- * Usage:
- *   # Using hardhat-deploy (recommended):
- *   npx hardhat deploy --network arbitrum-sepolia --tags UpgradeNaraUSD-V2
- *
- *   # Or using hardhat run:
- *   npx hardhat run deploy/upgrades/UpgradeNaraUSD.v2.ts --network arbitrum-sepolia
+ * Date: 2026-01-22
  */
 
 import { upgrades } from 'hardhat'
 import { type HardhatRuntimeEnvironment } from 'hardhat/types'
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-// Note: If this file is in deploy/upgrades/templates/, use '../../../devtools/utils'
-// If in deploy/upgrades/, also use '../../devtools/utils'
-import { prepareUpgrade, upgradeContract } from '../../../devtools/utils'
+import { prepareUpgrade, upgradeContract } from '../../devtools/utils'
 
-const NEW_IMPL_CONTRACT_NAME = 'NaraUSDV2'
-
-const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
+const upgradeNaraUSD: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     const { getNamedAccounts } = hre
     const { deployer } = await getNamedAccounts()
 
@@ -45,7 +20,7 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     }
 
     console.log('\n========================================')
-    console.log(`${NEW_IMPL_CONTRACT_NAME} Upgrade Script`)
+    console.log('NaraUSD V2 Upgrade Script')
     console.log('========================================')
     console.log(`Network: ${hre.network.name}`)
     console.log(`Deployer: ${deployer}`)
@@ -67,28 +42,10 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     const currentImplementation = await upgrades.erc1967.getImplementationAddress(proxyAddress)
     console.log(`Current implementation: ${currentImplementation}\n`)
 
-    // Step 2.5: Re-register proxy with OpenZeppelin manifest (in case .openzeppelin folder was deleted)
-    console.log('Step 0: Registering proxy with OpenZeppelin manifest...')
-    try {
-        const currentContractFactory = await hre.ethers.getContractFactory('NaraUSD')
-        await upgrades.forceImport(proxyAddress, currentContractFactory, { kind: 'uups' })
-        console.log(`   ✓ Proxy registered with manifest\n`)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        // If already registered or other error, continue anyway
-        if (error.message?.includes('already registered')) {
-            console.log(`   ✓ Proxy already registered\n`)
-        } else {
-            console.log(`   ⚠️  Could not register proxy (may already be registered): ${error.message}\n`)
-        }
-    }
-
     // Step 3: Prepare upgrade (validates storage layout compatibility)
     console.log('Step 1: Preparing upgrade (validating compatibility)...')
     try {
-        const newImplementationAddress = await prepareUpgrade(hre, proxyAddress, NEW_IMPL_CONTRACT_NAME, {
-            redeployImplementation: 'always', // Force new deployment instead of reusing existing
-        })
+        const newImplementationAddress = await prepareUpgrade(hre, proxyAddress, 'NaraUSD')
         console.log(`   ✓ Validation passed! New implementation will be at: ${newImplementationAddress}\n`)
     } catch (error) {
         console.error('   ✗ Upgrade validation failed!')
@@ -106,13 +63,8 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     await new Promise((resolve) => setTimeout(resolve, 5000))
 
     try {
-        const result = await upgradeContract(hre, proxyAddress, NEW_IMPL_CONTRACT_NAME, {
+        const result = await upgradeContract(hre, proxyAddress, 'NaraUSD', {
             log: true,
-            // Need to be provided, if you don't need to call anything, just call any view function
-            call: {
-                fn: 'MINTER_ROLE',
-                args: [],
-            },
         })
 
         console.log('\n========================================')
@@ -152,7 +104,6 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
         console.log(`2. Test all critical functions`)
         console.log(`3. Monitor contract for any issues`)
         console.log(`4. Update documentation with new implementation address`)
-        console.log(`5. Record this upgrade in your upgrade history/log`)
     } catch (error) {
         console.error('\n❌ Upgrade failed!')
         console.error('Error:', error)
@@ -160,11 +111,6 @@ const upgradeNaraUSDV2: DeployFunction = async (hre: HardhatRuntimeEnvironment) 
     }
 }
 
-export default upgradeNaraUSDV2
+export default upgradeNaraUSD
 
-// ⚠️  IMPORTANT: Uncomment and update the tags below when creating your actual upgrade script!
-// 1. Copy this file to UpgradeNaraUSD.v2.ts (or v3.ts, v4.ts, etc.)
-// 2. Uncomment the line below
-// 3. Update 'UpgradeNaraUSD-V2' to match your version (V3, V4, etc.)
-// 4. This allows you to run specific upgrades: --tags UpgradeNaraUSD-V2
-// upgradeNaraUSDV2.tags = ['UpgradeNaraUSD-V2', 'Upgrade', 'NaraUSD']
+upgradeNaraUSD.tags = ['UpgradeNaraUSD-V2', 'Upgrade']

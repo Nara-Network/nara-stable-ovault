@@ -26,4 +26,10 @@ pnpm-error.log
 broadcast
 deployments-old*
 
-.openzeppelin
+# OpenZeppelin Upgrades manifest
+# Ignore ephemeral dev network files (hardhat, anvil, unknown instances)
+/.openzeppelin/hardhat-*.json
+/.openzeppelin/anvil-*.json
+/.openzeppelin/unknown-*.json
+# Persistent network files (arbitrum.json, arbitrum-sepolia.json, etc.) should be committed
+# for upgrade safety - they're not ignored by default

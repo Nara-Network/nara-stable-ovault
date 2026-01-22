@@ -1081,10 +1081,41 @@ contract NaraUSD is
     /**
      * @notice Override maxRedeem to reflect that ERC4626 redeem is disabled
      * @return The maximum amount of shares that can be redeemed
-     * @dev Returns 0 because ERC4626 redeem() is disabled. Use redeem(collateralAsset, naraUsdAmount, allowQueue) instead.
+     * @dev use maxInstantRedeem(owner, collateralAsset) instead
      */
     function maxRedeem(address) public pure override returns (uint256) {
         return 0;
+    }
+
+    /**
+     * @notice Override maxRedeem to reflect actual constraints for instant redemption
+     * @param owner The owner of the NaraUSD
+     * @param collateralAsset The collateral asset to redeem
+     * @return The maximum amount of collateral that can be be instantly redeemed
+     * @dev Returns 0 if the collateral asset is not supported or if the contract is paused or if the max redeem per block is 0
+     */
+    function maxInstantRedeem(address owner, address collateralAsset) public view returns (uint256) {
+        if (paused() || maxRedeemPerBlock == 0) {
+            return 0;
+        }
+        if (!mct.isSupportedAsset(collateralAsset)) return 0;
+
+        // Return remaining capacity for this block
+        uint256 remaining = maxRedeemPerBlock > redeemedPerBlock[block.number]
+            ? maxRedeemPerBlock - redeemedPerBlock[block.number]
+            : 0;
+
+        uint256 balance = balanceOf(owner);
+        uint256 availableCollateral = mct.collateralBalance(collateralAsset);
+
+        uint256 maxRedeemable = remaining;
+        if (maxRedeemable > balance) {
+            maxRedeemable = balance;
+        }
+        if (maxRedeemable > availableCollateral) {
+            maxRedeemable = availableCollateral;
+        }
+        return maxRedeemable;
     }
 
     /// @dev Override decimals to ensure 18 decimals
