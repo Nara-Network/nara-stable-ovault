@@ -215,6 +215,8 @@ export async function upgradeContract(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const upgradeOptions: any = {
         kind: 'uups',
+        // If you want to always redeploy the implementation, use 'always'
+        // redeployImplementation: 'always',
     }
 
     // Check UPGRADE_INTERFACE_VERSION to detect v5 contracts
@@ -249,7 +251,9 @@ export async function upgradeContract(
     }
     // If not v5 and no call, upgradeProxy will use upgradeTo (which is fine for older versions)
 
-    const upgradedProxy = await upgrades.upgradeProxy(proxyAddress, ContractFactory, upgradeOptions)
+    const upgradedProxy = await upgrades.upgradeProxy(proxyAddress, ContractFactory, {
+        redeployImplementation: 'onchange',
+    })
 
     await upgradedProxy.deployed()
 
