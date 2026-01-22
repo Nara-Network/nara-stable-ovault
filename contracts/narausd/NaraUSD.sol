@@ -1046,7 +1046,7 @@ contract NaraUSD is
      *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function withdraw(uint256, address, address) public pure override returns (uint256) {
-        revert DisabledFunction();
+        revert UseRedeemWithTargetCollateral();
     }
 
     /**
@@ -1055,7 +1055,7 @@ contract NaraUSD is
      *      This ensures all redemptions go through the proper flow with compliance checks and queue handling.
      */
     function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert DisabledFunction();
+        revert UseRedeemWithTargetCollateral();
     }
 
     /**
@@ -1064,7 +1064,7 @@ contract NaraUSD is
      *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
      */
     function deposit(uint256, address) public pure override returns (uint256) {
-        revert DisabledFunction();
+        revert UseMintWithCollateral();
     }
 
     /**
@@ -1073,7 +1073,7 @@ contract NaraUSD is
      *      This prevents direct MCT deposits that bypass compliance checks and per-block limits.
      */
     function mint(uint256, address) public pure override returns (uint256) {
-        revert DisabledFunction();
+        revert UseMintWithCollateral();
     }
 
     /**

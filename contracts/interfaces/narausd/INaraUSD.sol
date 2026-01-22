@@ -77,7 +77,8 @@ interface INaraUSD {
     error KeyringCredentialInvalid(address account);
     error InsufficientCollateral();
     error ValueUnchanged();
-    error DisabledFunction();
+    error UseMintWithCollateral();
+    error UseRedeemWithTargetCollateral();
 
     /* --------------- FUNCTIONS --------------- */
 
