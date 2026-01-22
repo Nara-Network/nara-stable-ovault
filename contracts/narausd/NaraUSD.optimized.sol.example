@@ -1,0 +1,289 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.22;
+
+/**
+ * @title NaraUSD Optimized Example
+ * @notice This file shows the CHANGES to make to NaraUSD.sol for size optimization
+ * @dev NOT a complete contract - just the modified sections for comparison
+ * 
+ * SUMMARY OF OPTIMIZATIONS:
+ * ========================
+ * 
+ * 1. USE EXTERNAL LIBRARY (NaraUSDLib.sol)
+ *    - Move _convertToNaraUsdAmount() -> NaraUSDLib.convertToNaraUsdAmount()
+ *    - Move _convertToCollateralAmount() -> NaraUSDLib.convertToCollateralAmount()
+ *    - Move _calculateMintFee() -> NaraUSDLib.calculateFee()
+ *    - Move _calculateRedeemFee() -> NaraUSDLib.calculateFee()
+ *    - Estimated savings: ~800-1200 bytes
+ * 
+ * 2. CONSOLIDATE ADMIN SETTERS
+ *    - Combine setMinMintAmount, setMinRedeemAmount, setMinMintFeeAmount, setMinRedeemFeeAmount
+ *      into single setMinAmounts()
+ *    - Combine setMintFee, setRedeemFee into single setFees()
+ *    - Estimated savings: ~400-600 bytes
+ * 
+ * 3. OPTIONAL: Remove redundant public view if not needed externally
+ *    - isBlacklisted() just wraps _isBlacklisted()
+ *    - hasValidCredentials() might be internal only
+ *    - Estimated savings: ~100-200 bytes each
+ */
+
+import "../libraries/NaraUSDLib.sol";
+
+// ============================================================
+// CHANGE 1: Add library import and usage
+// ============================================================
+
+// At the top of the contract, add:
+// using NaraUSDLib for address;
+
+// ============================================================
+// CHANGE 2: Replace internal conversion functions with library calls
+// ============================================================
+
+/*
+BEFORE (in NaraUSD.sol):
+------------------------
+function _convertToNaraUsdAmount(
+    address collateralAsset,
+    uint256 collateralAmount
+) internal view returns (uint256) {
+    uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+    if (collateralDecimals == 18) {
+        return collateralAmount;
+    } else if (collateralDecimals < 18) {
+        return collateralAmount * (10 ** (18 - collateralDecimals));
+    } else {
+        return collateralAmount / (10 ** (collateralDecimals - 18));
+    }
+}
+
+function _convertToCollateralAmount(
+    address collateralAsset,
+    uint256 naraUsdAmount
+) internal view returns (uint256) {
+    uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+    if (collateralDecimals == 18) {
+        return naraUsdAmount;
+    } else if (collateralDecimals < 18) {
+        return naraUsdAmount / (10 ** (18 - collateralDecimals));
+    } else {
+        return naraUsdAmount * (10 ** (collateralDecimals - 18));
+    }
+}
+
+AFTER (replace with library calls):
+-----------------------------------
+// DELETE the above functions entirely
+
+// Then replace all usages:
+// _convertToNaraUsdAmount(asset, amount)  ->  NaraUSDLib.convertToNaraUsdAmount(asset, amount)
+// _convertToCollateralAmount(asset, amount)  ->  NaraUSDLib.convertToCollateralAmount(asset, amount)
+*/
+
+// ============================================================
+// CHANGE 3: Replace fee calculation with library
+// ============================================================
+
+/*
+BEFORE:
+-------
+function _calculateMintFee(uint256 amount) internal view returns (uint256 feeAmount) {
+    if (feeTreasury == address(0)) return 0;
+    uint256 percentageFee = 0;
+    if (mintFeeBps > 0) {
+        percentageFee = (amount * mintFeeBps) / BPS_DENOMINATOR;
+    }
+    feeAmount = percentageFee > minMintFeeAmount ? percentageFee : minMintFeeAmount;
+}
+
+function _calculateRedeemFee(uint256 amount) internal view returns (uint256 feeAmount) {
+    if (feeTreasury == address(0)) return 0;
+    uint256 percentageFee = 0;
+    if (redeemFeeBps > 0) {
+        percentageFee = (amount * redeemFeeBps) / BPS_DENOMINATOR;
+    }
+    feeAmount = percentageFee > minRedeemFeeAmount ? percentageFee : minRedeemFeeAmount;
+}
+
+AFTER:
+------
+// DELETE the above functions entirely
+
+// Replace usages:
+// _calculateMintFee(amount)  ->  NaraUSDLib.calculateFee(amount, mintFeeBps, minMintFeeAmount, feeTreasury)
+// _calculateRedeemFee(amount)  ->  NaraUSDLib.calculateFee(amount, redeemFeeBps, minRedeemFeeAmount, feeTreasury)
+*/
+
+// ============================================================
+// CHANGE 4: Consolidate min amount setters
+// ============================================================
+
+/*
+BEFORE (4 separate functions, ~160 lines total):
+------------------------------------------------
+function setMinMintAmount(uint256 _minMintAmount) external onlyRole(DEFAULT_ADMIN_ROLE) { ... }
+function setMinRedeemAmount(uint256 _minRedeemAmount) external onlyRole(DEFAULT_ADMIN_ROLE) { ... }
+function setMinMintFeeAmount(uint256 _minMintFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) { ... }
+function setMinRedeemFeeAmount(uint256 _minRedeemFeeAmount) external onlyRole(DEFAULT_ADMIN_ROLE) { ... }
+
+AFTER (1 consolidated function):
+--------------------------------
+*/
+
+abstract contract NaraUSDOptimizedExample {
+    // State variables (for reference)
+    uint256 public minMintAmount;
+    uint256 public minRedeemAmount;
+    uint256 public minMintFeeAmount;
+    uint256 public minRedeemFeeAmount;
+    uint16 public mintFeeBps;
+    uint16 public redeemFeeBps;
+    
+    error InvalidFee();
+    error ValueUnchanged();
+    
+    event MinAmountsUpdated(
+        uint256 oldMinMint, uint256 newMinMint,
+        uint256 oldMinRedeem, uint256 newMinRedeem,
+        uint256 oldMinMintFee, uint256 newMinMintFee,
+        uint256 oldMinRedeemFee, uint256 newMinRedeemFee
+    );
+    
+    event FeesUpdated(
+        uint16 oldMintFee, uint16 newMintFee,
+        uint16 oldRedeemFee, uint16 newRedeemFee
+    );
+
+    /**
+     * @notice Set all minimum amounts in a single call
+     * @param _minMintAmount New minimum mint amount (18 decimals), use type(uint256).max to skip
+     * @param _minRedeemAmount New minimum redeem amount (18 decimals), use type(uint256).max to skip
+     * @param _minMintFeeAmount New minimum mint fee amount (18 decimals), use type(uint256).max to skip
+     * @param _minRedeemFeeAmount New minimum redeem fee amount (18 decimals), use type(uint256).max to skip
+     * @dev Pass type(uint256).max for any value you don't want to change
+     */
+    function setMinAmounts(
+        uint256 _minMintAmount,
+        uint256 _minRedeemAmount,
+        uint256 _minMintFeeAmount,
+        uint256 _minRedeemFeeAmount
+    ) external /* onlyRole(DEFAULT_ADMIN_ROLE) */ {
+        uint256 oldMinMint = minMintAmount;
+        uint256 oldMinRedeem = minRedeemAmount;
+        uint256 oldMinMintFee = minMintFeeAmount;
+        uint256 oldMinRedeemFee = minRedeemFeeAmount;
+        
+        bool changed = false;
+        
+        // Update minMintAmount if not skipped
+        if (_minMintAmount != type(uint256).max && _minMintAmount != minMintAmount) {
+            // Validate: min fee shouldn't exceed min amount
+            uint256 effectiveMinMintFee = _minMintFeeAmount != type(uint256).max ? _minMintFeeAmount : minMintFeeAmount;
+            if (_minMintAmount > 0 && effectiveMinMintFee > 0 && effectiveMinMintFee >= _minMintAmount) {
+                revert InvalidFee();
+            }
+            minMintAmount = _minMintAmount;
+            changed = true;
+        }
+        
+        // Update minRedeemAmount if not skipped
+        if (_minRedeemAmount != type(uint256).max && _minRedeemAmount != minRedeemAmount) {
+            uint256 effectiveMinRedeemFee = _minRedeemFeeAmount != type(uint256).max ? _minRedeemFeeAmount : minRedeemFeeAmount;
+            if (_minRedeemAmount > 0 && effectiveMinRedeemFee > 0 && effectiveMinRedeemFee >= _minRedeemAmount) {
+                revert InvalidFee();
+            }
+            minRedeemAmount = _minRedeemAmount;
+            changed = true;
+        }
+        
+        // Update minMintFeeAmount if not skipped
+        if (_minMintFeeAmount != type(uint256).max && _minMintFeeAmount != minMintFeeAmount) {
+            uint256 effectiveMinMint = _minMintAmount != type(uint256).max ? _minMintAmount : minMintAmount;
+            if (effectiveMinMint > 0 && _minMintFeeAmount > 0 && _minMintFeeAmount >= effectiveMinMint) {
+                revert InvalidFee();
+            }
+            minMintFeeAmount = _minMintFeeAmount;
+            changed = true;
+        }
+        
+        // Update minRedeemFeeAmount if not skipped
+        if (_minRedeemFeeAmount != type(uint256).max && _minRedeemFeeAmount != minRedeemFeeAmount) {
+            uint256 effectiveMinRedeem = _minRedeemAmount != type(uint256).max ? _minRedeemAmount : minRedeemAmount;
+            if (effectiveMinRedeem > 0 && _minRedeemFeeAmount > 0 && _minRedeemFeeAmount >= effectiveMinRedeem) {
+                revert InvalidFee();
+            }
+            minRedeemFeeAmount = _minRedeemFeeAmount;
+            changed = true;
+        }
+        
+        if (!changed) revert ValueUnchanged();
+        
+        emit MinAmountsUpdated(
+            oldMinMint, minMintAmount,
+            oldMinRedeem, minRedeemAmount,
+            oldMinMintFee, minMintFeeAmount,
+            oldMinRedeemFee, minRedeemFeeAmount
+        );
+    }
+
+    /**
+     * @notice Set both fee rates in a single call
+     * @param _mintFeeBps New mint fee in basis points, use type(uint16).max to skip
+     * @param _redeemFeeBps New redeem fee in basis points, use type(uint16).max to skip
+     */
+    function setFees(
+        uint16 _mintFeeBps,
+        uint16 _redeemFeeBps
+    ) external /* onlyRole(DEFAULT_ADMIN_ROLE) */ {
+        uint16 MAX_FEE_BPS = 1000; // 10%
+        
+        uint16 oldMintFee = mintFeeBps;
+        uint16 oldRedeemFee = redeemFeeBps;
+        bool changed = false;
+        
+        if (_mintFeeBps != type(uint16).max && _mintFeeBps != mintFeeBps) {
+            if (_mintFeeBps > MAX_FEE_BPS) revert InvalidFee();
+            mintFeeBps = _mintFeeBps;
+            changed = true;
+        }
+        
+        if (_redeemFeeBps != type(uint16).max && _redeemFeeBps != redeemFeeBps) {
+            if (_redeemFeeBps > MAX_FEE_BPS) revert InvalidFee();
+            redeemFeeBps = _redeemFeeBps;
+            changed = true;
+        }
+        
+        if (!changed) revert ValueUnchanged();
+        
+        emit FeesUpdated(oldMintFee, mintFeeBps, oldRedeemFee, redeemFeeBps);
+    }
+}
+
+// ============================================================
+// USAGE EXAMPLE
+// ============================================================
+
+/*
+// Set only minMintAmount, keep others unchanged:
+naraUsd.setMinAmounts(
+    1e18,                    // minMintAmount = 1 NaraUSD
+    type(uint256).max,       // skip minRedeemAmount
+    type(uint256).max,       // skip minMintFeeAmount
+    type(uint256).max        // skip minRedeemFeeAmount
+);
+
+// Set all at once:
+naraUsd.setMinAmounts(
+    1e18,    // minMintAmount
+    1e18,    // minRedeemAmount
+    0.01e18, // minMintFeeAmount
+    0.01e18  // minRedeemFeeAmount
+);
+
+// Set only mintFee:
+naraUsd.setFees(
+    10,              // mintFeeBps = 0.1%
+    type(uint16).max // skip redeemFeeBps
+);
+*/
