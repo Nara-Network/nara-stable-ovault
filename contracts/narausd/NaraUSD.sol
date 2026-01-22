@@ -1164,8 +1164,7 @@ contract NaraUSD is
 
         // Get available collateral (in collateral decimals)
         uint256 availableCollateral = mct.collateralBalance(collateralAsset);
-        // back calculate the max redeemable narausd from the available collateral
-        // use somehting like the one in previewMint function, maybe create an internal previewWithdraw function?
+        uint256 naraUsdAmountForAvailableCollateral = previewWithdraw(collateralAsset, availableCollateral);
 
         // Find maximum NaraUSD that can be redeemed (considering per-block limit and user balance)
         uint256 maxRedeemableNaraUsd = remainingNaraUsd;
@@ -1173,13 +1172,9 @@ contract NaraUSD is
             maxRedeemableNaraUsd = balanceNaraUsd;
         }
 
-        // Check collateral availability
-        // For a given naraUsdAmount, we need collateralNeeded = _convertToCollateralAmount(collateralAsset, naraUsdAmount)
-        // The fee is deducted from what the user receives, but MCT still needs the full collateralNeeded
-        uint256 collateralNeeded = _convertToCollateralAmount(collateralAsset, maxRedeemableNaraUsd);
-        if (collateralNeeded > availableCollateral) {
-            // Convert available collateral back to NaraUSD (this gives us the max we can redeem)
-            maxRedeemableNaraUsd = _convertToNaraUsdAmount(collateralAsset, availableCollateral);
+        // Validate with the max instant redeemable amount
+        if (maxRedeemableNaraUsd > naraUsdAmountForAvailableCollateral) {
+            maxRedeemableNaraUsd = naraUsdAmountForAvailableCollateral;
         }
 
         // Check minimum redeem amount
