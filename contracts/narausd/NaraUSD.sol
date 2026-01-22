@@ -476,14 +476,12 @@ contract NaraUSD is
 
         return collateralAmount;
     }
-
     /**
-     * @notice Override previewWithdraw to account for redeem fees
+     * @notice Preview withdraw to account for redeem fees
      * @param collateralAsset The collateral asset to withdraw
-     * @param assets The amount of assets whitelisted in MCT to withdraw
-     * @return assets The amount of assets whitelisted in MCT needed to withdraw assets (inclusive of fees)
-     * @dev MUST be inclusive of redeem fees per ERC4626 standard
-     * @dev To get 'assets' after fee, we need more NaraUSD assets
+     * @param assets The amount of collateral assets to withdraw
+     * @return shares The amount of NaraUSD shares needed to withdraw assets (inclusive of fees)
+     * @dev To get 'assets' after fee, we need more NaraUSD shares
      * @dev Note: If the amount is not available to withdraw using instant redeem, it will return 0.
      */
     function previewWithdraw(address collateralAsset, uint256 assets) public view returns (uint256 shares) {
@@ -499,21 +497,34 @@ contract NaraUSD is
 
         uint256 naraUsdAmountAfterFeeDeduction = _convertToNaraUsdAmount(collateralAsset, assets);
 
-        if (feeTreasury == address(0)) return naraUsdAmountAfterFeeDeduction;
+        if (feeTreasury == address(0)) {
+            return naraUsdAmountAfterFeeDeduction;
+        }
 
-        uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
-        uint256 naraUsdAmountBeforeFeePercentage = Math.ceilDiv(
-            (naraUsdAmountAfterFeeDeduction * BPS_DENOMINATOR),
-            denominator
-        );
+        uint256 naraUsdAmountBeforeFee = naraUsdAmountAfterFeeDeduction;
+        uint256 naraUsdAmountBeforeFeePercentage = naraUsdAmountAfterFeeDeduction;
+        uint256 naraUsdAmountBeforeMinFeeAmount = naraUsdAmountAfterFeeDeduction;
 
-        uint256 naraUsdAmountBeforeMinFeeAmount = naraUsdAmountAfterFeeDeduction + minRedeemFeeAmount;
+        // Calculate assuming percentage fee only
+        if (redeemFeeBps > 0) {
+            uint256 denominator = BPS_DENOMINATOR - redeemFeeBps;
+            naraUsdAmountBeforeFeePercentage = Math.ceilDiv(
+                (naraUsdAmountAfterFeeDeduction * BPS_DENOMINATOR),
+                denominator
+            );
+        }
 
-        uint256 naraUsdAmountBeforeFee = naraUsdAmountBeforeFeePercentage > naraUsdAmountBeforeMinFeeAmount
+        // Calculate assuming minimum fee only
+        if (minRedeemFeeAmount > 0) {
+            naraUsdAmountBeforeMinFeeAmount = naraUsdAmountAfterFeeDeduction + minRedeemFeeAmount;
+        }
+
+        // Take the maximum - whichever requires more shares is the correct one
+        naraUsdAmountBeforeFee = naraUsdAmountBeforeFeePercentage > naraUsdAmountBeforeMinFeeAmount
             ? naraUsdAmountBeforeFeePercentage
             : naraUsdAmountBeforeMinFeeAmount;
 
-        if (naraUsdAmountBeforeFee < minRedeemAmount) {
+        if (minRedeemAmount > 0 && naraUsdAmountBeforeFee < minRedeemAmount) {
             return 0;
         }
 
