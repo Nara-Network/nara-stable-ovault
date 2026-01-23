@@ -1182,8 +1182,7 @@ contract NaraUSD is
      *      For example, 1000e18 USDC (normalized) = 1000e18 MCT = 1000e18 NaraUSD (minus fees).
      */
     function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
-        // MCT is 1:1 with NaraUSD, so baseShares = assets
-        uint256 baseShares = assets;
+        uint256 baseShares = super.previewDeposit(assets);
 
         // Apply mint fee if configured
         uint256 feeAmount = _calculateMintFee(baseShares);
@@ -1233,8 +1232,7 @@ contract NaraUSD is
                 : sharesBeforeFeeMinimum;
         }
 
-        // MCT is 1:1 with NaraUSD, so assets = sharesBeforeFee
-        assets = sharesBeforeFee;
+        assets = super.previewMint(sharesBeforeFee);
 
         return assets;
     }
