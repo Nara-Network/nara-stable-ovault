@@ -72,7 +72,7 @@ interface IKeyring {
  *   - Cannot mint or redeem
  *   - Can have their locked balances redistributed by admin
  */
-contract NaraUSDV2 is
+contract NaraUSD is
     Initializable,
     ERC4626Upgradeable,
     ERC20PermitUpgradeable,
