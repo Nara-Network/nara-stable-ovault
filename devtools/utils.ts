@@ -180,10 +180,12 @@ export async function upgradeContract(
     proxyAddress: string,
     newContractName: string,
     options: {
+        // This call needs to be provided, to ensure the upgradeAndCall is used instead of upgradeTo
+        // This is due to usage of newer version of oz contracts (v5+), but older version of @openzeppelin/hardhat-upgrades
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        call?: { fn: string; args: any[] } // Optional call to make after upgrade (for migrations)
+        call: { fn: string; args: any[] }
         log?: boolean
-    } = {}
+    }
 ): Promise<{
     implementationAddress: string
     proxy: Contract
@@ -208,16 +210,48 @@ export async function upgradeContract(
     const ContractFactory = await hre.ethers.getContractFactory(newContractName)
 
     // Prepare upgrade options
+    // Check if contract uses OpenZeppelin v5 (only has upgradeToAndCall, not upgradeTo)
+    // If v5 and no call provided, we need to provide a dummy call to force upgradeToAndCall usage
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const upgradeOptions: any = {}
+    const upgradeOptions: any = {
+        kind: 'uups',
+        redeployImplementation: 'onchange',
+        // If you want to always redeploy the implementation, use 'always'
+        // redeployImplementation: 'always',
+    }
+
+    // Check UPGRADE_INTERFACE_VERSION to detect v5 contracts
+    let isV5 = false
+    try {
+        const proxyContract = ContractFactory.attach(proxyAddress)
+        const version = await proxyContract.UPGRADE_INTERFACE_VERSION()
+        isV5 = version === '5.0.0'
+        if (log && isV5) {
+            console.log(`   Detected OpenZeppelin v5 contract (UPGRADE_INTERFACE_VERSION: ${version})`)
+        }
+    } catch {
+        // If we can't read the version, assume it might be v5 and handle errors gracefully
+    }
+
     if (call) {
         upgradeOptions.call = {
             fn: call.fn,
             args: call.args,
         }
+    } else if (isV5) {
+        // For v5 contracts, we need to always use upgradeToAndCall, not upgradeTo.
+        // Use proxiableUUID() as a no-op call - it's a view function with no side effects
+        // that exists in all UUPS contracts, perfect for forcing upgradeToAndCall usage
+        upgradeOptions.call = {
+            fn: 'proxiableUUID',
+            args: [],
+        }
+        if (log) {
+            console.log(`   Using proxiableUUID() call to ensure upgradeToAndCall is used (v5 compatibility)`)
+        }
     }
+    // If not v5 and no call, upgradeProxy will use upgradeTo (which is fine for older versions)
 
-    // Perform the upgrade
     const upgradedProxy = await upgrades.upgradeProxy(proxyAddress, ContractFactory, upgradeOptions)
 
     await upgradedProxy.deployed()
@@ -284,23 +318,30 @@ export async function upgradeContract(
  * @param hre Hardhat runtime environment
  * @param proxyAddress The proxy address
  * @param newContractName Name of the new contract implementation
+ * @param options Optional upgrade options (e.g. redeployImplementation)
  * @returns The address of the new implementation that would be deployed
  */
 export async function prepareUpgrade(
     hre: HardhatRuntimeEnvironment,
     proxyAddress: string,
-    newContractName: string
+    newContractName: string,
+    options?: {
+        redeployImplementation?: 'always' | 'never' | 'onchange'
+    }
 ): Promise<string> {
     console.log(`Preparing upgrade for proxy: ${proxyAddress}`)
     console.log(`   New implementation: ${newContractName}`)
+    if (options?.redeployImplementation) {
+        console.log(`   Redeploy mode: ${options.redeployImplementation}`)
+    }
 
     const ContractFactory = await hre.ethers.getContractFactory(newContractName)
-    const newImplementationAddress = await upgrades.prepareUpgrade(proxyAddress, ContractFactory)
+    const newImplementationAddress = await upgrades.prepareUpgrade(proxyAddress, ContractFactory, options)
 
     console.log(`   ✓ Upgrade preparation successful`)
     console.log(`   ✓ New implementation would be deployed at: ${newImplementationAddress}`)
 
-    return newImplementationAddress
+    return newImplementationAddress.toString()
 }
 
 // Network validation

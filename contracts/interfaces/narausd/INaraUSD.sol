@@ -77,6 +77,8 @@ interface INaraUSD {
     error KeyringCredentialInvalid(address account);
     error InsufficientCollateral();
     error ValueUnchanged();
+    error UseMintWithCollateral();
+    error UseRedeemWithTargetCollateral();
 
     /* --------------- FUNCTIONS --------------- */
 
@@ -155,11 +157,6 @@ interface INaraUSD {
      * @param _maxRedeemPerBlock New max redeem per block
      */
     function setMaxRedeemPerBlock(uint256 _maxRedeemPerBlock) external;
-
-    /**
-     * @notice Disable mint and redeem in emergency
-     */
-    function disableMintRedeem() external;
 
     /**
      * @notice Pause all mint and redeem operations
@@ -253,7 +250,6 @@ interface INaraUSD {
      */
     function mintWithoutCollateral(address to, uint256 amount) external;
 
-
     /**
      * @notice Burn NaraUSD and underlying MCT without withdrawing collateral
      * @param amount The amount to burn (from msg.sender)
@@ -293,6 +289,13 @@ interface INaraUSD {
      * @return uint256 The max redeem per block
      */
     function maxRedeemPerBlock() external view returns (uint256);
+
+    /**
+     * @notice Get max instant redeem for a collateral asset
+     * @param collateralAsset The collateral asset to redeem
+     * @return uint256 The max instant redeem
+     */
+    function maxInstantRedeem(address owner, address collateralAsset) external view returns (uint256);
 
     /**
      * @notice Get redemption request for a user

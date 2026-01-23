@@ -6,7 +6,8 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { VaultComposerSync } from "@layerzerolabs/ovault-evm/contracts/VaultComposerSync.sol";
 import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
-import { SendParam } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import { IOFT, SendParam, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import { ERC4626 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 interface INaraUSD {
     function mintWithCollateral(
@@ -25,6 +26,13 @@ interface INaraUSD {
     function isBlacklisted(address account) external view returns (bool);
 
     function asset() external view returns (address);
+
+    function maxInstantRedeem(address owner, address collateralAsset) external view returns (uint256);
+
+    function previewRedeem(
+        address collateralAsset,
+        uint256 naraUsdAmount
+    ) external view returns (uint256 collateralAmount);
 }
 
 interface IMCT {
@@ -307,6 +315,33 @@ contract NaraUSDComposer is VaultComposerSync {
     }
 
     /**
+     * @notice Deposits whitelisted collateral assets from the caller into the vault and sends them to the recipient
+     * @param _assetAmount The amount of collateral to deposit
+     * @param _sendParam Parameters for sending collateral cross-chain
+     * @param _refundAddress Address to refund excess msg.value
+     * @param _collateralAsset The collateral asset to deposit
+     */
+    function depositCollateralAndSend(
+        uint256 _assetAmount,
+        SendParam memory _sendParam,
+        address _refundAddress,
+        address _collateralAsset
+    ) external payable virtual nonReentrant {
+        address collateralOft = collateralToOft[_collateralAsset];
+        if (collateralOft == address(0)) {
+            revert CollateralNotWhitelisted(_collateralAsset);
+        }
+        IERC20(_collateralAsset).safeTransferFrom(msg.sender, address(this), _assetAmount);
+        _depositCollateralAndSend(
+            OFTComposeMsgCodec.addressToBytes32(msg.sender),
+            _assetAmount,
+            _sendParam,
+            _refundAddress,
+            collateralOft
+        );
+    }
+
+    /**
      * @notice Internal function to handle NaraUSD redemption and cross-chain collateral sending
      * @dev This implements cross-chain redeem with instant redemption if liquidity is available.
      *      If no liquidity, it reverts and triggers refund of NaraUSD via SHARE_OFT.
@@ -377,6 +412,29 @@ contract NaraUSDComposer is VaultComposerSync {
             _sendParam.minAmountLD = 0;
             _send(collateralOft, _sendParam, _refundAddress);
         }
+    }
+
+    /**
+     * @notice Redeems NaraUSD shares and sends collateral cross-chain to the recipient
+     * @param _shareAmount The amount of NaraUSD shares to redeem
+     * @param _sendParam Parameters for sending collateral cross-chain
+     * @param _refundAddress Address to refund excess msg.value
+     * @param _collateralAsset The collateral asset to receive
+     */
+    function redeemCollateralAndSend(
+        uint256 _shareAmount,
+        SendParam memory _sendParam,
+        address _refundAddress,
+        address _collateralAsset
+    ) external payable virtual nonReentrant {
+        IERC20(SHARE_ERC20).safeTransferFrom(msg.sender, address(this), _shareAmount);
+        _redeemCollateralAndSend(
+            OFTComposeMsgCodec.addressToBytes32(msg.sender),
+            _shareAmount,
+            _sendParam,
+            _refundAddress,
+            _collateralAsset
+        );
     }
 
     /**
@@ -477,5 +535,45 @@ contract NaraUSDComposer is VaultComposerSync {
         } else {
             revert OnlyValidComposeCaller(_oftIn);
         }
+    }
+
+    /**
+     * @notice Quotes the send operation for the given OFT and SendParam
+     * @dev Revert on slippage will be thrown by the OFT and not _assertSlippage
+     * @param _from The "sender address" used for the quote
+     * @param _targetOFT The OFT contract address to quote
+     * @param _vaultInAmount The amount of tokens to send to the vault
+     * @param _sendParam The parameters for the send operation
+     * @return MessagingFee The estimated fee for the send operation
+     * @dev This function can be overridden to implement custom quoting logic
+     */
+    function quoteSend(
+        address _from,
+        address _targetOFT,
+        uint256 _vaultInAmount,
+        SendParam memory _sendParam
+    ) external view override returns (MessagingFee memory) {
+        /// @dev When quoting the share OFT, the function input is assets and the SendParam.amountLD into quoteSend() should be shares (and vice versa)
+
+        if (_targetOFT == SHARE_OFT) {
+            uint256 maxDeposit = VAULT.maxDeposit(_from);
+            if (_vaultInAmount > maxDeposit) {
+                revert ERC4626.ERC4626ExceededMaxDeposit(_from, _vaultInAmount, maxDeposit);
+            }
+
+            _sendParam.amountLD = VAULT.previewDeposit(_vaultInAmount);
+        } else {
+            address collateralAsset = oftToCollateral[_targetOFT];
+            INaraUSD naraUsd = INaraUSD(address(VAULT));
+            if (collateralAsset == address(0)) {
+                revert CollateralNotWhitelisted(_targetOFT);
+            }
+            uint256 maxRedeem = naraUsd.maxInstantRedeem(_from, collateralAsset);
+            if (_vaultInAmount > maxRedeem) {
+                revert ERC4626.ERC4626ExceededMaxRedeem(_from, _vaultInAmount, maxRedeem);
+            }
+            _sendParam.amountLD = naraUsd.previewRedeem(collateralAsset, _vaultInAmount);
+        }
+        return IOFT(_targetOFT).quoteSend(_sendParam, false);
     }
 }
