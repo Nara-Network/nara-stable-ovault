@@ -238,6 +238,11 @@ contract NaraUSD is
      *      Uses hasValidCredentials() for the actual check
      */
     function _checkKeyringCredential(address account) internal view {
+        // Skip check for zero address (shouldn't happen but defensive)
+        if (account == address(0)) {
+            return;
+        }
+
         // Use the public function for consistency
         if (!hasValidCredentials(account)) {
             revert KeyringCredentialInvalid(account);
