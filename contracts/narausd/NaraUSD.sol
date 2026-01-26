@@ -1152,11 +1152,6 @@ contract NaraUSD is
             maxRedeemableNaraUsd = naraUsdAmountForAvailableCollateral;
         }
 
-        // Check minimum redeem amount
-        if (minRedeemAmount > 0 && maxRedeemableNaraUsd < minRedeemAmount) {
-            return 0;
-        }
-
         // Verify that this amount would result in a valid redemption (previewRedeem returns > 0)
         // This ensures fees don't make the redemption invalid
         if (previewRedeem(collateralAsset, maxRedeemableNaraUsd) == 0) {
